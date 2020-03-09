@@ -159,7 +159,6 @@ static int vdec_mjpeg_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		return -ENOMEM;
 
 	inst->vdec.video_type	= VFORMAT_MJPEG;
-	inst->vdec.dev		= ctx->dev->vpu_plat_dev;
 	inst->vdec.filp		= ctx->dev->filp;
 	inst->vdec.config	= ctx->config;
 	inst->vdec.ctx		= ctx;

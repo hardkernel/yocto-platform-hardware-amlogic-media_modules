@@ -62,6 +62,8 @@ static int fops_vcodec_open(struct file *file)
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+	kref_init(&ctx->ctx_ref);
+
 	aml_buf = kzalloc(sizeof(*aml_buf), GFP_KERNEL);
 	if (!aml_buf) {
 		kfree(ctx);
@@ -168,7 +170,7 @@ static int fops_vcodec_release(struct file *file)
 
 	list_del_init(&ctx->list);
 	kfree(ctx->empty_flush_buf);
-	kfree(ctx);
+	kref_put(&ctx->ctx_ref, aml_v4l_ctx_release);
 	mutex_unlock(&dev->dev_mutex);
 	return 0;
 }
@@ -302,8 +304,10 @@ void* v4l_get_vf_handle(int fd)
 
 	if (!is_v4l2_buf_file(file)) {
 		fput(file);
+#if 0
 		v4l_dbg(0, V4L_DEBUG_CODEC_ERROR,
 			"the buf file checked fail!\n");
+#endif
 		return NULL;
 	}
 
@@ -612,9 +616,9 @@ bool multiplanar;
 EXPORT_SYMBOL(multiplanar);
 module_param(multiplanar, bool, 0644);
 
-bool dump_capture_frame;
+int dump_capture_frame;
 EXPORT_SYMBOL(dump_capture_frame);
-module_param(dump_capture_frame, bool, 0644);
+module_param(dump_capture_frame, int, 0644);
 
 EXPORT_SYMBOL(param_sets_from_ucode);
 module_param(param_sets_from_ucode, bool, 0644);

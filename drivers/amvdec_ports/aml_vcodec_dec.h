@@ -20,6 +20,7 @@
 #ifndef _AML_VCODEC_DEC_H_
 #define _AML_VCODEC_DEC_H_
 
+#include <linux/kref.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
@@ -92,6 +93,9 @@ struct aml_video_dec_buf {
 	bool queued_in_v4l2;
 	bool lastframe;
 	bool error;
+
+	/* internal compressed buffer */
+	unsigned int internal_index;
 };
 
 extern const struct v4l2_ioctl_ops aml_vdec_ioctl_ops;
@@ -121,5 +125,6 @@ void wait_vcodec_ending(struct aml_vcodec_ctx *ctx);
 void vdec_frame_buffer_release(void *data);
 void aml_vdec_dispatch_event(struct aml_vcodec_ctx *ctx, u32 changes);
 void* v4l_get_vf_handle(int fd);
+void aml_v4l_ctx_release(struct kref *kref);
 
 #endif /* _AML_VCODEC_DEC_H_ */

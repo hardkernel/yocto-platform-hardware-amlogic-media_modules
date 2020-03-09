@@ -301,7 +301,6 @@ static int vdec_h264_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		return -ENOMEM;
 
 	inst->vdec.video_type	= VFORMAT_H264;
-	inst->vdec.dev		= ctx->dev->vpu_plat_dev;
 	inst->vdec.filp		= ctx->dev->filp;
 	inst->vdec.ctx		= ctx;
 	inst->ctx		= ctx;
@@ -977,6 +976,13 @@ static int vdec_h264_get_param(unsigned long h_vdec,
 	case GET_PARAM_CONFIG_INFO:
 		get_param_config_info(inst, out);
 		break;
+
+	case GET_PARAM_DW_MODE:
+	{
+		unsigned int* mode = out;
+		*mode = inst->ctx->config.parm.dec.cfg.double_write_mode;
+		break;
+	}
 	default:
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
 			"invalid get parameter type=%d\n", type);

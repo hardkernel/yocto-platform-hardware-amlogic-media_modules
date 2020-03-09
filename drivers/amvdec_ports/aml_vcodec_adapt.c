@@ -728,6 +728,7 @@ int aml_codec_reset(struct aml_vdec_adapt *ada_ctx, int *mode)
 	if (vdec) {
 		if (!ada_ctx->ctx->q_data[AML_Q_DATA_SRC].resolution_changed)
 			vdec_set_eos(vdec, false);
+
 		if (*mode == V4L_RESET_MODE_NORMAL &&
 			vdec->input.have_frame_num == 0) {
 			v4l_dbg(ada_ctx->ctx, V4L_DEBUG_CODEC_PRINFO,

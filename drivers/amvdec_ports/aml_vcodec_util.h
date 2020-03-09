@@ -91,12 +91,6 @@ extern u32 debug_mode;
 		}								\
 	} while (0)
 
-void __iomem *aml_vcodec_get_reg_addr(struct aml_vcodec_ctx *data,
-				unsigned int reg_idx);
-int aml_vcodec_mem_alloc(struct aml_vcodec_ctx *data,
-				struct aml_vcodec_mem *mem);
-void aml_vcodec_mem_free(struct aml_vcodec_ctx *data,
-				struct aml_vcodec_mem *mem);
 void aml_vcodec_set_curr_ctx(struct aml_vcodec_dev *dev,
 	struct aml_vcodec_ctx *ctx);
 struct aml_vcodec_ctx *aml_vcodec_get_curr_ctx(struct aml_vcodec_dev *dev);

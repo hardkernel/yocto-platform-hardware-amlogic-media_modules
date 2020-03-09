@@ -487,6 +487,9 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 	hw->canvas_config[i][0].endian		=
 		(hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 	canvas_config_config(canvas_y(canvas), &hw->canvas_config[i][0]);
+	/* mpeg2 decoder canvas need to be revert to match display canvas */
+	hw->canvas_config[i][0].endian		=
+		(hw->canvas_mode != CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 
 	hw->canvas_config[i][1].phy_addr	= decbuf_uv_start;
 	hw->canvas_config[i][1].width		= canvas_width;
@@ -2999,6 +3002,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 	}
 
 	if (!is_enough_free_buffer(hw)) {
+		hw->not_run_ready++;
 		hw->buffer_not_ready++;
 		return 0;
 	}

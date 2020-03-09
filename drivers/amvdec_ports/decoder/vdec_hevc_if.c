@@ -115,6 +115,7 @@ struct vdec_hevc_inst {
 	struct vcodec_vfm_s vfm;
 	struct aml_dec_params parms;
 	struct completion comp;
+	struct vdec_comp_buf_info comp_info;
 };
 
 static void get_pic_info(struct vdec_hevc_inst *inst,
@@ -207,7 +208,6 @@ static int vdec_hevc_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		return -ENOMEM;
 
 	inst->vdec.video_type	= VFORMAT_HEVC;
-	inst->vdec.dev		= ctx->dev->vpu_plat_dev;
 	inst->vdec.filp		= ctx->dev->filp;
 	inst->vdec.ctx		= ctx;
 	inst->ctx		= ctx;
@@ -700,6 +700,12 @@ static int vdec_hevc_decode(unsigned long h_vdec, struct aml_vcodec_mem *bs,
 		"parms status: %u\n", parms->parms_status);
  }
 
+static void get_param_comp_buf_info(struct vdec_hevc_inst *inst,
+		struct vdec_comp_buf_info *params)
+{
+	memcpy(params, &inst->comp_info, sizeof(*params));
+}
+
 static int vdec_hevc_get_param(unsigned long h_vdec,
 			       enum vdec_get_param_type type, void *out)
 {
@@ -736,6 +742,17 @@ static int vdec_hevc_get_param(unsigned long h_vdec,
 	case GET_PARAM_CONFIG_INFO:
 		get_param_config_info(inst, out);
 		break;
+
+	case GET_PARAM_DW_MODE:
+	{
+		unsigned int *mode = out;
+		*mode = inst->ctx->config.parm.dec.cfg.double_write_mode;
+		break;
+	}
+	case GET_PARAM_COMP_BUF_INFO:
+		get_param_comp_buf_info(inst, out);
+		break;
+
 	default:
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
 			"invalid get parameter type=%d\n", type);
@@ -790,6 +807,12 @@ static void set_param_ps_info(struct vdec_hevc_inst *inst,
 		dec->dpb_sz);
 }
 
+static void set_param_comp_buf_info(struct vdec_hevc_inst *inst,
+		struct vdec_comp_buf_info *info)
+{
+	memcpy(&inst->comp_info, info, sizeof(*info));
+}
+
 static void set_param_hdr_info(struct vdec_hevc_inst *inst,
 	struct aml_vdec_hdr_infos *hdr)
 {
@@ -831,6 +854,10 @@ static int vdec_hevc_set_param(unsigned long h_vdec,
 
 	case SET_PARAM_PS_INFO:
 		set_param_ps_info(inst, in);
+		break;
+
+	case SET_PARAM_COMP_BUF_INFO:
+		set_param_comp_buf_info(inst, in);
 		break;
 
 	case SET_PARAM_HDR_INFO:
