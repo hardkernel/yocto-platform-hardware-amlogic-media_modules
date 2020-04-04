@@ -42,8 +42,9 @@
 #define KERNEL_ATRACE_TAG KERNEL_ATRACE_TAG_V4L2
 #include <trace/events/meson_atrace.h>
 
-#define OUT_FMT_IDX	0 //default h264
-#define CAP_FMT_IDX	8 //capture nv21
+#define OUT_FMT_IDX		(0) //default h264
+#define CAP_FMT_IDX		(8) //capture nv21
+#define CAP_FMT_I420_IDX	(12) //use for mjpeg
 
 #define AML_VDEC_MIN_W	64U
 #define AML_VDEC_MIN_H	64U
@@ -119,6 +120,16 @@ static struct aml_video_fmt aml_video_formats[] = {
 		.type = AML_FMT_FRAME,
 		.num_planes = 2,
 	},
+	{
+		.fourcc = V4L2_PIX_FMT_YUV420,
+		.type = AML_FMT_FRAME,
+		.num_planes = 1,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_YUV420M,
+		.type = AML_FMT_FRAME,
+		.num_planes = 2,
+	},
 };
 
 static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
@@ -177,6 +188,16 @@ static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
 		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
 				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
 	},
+	{
+		.fourcc = V4L2_PIX_FMT_YUV420,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_YUV420M,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
 };
 
 #define NUM_SUPPORTED_FRAMESIZE ARRAY_SIZE(aml_vdec_framesizes)
@@ -185,6 +206,8 @@ static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
 extern bool multiplanar;
 extern int dump_capture_frame;
 extern int bypass_vpp;
+extern bool support_format_I420;
+extern bool support_mjpeg;
 
 extern int dmabuf_fd_install_data(int fd, void* data, u32 size);
 extern bool is_v4l2_buf_file(struct file *file);
@@ -212,7 +235,8 @@ static struct aml_video_fmt *aml_vdec_find_format(struct v4l2_format *f)
 
 	for (k = 0; k < NUM_FORMATS; k++) {
 		fmt = &aml_video_formats[k];
-		if (fmt->fourcc == f->fmt.pix_mp.pixelformat)
+		if (fmt->fourcc == f->fmt.pix_mp.pixelformat &&
+			fmt->num_planes == f->fmt.pix_mp.num_planes)
 			return fmt;
 	}
 
@@ -714,10 +738,9 @@ static void aml_check_dpb_ready(struct aml_vcodec_ctx *ctx)
 {
 	if (!ctx->v4l_codec_dpb_ready) {
 		/*
-		 * make sure enough dst bufs for decoding, and
-		 * the backend maybe hold 4 frms so need to minus 4.
+		 * make sure enough dst bufs for decoding.
 		 */
-		if ((ctx->dpb_size) && (ctx->cap_pool.in >= ctx->dpb_size - 4))
+		if ((ctx->dpb_size) && (ctx->cap_pool.in >= ctx->dpb_size))
 			ctx->v4l_codec_dpb_ready = true;
 
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
@@ -1416,6 +1439,9 @@ void aml_vcodec_dec_set_default_params(struct aml_vcodec_ctx *ctx)
 	q_data->coded_width = DFT_CFG_WIDTH;
 	q_data->coded_height = DFT_CFG_HEIGHT;
 	q_data->fmt = &aml_video_formats[CAP_FMT_IDX];
+	if (support_format_I420)
+		q_data->fmt = &aml_video_formats[CAP_FMT_I420_IDX];
+
 	q_data->field = V4L2_FIELD_NONE;
 
 	v4l_bound_align_image(&q_data->coded_width,
@@ -1579,7 +1605,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct aml_video_fmt *fmt)
 		    pix_fmt_mp->pixelformat != V4L2_PIX_FMT_H264)
 			pix_fmt_mp->field = V4L2_FIELD_NONE;
 		else if (pix_fmt_mp->field != V4L2_FIELD_NONE)
-			pr_info("%s, field: %u, fmt: %u\n",
+			pr_info("%s, field: %u, fmt: %x\n",
 				__func__, pix_fmt_mp->field,
 				pix_fmt_mp->pixelformat);
 	} else if (!V4L2_TYPE_IS_OUTPUT(f->type)) {
@@ -1644,7 +1670,7 @@ static int vidioc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
-		"%s, type: %u, planes: %u, fmt: %u\n",
+		"%s, type: %u, planes: %u, fmt: %x\n",
 		__func__, f->type, f->fmt.pix_mp.num_planes,
 		f->fmt.pix_mp.pixelformat);
 
@@ -1663,7 +1689,7 @@ static int vidioc_try_fmt_vid_out_mplane(struct file *file, void *priv,
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
-		"%s, type: %u, planes: %u, fmt: %u\n",
+		"%s, type: %u, planes: %u, fmt: %x\n",
 		__func__, f->type, f->fmt.pix_mp.num_planes,
 		f->fmt.pix_mp.pixelformat);
 
@@ -1839,7 +1865,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	struct aml_video_fmt *fmt;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
-		"%s, type: %u, planes: %u, fmt: %u\n",
+		"%s, type: %u, planes: %u, fmt: %x\n",
 		__func__, f->type, f->fmt.pix_mp.num_planes,
 		f->fmt.pix_mp.pixelformat);
 
@@ -1863,14 +1889,11 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	fmt = aml_vdec_find_format(f);
 	if (fmt == NULL) {
 		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			f->fmt.pix.pixelformat =
-				aml_video_formats[OUT_FMT_IDX].fourcc;
-			fmt = aml_vdec_find_format(f);
+			fmt = &aml_video_formats[OUT_FMT_IDX];
 		} else if (!V4L2_TYPE_IS_OUTPUT(f->type)) {
-			f->fmt.pix.pixelformat =
-				aml_video_formats[CAP_FMT_IDX].fourcc;
-			fmt = aml_vdec_find_format(f);
+			fmt = &aml_video_formats[CAP_FMT_IDX];
 		}
+		f->fmt.pix.pixelformat = fmt->fourcc;
 	}
 
 	q_data->fmt = fmt;
@@ -1965,16 +1988,31 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
 {
 	struct aml_video_fmt *fmt;
-	int i, j = 0;
+	int i = 0, j = 0;
 
-	for (i = 0; i < NUM_FORMATS; i++) {
-		if (output_queue && (aml_video_formats[i].type != AML_FMT_DEC))
+	/* I420 only used for mjpeg. */
+	if (!output_queue && support_mjpeg && support_format_I420) {
+		for (i = 0; i < NUM_FORMATS; i++) {
+			fmt = &aml_video_formats[i];
+			if ((fmt->fourcc == V4L2_PIX_FMT_YUV420) ||
+				(fmt->fourcc == V4L2_PIX_FMT_YUV420M)) {
+				break;
+			}
+		}
+	}
+
+	for (; i < NUM_FORMATS; i++) {
+		fmt = &aml_video_formats[i];
+		if (output_queue && (fmt->type != AML_FMT_DEC))
 			continue;
-		if (!output_queue && (aml_video_formats[i].type != AML_FMT_FRAME))
+		if (!output_queue && (fmt->type != AML_FMT_FRAME))
+			continue;
+		if (support_mjpeg && !support_format_I420 &&
+			((fmt->fourcc == V4L2_PIX_FMT_YUV420) ||
+			(fmt->fourcc == V4L2_PIX_FMT_YUV420M)))
 			continue;
 
 		if (j == f->index) {
-			fmt = &aml_video_formats[i];
 			f->pixelformat = fmt->fourcc;
 			return 0;
 		}
@@ -2049,7 +2087,7 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 	}
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
-		"%s, type: %u, planes: %u, fmt: %u\n",
+		"%s, type: %u, planes: %u, fmt: %x\n",
 		__func__, f->type, f->fmt.pix_mp.num_planes,
 		f->fmt.pix_mp.pixelformat);
 

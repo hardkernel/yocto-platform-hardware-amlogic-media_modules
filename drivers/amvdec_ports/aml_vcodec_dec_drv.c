@@ -156,10 +156,10 @@ static int fops_vcodec_release(struct file *file)
 	mutex_lock(&dev->dev_mutex);
 
 	if (ctx->vpp) {
-	    mutex_lock(&ctx->state_lock);
-	    aml_v4l2_vpp_destroy(ctx->vpp);
-	    ctx->vpp = NULL;
-	    mutex_unlock(&ctx->state_lock);
+		mutex_lock(&ctx->state_lock);
+		aml_v4l2_vpp_destroy(ctx->vpp);
+		ctx->vpp = NULL;
+		mutex_unlock(&ctx->state_lock);
 	}
 	/*
 	 * Call v4l2_m2m_ctx_release before aml_vcodec_dec_release. First, it
@@ -641,6 +641,14 @@ module_param(enable_drm_mode, bool, 0644);
 int bypass_vpp;
 EXPORT_SYMBOL(bypass_vpp);
 module_param(bypass_vpp, int, 0644);
+
+bool support_mjpeg;
+EXPORT_SYMBOL(support_mjpeg);
+module_param(support_mjpeg, bool, 0644);
+
+bool support_format_I420;
+EXPORT_SYMBOL(support_format_I420);
+module_param(support_format_I420, bool, 0644);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("AML video codec V4L2 decoder driver");
