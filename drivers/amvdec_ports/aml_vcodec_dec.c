@@ -43,7 +43,7 @@
 #include <trace/events/meson_atrace.h>
 
 #define OUT_FMT_IDX		(0) //default h264
-#define CAP_FMT_IDX		(8) //capture nv21
+#define CAP_FMT_IDX		(9) //capture nv21
 #define CAP_FMT_I420_IDX	(12) //use for mjpeg
 
 #define AML_VDEC_MIN_W	64U
@@ -97,6 +97,11 @@ static struct aml_video_fmt aml_video_formats[] = {
 	},
 	{
 		.fourcc = V4L2_PIX_FMT_MJPEG,
+		.type = AML_FMT_DEC,
+		.num_planes = 1,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_AV1,
 		.type = AML_FMT_DEC,
 		.num_planes = 1,
 	},
@@ -235,8 +240,7 @@ static struct aml_video_fmt *aml_vdec_find_format(struct v4l2_format *f)
 
 	for (k = 0; k < NUM_FORMATS; k++) {
 		fmt = &aml_video_formats[k];
-		if (fmt->fourcc == f->fmt.pix_mp.pixelformat &&
-			fmt->num_planes == f->fmt.pix_mp.num_planes)
+		if (fmt->fourcc == f->fmt.pix_mp.pixelformat)
 			return fmt;
 	}
 
@@ -592,7 +596,7 @@ void trans_vframe_to_user(struct aml_vcodec_ctx *ctx, struct vdec_v4l2_buffer *f
 	struct vframe_s *vf = (struct vframe_s *)fb->vf_handle;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
-		"FROM (%s %s) vf: %lx, ts: %llx, idx: %d, "
+		"FROM (%s %s) vf: %lx, ts: %llu, idx: %d, "
 		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u)\n",
 		vf_get_provider(ctx->ada_ctx->recv_name)->name,
 		ctx->ada_ctx->vfm_path != FRAME_BASE_PATH_V4L_VIDEO ? "OSD" : "VIDEO",
