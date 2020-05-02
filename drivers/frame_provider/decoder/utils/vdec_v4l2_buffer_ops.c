@@ -182,3 +182,17 @@ int vdec_v4l_write_frame_sync(struct aml_vcodec_ctx *ctx)
 }
 EXPORT_SYMBOL(vdec_v4l_write_frame_sync);
 
+int vdec_v4l_get_dw_mode(struct aml_vcodec_ctx *ctx,
+	unsigned int *dw_mode)
+{
+	int ret = -1;
+
+	if (ctx->drv_handle == 0)
+		return -EIO;
+
+	ret = ctx->dec_if->get_param(ctx->drv_handle,
+		GET_PARAM_DW_MODE, dw_mode);
+
+	return ret;
+}
+EXPORT_SYMBOL(vdec_v4l_get_dw_mode);

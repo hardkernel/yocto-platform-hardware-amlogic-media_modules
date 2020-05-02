@@ -1041,19 +1041,6 @@ static int  compute_losless_comp_header_size(int width, int height)
 	return  hsize;
 }
 
-static int get_double_write_ratio(struct vdec_h264_hw_s *hw)
-{
-	int ratio = 1;
-	int dw_mode = hw->double_write_mode;
-	if ((dw_mode == 2) ||
-			(dw_mode == 3))
-		ratio = 4;
-	else if (dw_mode == 4)
-		ratio = 2;
-	return ratio;
-}
-
-
 static int get_dw_size(struct vdec_h264_hw_s *hw, u32 *pdw_buffer_size_u_v_h)
 {
 	int pic_width, pic_height;
@@ -1068,9 +1055,9 @@ static int get_dw_size(struct vdec_h264_hw_s *hw, u32 *pdw_buffer_size_u_v_h)
 
 	if (dw_mode) {
 		int pic_width_dw = pic_width /
-			get_double_write_ratio(hw);
+			get_double_write_ratio(hw->double_write_mode);
 		int pic_height_dw = pic_height /
-			get_double_write_ratio(hw);
+			get_double_write_ratio(hw->double_write_mode);
 
 		int pic_width_lcu_dw = (pic_width_dw % lcu_size) ?
 			pic_width_dw / lcu_size + 1 :
@@ -1153,9 +1140,9 @@ static void hevc_mcr_config_canv2axitbl(struct vdec_h264_hw_s *hw, int restore)
 			int canvas_h;
 
 			canvas_w = hw->frame_width /
-				get_double_write_ratio(hw);
+				get_double_write_ratio(hw->double_write_mode);
 			canvas_h = hw->frame_height /
-				get_double_write_ratio(hw);
+				get_double_write_ratio(hw->double_write_mode);
 
 			if (hw->canvas_mode == 0)
 				canvas_w = ALIGN(canvas_w, 32);
@@ -2080,9 +2067,9 @@ static void config_decode_canvas_ex(struct vdec_h264_hw_s *hw, int i)
 	int canvas_h;
 
 	canvas_w = hw->frame_width /
-		get_double_write_ratio(hw);
+		get_double_write_ratio(hw->double_write_mode);
 	canvas_h = hw->frame_height /
-		get_double_write_ratio(hw);
+		get_double_write_ratio(hw->double_write_mode);
 
 	if (hw->canvas_mode == 0)
 		canvas_w = ALIGN(canvas_w, 32);
@@ -2863,9 +2850,9 @@ int prepare_display_buf(struct vdec_s *vdec, struct FrameStore *frame)
 
 		if (hw->mmu_enable && hw->double_write_mode) {
 			vf->width = hw->frame_width /
-				get_double_write_ratio(hw);
+				get_double_write_ratio(hw->double_write_mode);
 			vf->height = hw->frame_height /
-				get_double_write_ratio(hw);
+				get_double_write_ratio(hw->double_write_mode);
 		}
 
 		vf->flag = 0;
@@ -3972,9 +3959,9 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 
 			if (hw->double_write_mode) {
 				vf->width = hw->frame_width /
-					get_double_write_ratio(hw);
+					get_double_write_ratio(hw->double_write_mode);
 				vf->height = hw->frame_height /
-					get_double_write_ratio(hw);
+					get_double_write_ratio(hw->double_write_mode);
 			}
 		} else {
 			vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD |

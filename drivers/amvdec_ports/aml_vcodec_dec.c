@@ -187,6 +187,7 @@ extern int dump_capture_frame;
 extern int dmabuf_fd_install_data(int fd, void* data, u32 size);
 extern bool is_v4l2_buf_file(struct file *file);
 static void box_release(struct kref *kref);
+extern int get_double_write_ratio(int dw_mode);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
 {
@@ -1597,29 +1598,34 @@ static int vidioc_vdec_g_selection(struct file *file, void *priv,
 {
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(priv);
 	struct aml_q_data *q_data;
+	int ratio = 1;
 
 	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 		(s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
 		return -EINVAL;
+
+	if (ctx->state >= AML_STATE_PROBE) {
+		unsigned int dw_mode = VDEC_DW_NO_AFBC;
+		if (vdec_if_get_param(ctx, GET_PARAM_DW_MODE, &dw_mode))
+			return -EBUSY;
+		ratio = get_double_write_ratio(dw_mode);
+	}
 
 	q_data = &ctx->q_data[AML_Q_DATA_DST];
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE:
-		if (vdec_if_get_param(ctx, GET_PARAM_CROP_INFO, &(s->r))) {
-			/* set to default value if header info not ready yet*/
-			s->r.left = 0;
-			s->r.top = 0;
-			s->r.width = q_data->visible_width;
-			s->r.height = q_data->visible_height;
-		}
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = ctx->picinfo.visible_width/ratio;
+		s->r.height = ctx->picinfo.visible_height/ratio;
 		break;
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
 		s->r.left = 0;
 		s->r.top = 0;
-		s->r.width = ctx->picinfo.coded_width;
-		s->r.height = ctx->picinfo.coded_height;
+		s->r.width = ctx->picinfo.coded_width/ratio;
+		s->r.height = ctx->picinfo.coded_height/ratio;
 		break;
 	default:
 		return -EINVAL;
@@ -1642,6 +1648,7 @@ static int vidioc_vdec_g_selection(struct file *file, void *priv,
 static int vidioc_vdec_s_selection(struct file *file, void *priv,
 	struct v4l2_selection *s)
 {
+	int ratio = 1;
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s, type: %d\n",
@@ -1650,18 +1657,55 @@ static int vidioc_vdec_s_selection(struct file *file, void *priv,
 	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
+	if (ctx->state >= AML_STATE_PROBE) {
+		unsigned int dw_mode = VDEC_DW_NO_AFBC;
+		if (vdec_if_get_param(ctx, GET_PARAM_DW_MODE, &dw_mode))
+			return -EBUSY;
+		ratio = get_double_write_ratio(dw_mode);
+	}
+
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE:
 		s->r.left = 0;
 		s->r.top = 0;
-		s->r.width = ctx->picinfo.visible_width;
-		s->r.height = ctx->picinfo.visible_height;
+		s->r.width = ctx->picinfo.visible_width/ratio;
+		s->r.height = ctx->picinfo.visible_height/ratio;
 		break;
 	default:
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+/* called when it is beyong AML_STATE_PROBE */
+static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type)
+{
+	struct aml_q_data *q_data;
+	unsigned int dw_mode = VDEC_DW_NO_AFBC;
+	int ratio = 1;
+
+	q_data = aml_vdec_get_q_data(ctx, type);
+	if (vdec_if_get_param(ctx, GET_PARAM_DW_MODE, &dw_mode))
+		return;
+
+	ratio = get_double_write_ratio(dw_mode);
+	/* Until STREAMOFF is called on the CAPTURE queue
+	 * (acknowledging the event), the driver operates as if
+	 * the resolution hasn't changed yet.
+	 * So we just return picinfo yet, and update picinfo in
+	 * stop_streaming hook function
+	 */
+	/* it is used for alloc the decode buffer size. */
+	q_data->sizeimage[0] = ctx->picinfo.y_len_sz/ratio/ratio;
+	q_data->sizeimage[1] = ctx->picinfo.c_len_sz/ratio/ratio;
+
+	/* it is used for alloc the EGL image buffer size. */
+	q_data->coded_width = ctx->picinfo.coded_width/ratio;
+	q_data->coded_height = ctx->picinfo.coded_height/ratio;
+
+	q_data->bytesperline[0] = ctx->picinfo.coded_width/ratio;
+	q_data->bytesperline[1] = ctx->picinfo.coded_width/ratio;
 }
 
 static void copy_v4l2_format_dimention(struct v4l2_pix_format_mplane *pix_mp,
@@ -1780,8 +1824,10 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 	if (!V4L2_TYPE_IS_OUTPUT(f->type)) {
 		ctx->cap_pix_fmt = pix_mp->pixelformat;
-		if (ctx->state >= AML_STATE_PROBE)
+		if (ctx->state >= AML_STATE_PROBE) {
+			update_ctx_dimension(ctx, f->type);
 			copy_v4l2_format_dimention(pix_mp, q_data, f->type);
+		}
 	}
 
 	return 0;
@@ -1895,23 +1941,7 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 
 	if ((!V4L2_TYPE_IS_OUTPUT(f->type)) &&
 	    (ctx->state >= AML_STATE_PROBE)) {
-		/* Until STREAMOFF is called on the CAPTURE queue
-		 * (acknowledging the event), the driver operates as if
-		 * the resolution hasn't changed yet.
-		 * So we just return picinfo yet, and update picinfo in
-		 * stop_streaming hook function
-		 */
-		/* it is used for alloc the decode buffer size. */
-		q_data->sizeimage[0] = ctx->picinfo.y_len_sz;
-		q_data->sizeimage[1] = ctx->picinfo.c_len_sz;
-
-		/* it is used for alloc the EGL image buffer size. */
-		q_data->coded_width = ctx->picinfo.coded_width;
-		q_data->coded_height = ctx->picinfo.coded_height;
-
-		q_data->bytesperline[0] = ctx->picinfo.coded_width;
-		q_data->bytesperline[1] = ctx->picinfo.coded_width;
-
+		update_ctx_dimension(ctx, f->type);
 		copy_v4l2_format_dimention(pix_mp, q_data, f->type);
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		/*
@@ -2730,6 +2760,25 @@ static int vidioc_vdec_g_parm(struct file *file, void *fh,
 	return 0;
 }
 
+static int check_dec_cfginfo(struct aml_vdec_cfg_infos *cfg)
+{
+	if (cfg->double_write_mode != 0 &&
+		cfg->double_write_mode != 1 &&
+		cfg->double_write_mode != 2 &&
+		cfg->double_write_mode != 4 &&
+		cfg->double_write_mode != 16) {
+		pr_err("invalid double write mode %d\n", cfg->double_write_mode);
+		return -1;
+	}
+	if (cfg->ref_buf_margin > 20) {
+		pr_err("invalid margin %d\n", cfg->ref_buf_margin);
+		return -1;
+	}
+	pr_info("double write mode %d margin %d\n",
+		cfg->double_write_mode, cfg->ref_buf_margin);
+	return 0;
+}
+
 static int vidioc_vdec_s_parm(struct file *file, void *fh,
 	struct v4l2_streamparm *a)
 {
@@ -2745,8 +2794,11 @@ static int vidioc_vdec_s_parm(struct file *file, void *fh,
 
 		ctx->config.type = V4L2_CONFIG_PARM_DECODE;
 
-		if (in->parms_status & V4L2_CONFIG_PARM_DECODE_CFGINFO)
+		if (in->parms_status & V4L2_CONFIG_PARM_DECODE_CFGINFO) {
+			if (check_dec_cfginfo(&in->cfg))
+				return -EINVAL;
 			dec->cfg = in->cfg;
+		}
 		if (in->parms_status & V4L2_CONFIG_PARM_DECODE_PSINFO)
 			dec->ps = in->ps;
 		if (in->parms_status & V4L2_CONFIG_PARM_DECODE_HDRINFO)

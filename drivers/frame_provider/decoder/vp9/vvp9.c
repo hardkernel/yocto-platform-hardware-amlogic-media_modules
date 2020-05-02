@@ -1612,41 +1612,6 @@ static u32 get_valid_double_write_mode(struct VP9Decoder_s *pbi)
 		(double_write_mode & 0x7fffffff);
 }
 
-static int v4l_parser_get_double_write_mode(struct VP9Decoder_s *pbi)
-{
-	u32 valid_dw_mode = get_valid_double_write_mode(pbi);
-	u32 dw;
-	int w, h;
-
-	/* mask for supporting double write value bigger than 0x100 */
-	if (valid_dw_mode & 0xffffff00) {
-		w = pbi->frame_width;
-		h = pbi->frame_height;
-
-		dw = 0x1; /*1:1*/
-		switch (valid_dw_mode) {
-		case 0x100:
-			if (w > 1920 && h > 1088)
-				dw = 0x4; /*1:2*/
-			break;
-		case 0x200:
-			if (w > 1920 && h > 1088)
-				dw = 0x2; /*1:4*/
-			break;
-		case 0x300:
-			if (w > 1280 && h > 720)
-				dw = 0x4; /*1:2*/
-			break;
-		default:
-			break;
-		}
-		return dw;
-	}
-
-	return valid_dw_mode;
-}
-
-
 static int get_double_write_mode(struct VP9Decoder_s *pbi)
 {
 	u32 valid_dw_mode = get_valid_double_write_mode(pbi);
@@ -1654,6 +1619,14 @@ static int get_double_write_mode(struct VP9Decoder_s *pbi)
 	int w, h;
 	struct VP9_Common_s *cm = &pbi->common;
 	struct PIC_BUFFER_CONFIG_s *cur_pic_config;
+
+	if (pbi->is_used_v4l) {
+		unsigned int out;
+
+		vdec_v4l_get_dw_mode(pbi->v4l2_ctx, &out);
+		dw = out;
+		return dw;
+	}
 
 	/* mask for supporting double write value bigger than 0x100 */
 	if (valid_dw_mode & 0xffffff00) {
@@ -1715,18 +1688,6 @@ static int get_double_write_mode_init(struct VP9Decoder_s *pbi)
 	return dw;
 }
 #endif
-
-static int get_double_write_ratio(struct VP9Decoder_s *pbi,
-	int dw_mode)
-{
-	int ratio = 1;
-	if ((dw_mode == 2) ||
-			(dw_mode == 3))
-		ratio = 4;
-	else if (dw_mode == 4)
-		ratio = 2;
-	return ratio;
-}
 
 //#define	MAX_4K_NUM		0x1200
 
@@ -5018,9 +4979,9 @@ static int config_pic(struct VP9Decoder_s *pbi,
 
 	if (dw_mode) {
 		int pic_width_dw = pic_width /
-			get_double_write_ratio(pbi, dw_mode);
+			get_double_write_ratio(dw_mode);
 		int pic_height_dw = pic_height /
-			get_double_write_ratio(pbi, dw_mode);
+			get_double_write_ratio(dw_mode);
 
 		int pic_width_64_dw = (pic_width_dw + 63) & (~0x3f);
 		int pic_height_32_dw = (pic_height_dw + 31) & (~0x1f);
@@ -6816,10 +6777,10 @@ static void set_canvas(struct VP9Decoder_s *pbi,
 	/*CANVAS_BLKMODE_64X32*/
 	if	(pic_config->double_write_mode) {
 		canvas_w = pic_config->y_crop_width	/
-				get_double_write_ratio(pbi,
+				get_double_write_ratio(
 					pic_config->double_write_mode);
 		canvas_h = pic_config->y_crop_height /
-				get_double_write_ratio(pbi,
+				get_double_write_ratio(
 					pic_config->double_write_mode);
 
 		if (pbi->mem_map_mode == 0)
@@ -7408,10 +7369,10 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 		   vf->width,vf->height, pic_config->width,
 			pic_config->height); */
 		vf->width = pic_config->y_crop_width /
-			get_double_write_ratio(pbi,
+			get_double_write_ratio(
 				pic_config->double_write_mode);
 		vf->height = pic_config->y_crop_height /
-			get_double_write_ratio(pbi,
+			get_double_write_ratio(
 				pic_config->double_write_mode);
 		if (force_w_h != 0) {
 			vf->width = (force_w_h >> 16) & 0xffff;
@@ -8364,12 +8325,10 @@ static void vvp9_get_comp_buf_info(struct VP9Decoder_s *pbi,
 
 static int vvp9_get_ps_info(struct VP9Decoder_s *pbi, struct aml_vdec_ps_infos *ps)
 {
-	int dw_mode = v4l_parser_get_double_write_mode(pbi);
-
-	ps->visible_width 	= pbi->frame_width / get_double_write_ratio(pbi, dw_mode);
-	ps->visible_height 	= pbi->frame_height / get_double_write_ratio(pbi, dw_mode);
-	ps->coded_width 	= ALIGN(pbi->frame_width, 32) / get_double_write_ratio(pbi, dw_mode);
-	ps->coded_height 	= ALIGN(pbi->frame_height, 32) / get_double_write_ratio(pbi, dw_mode);
+	ps->visible_width 	= pbi->frame_width;
+	ps->visible_height 	= pbi->frame_height;
+	ps->coded_width 	= ALIGN(pbi->frame_width, 32);
+	ps->coded_height 	= ALIGN(pbi->frame_height, 32);
 	ps->dpb_size 		= pbi->used_buf_num;
 
 	return 0;

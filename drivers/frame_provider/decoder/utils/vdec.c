@@ -5537,6 +5537,19 @@ u32  vdec_get_frame_vdec(struct vdec_s *vdec,  struct vframe_counter_s *tmpbuf)
 }
 EXPORT_SYMBOL(vdec_get_frame_vdec);
 
+int get_double_write_ratio(int dw_mode)
+{
+	int ratio = 1;
+
+	if ((dw_mode == 2) ||
+			(dw_mode == 3))
+		ratio = 4;
+	else if (dw_mode == 4)
+		ratio = 2;
+	return ratio;
+}
+EXPORT_SYMBOL(get_double_write_ratio);
+
 RESERVEDMEM_OF_DECLARE(vdec, "amlogic, vdec-memory", vdec_mem_setup);
 /*
 uint force_hevc_clock_cntl;

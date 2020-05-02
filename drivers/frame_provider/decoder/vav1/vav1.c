@@ -962,6 +962,15 @@ static int get_double_write_mode(struct AV1HW_s *hw)
 
 	if (!cm->cur_frame)
 		return 1;/*no valid frame,*/
+
+	if (hw->is_used_v4l) {
+		unsigned int out;
+
+		vdec_v4l_get_dw_mode(hw->v4l2_ctx, &out);
+		dw = out;
+		return dw;
+	}
+
 	cur_pic_config = &cm->cur_frame->buf;
 	w = cur_pic_config->y_crop_width;
 	h = cur_pic_config->y_crop_height;
@@ -1016,19 +1025,6 @@ static int get_double_write_mode_init(struct AV1HW_s *hw)
 	return dw;
 }
 #endif
-
-static int get_double_write_ratio(struct AV1HW_s *hw,
-	int dw_mode)
-{
-	int ratio = 1;
-	int dw_mode_ratio = dw_mode & 0xf;
-	if ((dw_mode_ratio == 2) ||
-			(dw_mode_ratio == 3))
-		ratio = 4;
-	else if (dw_mode_ratio == 4)
-		ratio = 2;
-	return ratio;
-}
 
 //#define	MAX_4K_NUM		0x1200
 int av1_alloc_mmu(
@@ -2389,9 +2385,9 @@ static int config_pic(struct AV1HW_s *hw,
 
 	if (dw_mode && (dw_mode & 0x20) == 0) {
 		int pic_width_dw = pic_width /
-			get_double_write_ratio(hw, dw_mode);
+			get_double_write_ratio(dw_mode & 0xf);
 		int pic_height_dw = pic_height /
-			get_double_write_ratio(hw, dw_mode);
+			get_double_write_ratio(dw_mode & 0xf);
 
 		int pic_width_64_dw = (pic_width_dw + 63) & (~0x3f);
 		int pic_height_32_dw = (pic_height_dw + 31) & (~0x1f);
@@ -5131,11 +5127,11 @@ static void set_canvas(struct AV1HW_s *hw,
 	/*CANVAS_BLKMODE_64X32*/
 	if	(pic_config->double_write_mode) {
 		canvas_w = pic_config->y_crop_width	/
-				get_double_write_ratio(hw,
-					pic_config->double_write_mode);
+				get_double_write_ratio(
+					pic_config->double_write_mode & 0xf);
 		canvas_h = pic_config->y_crop_height /
-				get_double_write_ratio(hw,
-					pic_config->double_write_mode);
+				get_double_write_ratio(
+					pic_config->double_write_mode & 0xf);
 
 		if (mem_map_mode == 0)
 			canvas_w = ALIGN(canvas_w, 32);
@@ -5825,11 +5821,11 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		   vf->width,vf->height, pic_config->width,
 			pic_config->height); */
 		vf->width = pic_config->y_crop_width /
-			get_double_write_ratio(hw,
-				pic_config->double_write_mode);
+			get_double_write_ratio(
+				pic_config->double_write_mode & 0xf);
 		vf->height = pic_config->y_crop_height /
-			get_double_write_ratio(hw,
-				pic_config->double_write_mode);
+			get_double_write_ratio(
+				pic_config->double_write_mode & 0xf);
 		if (force_w_h != 0) {
 			vf->width = (force_w_h >> 16) & 0xffff;
 			vf->height = force_w_h & 0xffff;
@@ -5838,11 +5834,11 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 			((pic_config->double_write_mode & 0xf) == 2 ||
 			(pic_config->double_write_mode & 0xf) == 4)) {
 			vf->compWidth = pic_config->y_crop_width /
-				get_double_write_ratio(hw,
-					pic_config->double_write_mode);
+				get_double_write_ratio(
+					pic_config->double_write_mode & 0xf);
 			vf->compHeight = pic_config->y_crop_height /
-				get_double_write_ratio(hw,
-					pic_config->double_write_mode);
+				get_double_write_ratio(
+					pic_config->double_write_mode & 0xf);
 		} else {
 			vf->compWidth = pic_config->y_crop_width;
 			vf->compHeight = pic_config->y_crop_height;

@@ -1948,6 +1948,15 @@ static int get_double_write_mode(struct hevc_state_s *hevc)
 	int w = hevc->pic_w;
 	int h = hevc->pic_h;
 	u32 dw = 0x1; /*1:1*/
+
+	if (hevc->is_used_v4l) {
+		unsigned int out;
+
+		vdec_v4l_get_dw_mode(hevc->v4l2_ctx, &out);
+		dw = out;
+		return dw;
+	}
+
 	switch (valid_dw_mode) {
 	case 0x100:
 		if (w > 1920 && h > 1088)
@@ -1968,42 +1977,6 @@ static int get_double_write_mode(struct hevc_state_s *hevc)
 	return dw;
 }
 
-static int v4l_parser_get_double_write_mode(struct hevc_state_s *hevc, int w, int h)
-{
-	u32 valid_dw_mode = get_valid_double_write_mode(hevc);
-	u32 dw = 0x1; /*1:1*/
-	switch (valid_dw_mode) {
-	case 0x100:
-		if (w > 1920 && h > 1088)
-			dw = 0x4; /*1:2*/
-		break;
-	case 0x200:
-		if (w > 1920 && h > 1088)
-			dw = 0x2; /*1:4*/
-		break;
-	case 0x300:
-		if (w > 1280 && h > 720)
-			dw = 0x4; /*1:2*/
-		break;
-	default:
-		dw = valid_dw_mode;
-		break;
-	}
-	return dw;
-}
-
-
-static int get_double_write_ratio(struct hevc_state_s *hevc,
-	int dw_mode)
-{
-	int ratio = 1;
-	if ((dw_mode == 2) ||
-			(dw_mode == 3))
-		ratio = 4;
-	else if (dw_mode == 4)
-		ratio = 2;
-	return ratio;
-}
 #ifdef CONFIG_AMLOGIC_MEDIA_MULTI_DEC
 static unsigned char get_idx(struct hevc_state_s *hevc)
 {
@@ -3020,9 +2993,9 @@ static int cal_current_buf_size(struct hevc_state_s *hevc,
 
 	if (dw_mode) {
 		int pic_width_dw = pic_width /
-			get_double_write_ratio(hevc, dw_mode);
+			get_double_write_ratio(dw_mode);
 		int pic_height_dw = pic_height /
-			get_double_write_ratio(hevc, dw_mode);
+			get_double_write_ratio(dw_mode);
 
 		int pic_width_lcu_dw = (pic_width_dw % lcu_size) ?
 			pic_width_dw / lcu_size + 1 :
@@ -7733,9 +7706,9 @@ static void set_canvas(struct hevc_state_s *hevc, struct PIC_s *pic)
 #ifdef SUPPORT_10BIT
 	if	(pic->double_write_mode) {
 		canvas_w = pic->width /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 		canvas_h = pic->height /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 
 		if (hevc->mem_map_mode == 0)
 			canvas_w = ALIGN(canvas_w, 32);
@@ -8046,9 +8019,9 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 		= &vf->prop.master_display_colour;
 
 	vf->width = pic->width /
-		get_double_write_ratio(hevc, pic->double_write_mode);
+		get_double_write_ratio(pic->double_write_mode);
 	vf->height = pic->height /
-		get_double_write_ratio(hevc, pic->double_write_mode);
+		get_double_write_ratio(pic->double_write_mode);
 
 	vf->duration = hevc->frame_dur;
 	vf->duration_pulldown = 0;
@@ -8285,9 +8258,9 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 		set_frame_info(hevc, vf);
 
 		vf->width = pic->width /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 		vf->height = pic->height /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 
 		force_disp_pic_index |= 0x200;
 		return vf;
@@ -9074,9 +9047,9 @@ static int prepare_display_buf(struct hevc_state_s *hevc, struct PIC_s *pic)
 		}
 
 		vf->width = vf->width /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 		vf->height = vf->height /
-			get_double_write_ratio(hevc, pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode);
 #ifdef HEVC_PIC_STRUCT_SUPPORT
 		if (pic->pic_struct == 3 || pic->pic_struct == 4) {
 			struct vframe_s *vf2;
@@ -9707,12 +9680,10 @@ static void read_decode_info(struct hevc_state_s *hevc)
 
 static int vh265_get_ps_info(struct hevc_state_s *hevc, int width, int height, struct aml_vdec_ps_infos *ps)
 {
-	int dw_mode = v4l_parser_get_double_write_mode(hevc, width, height);
-
-	ps->visible_width 	= width / get_double_write_ratio(hevc, dw_mode);
-	ps->visible_height 	= height / get_double_write_ratio(hevc, dw_mode);
-	ps->coded_width 	= ALIGN(width, 32) / get_double_write_ratio(hevc, dw_mode);
-	ps->coded_height 	= ALIGN(height, 32) / get_double_write_ratio(hevc, dw_mode);
+	ps->visible_width 	= width;
+	ps->visible_height 	= height;
+	ps->coded_width 	= ALIGN(width, 32);
+	ps->coded_height 	= ALIGN(height, 32);
 	ps->dpb_size 		= v4l_parser_work_pic_num(hevc);
 
 	return 0;
@@ -13433,10 +13404,10 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 		}
 		hevc->double_write_mode = double_write_mode;
 	}
-	/* get valid double write from configure or node */
-	hevc->double_write_mode = get_double_write_mode(hevc);
 
 	if (!hevc->is_used_v4l) {
+		/* get valid double write from configure or node */
+		hevc->double_write_mode = get_double_write_mode(hevc);
 		if (hevc->save_buffer_mode && dynamic_buf_num_margin > 2)
 			hevc->dynamic_buf_num_margin = dynamic_buf_num_margin -2;
 		else

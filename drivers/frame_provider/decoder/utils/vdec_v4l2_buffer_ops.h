@@ -34,4 +34,7 @@ int vdec_v4l_post_evet(
 int vdec_v4l_res_ch_event(
 	struct aml_vcodec_ctx *ctx);
 
+int vdec_v4l_get_dw_mode(
+	struct aml_vcodec_ctx *ctx,
+	unsigned int *dw_mode);
 #endif
