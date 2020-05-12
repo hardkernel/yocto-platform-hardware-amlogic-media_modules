@@ -2285,7 +2285,6 @@ static int v4l_get_free_fb(struct VP9Decoder_s *pbi)
 			}
 			break;
 		default:
-			pr_err("v4l buffer state err %d.\n", state);
 			break;
 		}
 

@@ -214,6 +214,7 @@ struct pic_info_t {
 	ulong v4l_ref_buf_addr;
 	u32 hw_decode_time;
 	u32 frame_size; // For frame base mode
+	u64 timestamp;
 };
 
 struct vdec_mpeg12_hw_s {
@@ -487,8 +488,9 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 	hw->canvas_config[i][0].endian		=
 		(hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 	canvas_config_config(canvas_y(canvas), &hw->canvas_config[i][0]);
+
 	/* mpeg2 decoder canvas need to be revert to match display canvas */
-	hw->canvas_config[i][0].endian		=
+	hw->canvas_config[i][0].endian          =
 		(hw->canvas_mode != CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 
 	hw->canvas_config[i][1].phy_addr	= decbuf_uv_start;
@@ -498,6 +500,10 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 	hw->canvas_config[i][1].endian		=
 		(hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 	canvas_config_config(canvas_u(canvas), &hw->canvas_config[i][1]);
+
+	/* mpeg2 decoder canvas need to be revert to match display canvas */
+	hw->canvas_config[i][1].endian          =
+		(hw->canvas_mode != CANVAS_BLKMODE_LINEAR) ? 7 : 0;
 
 	debug_print(DECODE_ID(hw), PRINT_FLAG_BUFFER_DETAIL,
 		"[%d] %s(), canvas: 0x%x mode: %d y: %x uv: %x w: %d h: %d\n",
@@ -1537,9 +1543,6 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 	ulong nv_order = VIDTYPE_VIU_NV21;
 	bool pb_skip = false;
 
-#ifdef NV21
-	type = nv_order;
-#endif
 	/* swap uv */
 	if (hw->is_used_v4l) {
 		if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
@@ -1547,6 +1550,9 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 			nv_order = VIDTYPE_VIU_NV12;
 	}
 
+#ifdef NV21
+	type = nv_order;
+#endif
 	if (hw->i_only) {
 		pb_skip = 1;
 	}
@@ -1624,9 +1630,11 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 		if (i > 0) {
 			vf->pts = 0;
 			vf->pts_us64 = 0;
+			vf->timestamp = 0;
 		} else {
 			vf->pts = (pic->pts_valid) ? pic->pts : 0;
 			vf->pts_us64 = (pic->pts_valid) ? pic->pts64 : 0;
+			vf->timestamp = pic->timestamp;
 		}
 		vf->type_original = vf->type;
 
@@ -1943,6 +1951,7 @@ static irqreturn_t vmpeg12_isr_thread_fn(struct vdec_s *vdec, int irq)
 				new_pic->pts_valid = hw->chunk->pts_valid;
 				new_pic->pts = hw->chunk->pts;
 				new_pic->pts64 = hw->chunk->pts64;
+				new_pic->timestamp = hw->chunk->timestamp;
 				if (hw->last_chunk_pts == hw->chunk->pts) {
 					new_pic->pts_valid = 0;
 					debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
@@ -1958,8 +1967,10 @@ static irqreturn_t vmpeg12_isr_thread_fn(struct vdec_s *vdec, int irq)
 					new_pic->pts_valid = false;
 			}
 		} else {
-			if (hw->chunk)
+			if (hw->chunk) {
 				hw->last_chunk_pts = hw->chunk->pts;
+				new_pic->timestamp = hw->chunk->timestamp;
+			}
 			new_pic->pts_valid = false;
 		}
 
@@ -2018,9 +2029,10 @@ static irqreturn_t vmpeg12_isr_thread_fn(struct vdec_s *vdec, int irq)
 		}
 
 		debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
-			"mmpeg12: disp_pic=%d(%c), ind=%d, offst=%x, pts=(%d,%lld)(%d)\n",
+			"mmpeg12: disp_pic=%d(%c), ind=%d, offst=%x, pts=(%d,%lld,%llx)(%d)\n",
 			hw->disp_num, GET_SLICE_TYPE(info), index, disp_pic->offset,
-			disp_pic->pts, disp_pic->pts64, disp_pic->pts_valid);
+			disp_pic->pts, disp_pic->pts64,
+			disp_pic->timestamp, disp_pic->pts_valid);
 
 		prepare_display_buf(hw, disp_pic);
 		vdec_schedule_work(&hw->work);

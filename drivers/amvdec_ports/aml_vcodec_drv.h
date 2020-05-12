@@ -67,6 +67,7 @@
 #define V4L_CAP_BUFF_INVALID		(0)
 #define V4L_CAP_BUFF_IN_M2M		(1)
 #define V4L_CAP_BUFF_IN_DEC		(2)
+#define V4L_CAP_BUFF_IN_VPP		(3)
 
 /* v4l reset mode */
 #define V4L_RESET_MODE_NORMAL		(1 << 0) /* reset vdec_input and decoder. */
@@ -80,6 +81,7 @@
 /* Instance is currently aborting */
 #define TRANS_ABORT		(1 << 2)
 
+#define CTX_BUF_TOTAL(ctx) (ctx->dpb_size + ctx->vpp_size)
 /**
  * enum aml_hw_reg_idx - AML hw register base index
  */
@@ -397,6 +399,8 @@ struct internal_comp_buf {
  * @dev: pointer to the aml_vcodec_dev of the device.
  * @m2m_ctx: pointer to the v4l2_m2m_ctx of the context.
  * @ada_ctx: pointer to the aml_vdec_adapt of the context.
+ * @vpp: pointer to video post processor
+ * @vfm: pointer to video frame manager
  * @dec_if: hooked decoder driver interface.
  * @drv_handle: driver handle for specific decode instance
  * @fh: struct v4l2_fh.
@@ -414,6 +418,7 @@ struct internal_comp_buf {
  * @cap_pool: capture buffers are remark in the pool.
  * @vdec_thread_list: vdec thread be used to capture.
  * @dpb_size: store dpb count after header parsing
+ * @vpp_size: store vpp buffer count after header parsing
  * @param_change: indicate encode parameter type
  * @param_sets_from_ucode: if true indicate ps from ucode.
  * @v4l_codec_dpb_ready: queue buffer number greater than dpb.
@@ -447,6 +452,8 @@ struct aml_vcodec_ctx {
 	struct aml_vcodec_dev		*dev;
 	struct v4l2_m2m_ctx		*m2m_ctx;
 	struct aml_vdec_adapt		*ada_ctx;
+	struct aml_v4l2_vpp		*vpp;
+	struct vcodec_vfm_s 		*vfm;
 	const struct vdec_common_if	*dec_if;
 	ulong				drv_handle;
 	struct v4l2_fh			fh;
@@ -465,6 +472,7 @@ struct aml_vcodec_ctx {
 	struct list_head		vdec_thread_list;
 
 	int				dpb_size;
+	int				vpp_size;
 	bool				param_sets_from_ucode;
 	bool				v4l_codec_dpb_ready;
 	struct completion		comp;
@@ -476,6 +484,7 @@ struct aml_vcodec_ctx {
 	enum v4l2_quantization		quantization;
 	enum v4l2_xfer_func		xfer_func;
 	u32				cap_pix_fmt;
+	u32				output_pix_fmt;
 
 	bool				has_receive_eos;
 	bool				is_drm_mode;

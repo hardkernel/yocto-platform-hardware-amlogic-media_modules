@@ -78,7 +78,7 @@ int vdec_v4l_set_hdr_infos(struct aml_vcodec_ctx *ctx,
 }
 EXPORT_SYMBOL(vdec_v4l_set_hdr_infos);
 
-static void aml_wait_dpb_ready(struct aml_vcodec_ctx *ctx)
+static void aml_wait_buf_ready(struct aml_vcodec_ctx *ctx)
 {
 	ulong expires;
 
@@ -92,7 +92,7 @@ static void aml_wait_dpb_ready(struct aml_vcodec_ctx *ctx)
 		}
 
 		ready_num = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
-		if ((ready_num + ctx->buf_used_count) >= ctx->dpb_size)
+		if ((ready_num + ctx->buf_used_count) >= CTX_BUF_TOTAL(ctx))
 			ctx->v4l_codec_dpb_ready = true;
 	}
 }
@@ -148,7 +148,7 @@ int vdec_v4l_res_ch_event(struct aml_vcodec_ctx *ctx)
 		return -EIO;
 
 	/* wait the DPB state to be ready. */
-	aml_wait_dpb_ready(ctx);
+	aml_wait_buf_ready(ctx);
 
 	aml_vdec_pic_info_update(ctx);
 

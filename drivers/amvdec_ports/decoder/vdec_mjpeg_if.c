@@ -181,6 +181,7 @@ static int vdec_mjpeg_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto err;
 	}
 
+	ctx->vfm = &inst->vfm;
 	ret = video_decoder_init(&inst->vdec);
 	if (ret) {
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
@@ -408,7 +409,7 @@ static void vdec_mjpeg_deinit(unsigned long h_vdec)
 
 static int vdec_mjpeg_get_fb(struct vdec_mjpeg_inst *inst, struct vdec_v4l2_buffer **out)
 {
-	return get_fb_from_queue(inst->ctx, out);
+	return get_fb_from_queue(inst->ctx, out, false);
 }
 
 static void vdec_mjpeg_get_vf(struct vdec_mjpeg_inst *inst, struct vdec_v4l2_buffer **out)

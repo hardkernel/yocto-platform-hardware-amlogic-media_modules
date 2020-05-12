@@ -5735,7 +5735,6 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 			}
 			break;
 		default:
-			pr_err("v4l buffer state err %d.\n", state);
 			break;
 		}
 

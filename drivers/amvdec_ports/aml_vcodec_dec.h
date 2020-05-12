@@ -68,10 +68,6 @@ struct vdec_v4l2_buffer {
  * @list:	link list
  * @used:	Capture buffer contain decoded frame data and keep in
  *			codec data structure
- * @ready_to_display:	Capture buffer not display yet
- * @queued_in_vb2:	Capture buffer is queue in vb2
- * @queued_in_v4l2:	Capture buffer is in v4l2 driver, but not in vb2
- *			queue yet
  * @lastframe:		Intput buffer is last buffer - EOS
  * @error:		An unrecoverable error occurs on this buffer.
  * @frame_buffer:	Decode status, and buffer information of Capture buffer
@@ -87,15 +83,14 @@ struct aml_video_dec_buf {
 	struct codec_mm_s *mem[2];
 	char mem_onwer[32];
 	bool used;
-	bool ready_to_display;
 	bool que_in_m2m;
-	bool queued_in_vb2;
-	bool queued_in_v4l2;
 	bool lastframe;
 	bool error;
 
 	/* internal compressed buffer */
 	unsigned int internal_index;
+
+	ulong vpp_buf_handle;
 };
 
 extern const struct v4l2_ioctl_ops aml_vdec_ioctl_ops;

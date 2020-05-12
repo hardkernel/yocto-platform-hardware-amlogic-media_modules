@@ -2134,7 +2134,6 @@ static int v4l_get_free_buf_idx(struct vdec_s *vdec)
 			}
 			break;
 		default:
-			pr_err("v4l buffer state err %d.\n", state);
 			break;
 		}
 

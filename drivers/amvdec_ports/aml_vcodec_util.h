@@ -69,6 +69,8 @@ extern u32 debug_mode;
 #define V4L_DEBUG_CODEC_PARSER	(1 << 6)
 #define V4L_DEBUG_CODEC_PROT	(1 << 7)
 #define V4L_DEBUG_CODEC_EXINFO	(1 << 8)
+#define V4L_DEBUG_VPP_BUFMGR	(1 << 9)
+#define V4L_DEBUG_VPP_DETAIL	(1 << 10)
 
 #define __v4l_dbg(h, id, fmt, args...)					\
 	do {								\

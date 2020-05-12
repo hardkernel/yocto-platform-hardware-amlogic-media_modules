@@ -34,6 +34,7 @@
 #include "aml_vcodec_dec.h"
 #include "aml_vcodec_util.h"
 #include "aml_vcodec_vfm.h"
+#include "aml_vcodec_vpp.h"
 #include <linux/file.h>
 #include <linux/anon_inodes.h>
 
@@ -114,6 +115,7 @@ static int fops_vcodec_open(struct file *file)
 	ctx->empty_flush_buf->vb.vb2_buf.vb2_queue = src_vq;
 	ctx->empty_flush_buf->lastframe = true;
 	aml_vcodec_dec_set_default_params(ctx);
+	ctx->is_stream_off = true;
 
 	ret = aml_thread_start(ctx, try_to_capture, AML_THREAD_CAPTURE, "cap");
 	if (ret) {
@@ -153,6 +155,12 @@ static int fops_vcodec_release(struct file *file)
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO, "release decoder %lx\n", (ulong) ctx);
 	mutex_lock(&dev->dev_mutex);
 
+	if (ctx->vpp) {
+	    mutex_lock(&ctx->state_lock);
+	    aml_v4l2_vpp_destroy(ctx->vpp);
+	    ctx->vpp = NULL;
+	    mutex_unlock(&ctx->state_lock);
+	}
 	/*
 	 * Call v4l2_m2m_ctx_release before aml_vcodec_dec_release. First, it
 	 * makes sure the worker thread is not running after vdec_if_deinit.
@@ -625,6 +633,10 @@ module_param(param_sets_from_ucode, bool, 0644);
 
 EXPORT_SYMBOL(enable_drm_mode);
 module_param(enable_drm_mode, bool, 0644);
+
+int bypass_vpp;
+EXPORT_SYMBOL(bypass_vpp);
+module_param(bypass_vpp, int, 0644);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("AML video codec V4L2 decoder driver");

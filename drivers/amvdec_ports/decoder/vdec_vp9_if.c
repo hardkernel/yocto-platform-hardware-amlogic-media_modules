@@ -286,6 +286,7 @@ static int vdec_vp9_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto err;
 	}
 
+	ctx->vfm = &inst->vfm;
 	/* probe info from the stream */
 	inst->vsi = kzalloc(sizeof(struct vdec_vp9_vsi), GFP_KERNEL);
 	if (!inst->vsi) {
@@ -576,7 +577,7 @@ static void vdec_vp9_deinit(unsigned long h_vdec)
 
 static int vdec_vp9_get_fb(struct vdec_vp9_inst *inst, struct vdec_v4l2_buffer **out)
 {
-	return get_fb_from_queue(inst->ctx, out);
+	return get_fb_from_queue(inst->ctx, out, false);
 }
 
 static void vdec_vp9_get_vf(struct vdec_vp9_inst *inst, struct vdec_v4l2_buffer **out)
