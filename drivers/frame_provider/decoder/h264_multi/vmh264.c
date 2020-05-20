@@ -2945,6 +2945,8 @@ int prepare_display_buf(struct vdec_s *vdec, struct FrameStore *frame)
 		ATRACE_COUNTER(MODULE_NAME, vf->pts);
 		hw->vf_pre_count++;
 		vdec->vdec_fps_detec(vdec->id);
+		update_vframe_src_fmt(vf, hw->buffer_spec[buffer_index].aux_data_buf,
+			hw->buffer_spec[buffer_index].aux_data_size, false, NULL);
 		if (without_display_mode == 0) {
 			vf_notify_receiver(vdec->vf_provider_name,
 				VFRAME_EVENT_PROVIDER_VFRAME_READY, NULL);
