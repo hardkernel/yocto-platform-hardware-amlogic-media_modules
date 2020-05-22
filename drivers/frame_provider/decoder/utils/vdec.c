@@ -2236,9 +2236,6 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 	p->get_canvas_ex = get_canvas_ex;
 	p->free_canvas_ex = free_canvas_ex;
 	p->vdec_fps_detec = vdec_fps_detec;
-	atomic_set(&p->inrelease, 0);
-	atomic_set(&p->inirq_flag, 0);
-	atomic_set(&p->inirq_thread_flag, 0);
 	/* todo */
 	if (!vdec_dual(vdec)) {
 		p->use_vfm_path =
@@ -2649,9 +2646,7 @@ void vdec_release(struct vdec_s *vdec)
 		}
 	}
 
-	atomic_set(&vdec->inrelease, 1);
-	while ((atomic_read(&vdec->inirq_flag) > 0)
-		|| (atomic_read(&vdec->inirq_thread_flag) > 0))
+	while (vdec->irq_cnt > vdec->irq_thread_cnt)
 		schedule();
 
 #ifdef FRAME_CHECK
@@ -2900,11 +2895,6 @@ static irqreturn_t vdec_isr(int irq, void *dev_id)
 			vdec = NULL;
 	}
 
-	if (vdec) {
-		if (atomic_read(&vdec->inrelease) > 0)
-			return ret;
-		atomic_set(&vdec->inirq_flag, 1);
-	}
 	if (c->dev_isr) {
 		ret = c->dev_isr(irq, c->dev_id);
 		goto isr_done;
@@ -2936,8 +2926,9 @@ static irqreturn_t vdec_isr(int irq, void *dev_id)
 
 	ret = vdec->irq_handler(vdec, c->index);
 isr_done:
-	if (vdec)
-		atomic_set(&vdec->inirq_flag, 0);
+	if (vdec && ret == IRQ_WAKE_THREAD)
+		vdec->irq_cnt++;
+
 	return ret;
 }
 
@@ -2957,11 +2948,6 @@ static irqreturn_t vdec_thread_isr(int irq, void *dev_id)
 			vdec = NULL;
 	}
 
-	if (vdec) {
-		if (atomic_read(&vdec->inrelease) > 0)
-			return ret;
-		atomic_set(&vdec->inirq_thread_flag, 1);
-	}
 	if (c->dev_threaded_isr) {
 		ret = c->dev_threaded_isr(irq, c->dev_id);
 		goto thread_isr_done;
@@ -2974,7 +2960,7 @@ static irqreturn_t vdec_thread_isr(int irq, void *dev_id)
 	ret = vdec->threaded_irq_handler(vdec, c->index);
 thread_isr_done:
 	if (vdec)
-		atomic_set(&vdec->inirq_thread_flag, 0);
+		vdec->irq_thread_cnt++;
 	return ret;
 }
 
@@ -2982,6 +2968,11 @@ unsigned long vdec_ready_to_run(struct vdec_s *vdec, unsigned long mask)
 {
 	unsigned long ready_mask;
 	struct vdec_input_s *input = &vdec->input;
+
+	/* Wait the matching irq_thread finished */
+	if (vdec->irq_cnt > vdec->irq_thread_cnt)
+		return false;
+
 	if ((vdec->status != VDEC_STATUS_CONNECTED) &&
 	    (vdec->status != VDEC_STATUS_ACTIVE))
 		return false;
@@ -3321,6 +3312,7 @@ static int vdec_core_thread(void *data)
 			inc_profi_count(mask, vdec->run_count);
 			update_profi_clk_run(vdec, mask, get_current_clk());
 #endif
+
 			vdec->run(vdec, mask, vdec_callback, core);
 
 
