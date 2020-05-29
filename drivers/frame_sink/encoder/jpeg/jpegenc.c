@@ -2606,6 +2606,10 @@ static void jpegenc_isr_tasklet(ulong data)
 static irqreturn_t jpegenc_isr(s32 irq_number, void *para)
 {
 	struct jpegenc_manager_s *manager = (struct jpegenc_manager_s *)para;
+
+	if (manager->irq_requested == false)
+		return IRQ_NONE;
+
 	WRITE_HREG(HCODEC_ASSIST_MBOX2_CLR_REG, 1);
 	manager->encode_hw_status  = READ_HREG(JPEGENC_ENCODER_STATUS);
 	if (manager->encode_hw_status == JPEGENC_ENCODER_DONE) {
@@ -2947,8 +2951,8 @@ static void jpegenc_stop(void)
 {
 	if ((gJpegenc.irq_num >= 0) &&
 		(gJpegenc.irq_requested == true)) {
-		free_irq(gJpegenc.irq_num, &gJpegenc);
 		gJpegenc.irq_requested = false;
+		free_irq(gJpegenc.irq_num, &gJpegenc);
 	}
 	_jpegenc_stop();
 	jpegenc_poweroff();
