@@ -290,7 +290,7 @@ static bool vpp_needed(struct aml_vcodec_ctx *ctx, u32* mode)
 			return true;
 		}
 	}
-#if 0//enable after DI bypass mode is done
+
 	if (ctx->output_pix_fmt == V4L2_PIX_FMT_H264) {
 		if (ctx->picinfo.coded_width <= 1920 &&
 			ctx->picinfo.coded_height <= 1088) {
@@ -298,7 +298,6 @@ static bool vpp_needed(struct aml_vcodec_ctx *ctx, u32* mode)
 			return true;
 		}
 	}
-#endif
 
 #if 0//enable later
 	if (ctx->output_pix_fmt == V4L2_PIX_FMT_HEVC ||

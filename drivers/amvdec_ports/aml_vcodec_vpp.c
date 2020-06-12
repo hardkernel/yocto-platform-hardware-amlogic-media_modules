@@ -30,6 +30,8 @@
 #define INPUT_PORT 0
 #define OUTPUT_PORT 1
 
+extern int dump_vpp_input;
+
 static enum DI_ERRORTYPE
 	v4l_vpp_empty_input_done(struct di_buffer *buf)
 {
@@ -448,6 +450,31 @@ int aml_v4l2_vpp_push_vframe(struct aml_v4l2_vpp* vpp, struct vframe_s *vf)
 	fb = (struct vdec_v4l2_buffer *)vf->v4l_mem_handle;
 	in_buf->aml_buf = container_of(fb, struct aml_video_dec_buf, frame_buffer);
 	fb->vf_handle = (ulong) vf;
+
+	do {
+		unsigned int dw_mode = VDEC_DW_NO_AFBC;
+		struct file *fp;
+
+		if (!dump_vpp_input || vpp->ctx->is_drm_mode)
+			break;
+		if (vdec_if_get_param(vpp->ctx, GET_PARAM_DW_MODE, &dw_mode))
+			break;
+		if (dw_mode == VDEC_DW_AFBC_ONLY)
+			break;
+
+		fp = filp_open("/data/dec_dump_before.raw",
+				O_CREAT | O_RDWR | O_LARGEFILE | O_APPEND, 0600);
+		if (!IS_ERR(fp)) {
+			struct vb2_buffer *vb = &in_buf->aml_buf->vb.vb2_buf;
+
+			kernel_write(fp,vb2_plane_vaddr(vb, 0),vb->planes[0].length, 0);
+			if (in_buf->aml_buf->frame_buffer.num_planes == 2)
+				kernel_write(fp,vb2_plane_vaddr(vb, 1),
+						vb->planes[1].length, 0);
+			dump_vpp_input--;
+			filp_close(fp, NULL);
+		}
+	} while(0);
 
 	kfifo_put(&vpp->input, in_buf);
 	up(&vpp->sem_in);
