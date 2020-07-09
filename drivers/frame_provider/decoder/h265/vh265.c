@@ -6126,8 +6126,6 @@ static void release_aux_data(struct hevc_state_s *hevc,
 static int recycle_mmu_buf_tail(struct hevc_state_s *hevc,
 		bool check_dma)
 {
-	hevc->used_4k_num =
-		READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
 	hevc_print(hevc,
 			H265_DEBUG_BUFMGR_MORE,
 			"%s pic index %d scatter_alloc %d page_start %d\n",
@@ -6199,6 +6197,8 @@ static inline void hevc_pre_pic(struct hevc_state_s *hevc,
 			if (hevc->mmu_enable
 				&& ((hevc->double_write_mode & 0x10) == 0)) {
 				if (!hevc->m_ins_flag) {
+					hevc->used_4k_num =
+						READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
 					if ((!is_skip_decoding(hevc, pic)) &&
 						(hevc->used_4k_num >= 0) &&
 						(hevc->cur_pic->scatter_alloc
@@ -10073,6 +10073,8 @@ pic_done:
 					if (hevc->mmu_enable
 							&& ((hevc->double_write_mode & 0x10) == 0)) {
 						if (!hevc->m_ins_flag) {
+							hevc->used_4k_num =
+								READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
 							if ((!is_skip_decoding(hevc, pic)) &&
 								(hevc->used_4k_num >= 0) &&
 								(hevc->cur_pic->scatter_alloc
@@ -12341,6 +12343,8 @@ static void vh265_work_implement(struct hevc_state_s *hevc,
 	}
 #endif
 		if (hevc->mmu_enable && ((hevc->double_write_mode & 0x10) == 0)) {
+			hevc->used_4k_num =
+				READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
 			if (hevc->used_4k_num >= 0 &&
 				hevc->cur_pic &&
 				hevc->cur_pic->scatter_alloc
