@@ -12,6 +12,7 @@ amvdec_ports-objs += decoder/vdec_vp9_if.o
 amvdec_ports-objs += decoder/vdec_mpeg12_if.o
 amvdec_ports-objs += decoder/vdec_mpeg4_if.o
 amvdec_ports-objs += decoder/vdec_mjpeg_if.o
+ifdef CONFIG_AMLOGIC_MEDIA_V4L_SOFTWARE_PARSER
 amvdec_ports-objs += decoder/aml_h264_parser.o
 amvdec_ports-objs += decoder/aml_hevc_parser.o
 amvdec_ports-objs += decoder/aml_vp9_parser.o
@@ -19,4 +20,5 @@ amvdec_ports-objs += decoder/aml_mpeg12_parser.o
 amvdec_ports-objs += decoder/aml_mpeg4_parser.o
 amvdec_ports-objs += decoder/aml_mjpeg_parser.o
 amvdec_ports-objs += utils/golomb.o
+endif
 amvdec_ports-objs += utils/common.o
