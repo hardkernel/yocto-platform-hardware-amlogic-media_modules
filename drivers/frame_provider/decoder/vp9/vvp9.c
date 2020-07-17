@@ -5235,7 +5235,6 @@ static void init_pic_list_hw(struct VP9Decoder_s *pbi)
 		WRITE_VREG(HEVCD_MPP_ANC_CANVAS_DATA_ADDR, 0);
 }
 
-
 static void dump_pic_list(struct VP9Decoder_s *pbi)
 {
 	struct VP9_Common_s *const cm = &pbi->common;
@@ -7568,7 +7567,8 @@ static int recycle_mmu_buf_tail(struct VP9Decoder_s *pbi,
 	pbi->used_4k_num =
 		READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
 
-	vp9_print(pbi, 0, "pic index %d page_start %d\n",
+	vp9_print(pbi, VP9_DEBUG_BUFMGR_MORE,
+		"pic index %d page_start %d\n",
 		cm->cur_fb_idx_mmu, pbi->used_4k_num);
 
 	if (check_dma)
@@ -7825,7 +7825,7 @@ int continue_decoding(struct VP9Decoder_s *pbi)
 					struct internal_comp_buf *ibuf =
 						index_to_icomp_buf(pbi, i);
 
-					decoder_mmu_box_free_idx(ibuf->mmu_box, i);
+					decoder_mmu_box_free_idx(ibuf->mmu_box, ibuf->index);
 				} else {
 					decoder_mmu_box_free_idx(pbi->mmu_box, i);
 				}
@@ -10464,19 +10464,29 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 
 }
 
-static void  init_frame_bufs(struct VP9Decoder_s *pbi)
+static void  vp9_decoder_ctx_reset(struct VP9Decoder_s *pbi)
 {
 	struct vdec_s *vdec = hw_to_vdec(pbi);
 	struct VP9_Common_s *const cm = &pbi->common;
 	struct RefCntBuffer_s *const frame_bufs = cm->buffer_pool->frame_bufs;
+	struct BufferPool_s *buffer_pool = cm->buffer_pool;
 	int i;
 
-	for (i = 0; i < pbi->used_buf_num; ++i) {
-		frame_bufs[i].ref_count = 0;
-		frame_bufs[i].buf.vf_ref = 0;
-		frame_bufs[i].buf.decode_idx = 0;
+	memset(cm, 0, sizeof(*cm));
+	cm->buffer_pool = buffer_pool;
+
+	for (i = 0; i < FRAME_BUFFERS; ++i) {
+		frame_bufs[i].buf.index		= i;
+		frame_bufs[i].ref_count		= 0;
+		frame_bufs[i].buf.vf_ref	= 0;
+		frame_bufs[i].buf.decode_idx	= 0;
 		frame_bufs[i].buf.cma_alloc_addr = 0;
-		frame_bufs[i].buf.index = i;
+		frame_bufs[i].buf.BUF_index	= -1;
+		frame_bufs[i].buf.slice_type	= 0;
+	}
+
+	for (i = 0; i < MV_BUFFER_NUM; ++i) {
+		pbi->m_mv_BUF[i].used_flag = 0;
 	}
 
 	if (vdec->parallel_dec == 1) {
@@ -10489,6 +10499,12 @@ static void  init_frame_bufs(struct VP9Decoder_s *pbi)
 				vdec->id);
 		}
 	}
+
+	pbi->init_flag		= 0;
+	pbi->first_sc_checked	= 0;
+	pbi->fatal_error	= 0;
+	pbi->show_frame_num	= 0;
+	pbi->eos		= 0;
 }
 
 static void reset(struct vdec_s *vdec)
@@ -10496,6 +10512,7 @@ static void reset(struct vdec_s *vdec)
 	struct VP9Decoder_s *pbi =
 		(struct VP9Decoder_s *)vdec->private;
 
+	cancel_work_sync(&pbi->set_clk_work);
 	cancel_work_sync(&pbi->work);
 	if (pbi->stat & STAT_VDEC_RUN) {
 		amhevc_stop();
@@ -10506,14 +10523,12 @@ static void reset(struct vdec_s *vdec)
 		del_timer_sync(&pbi->timer);
 		pbi->stat &= ~STAT_TIMER_ARM;
 	}
-	pbi->dec_result = DEC_RESULT_NONE;
 	reset_process_time(pbi);
 	vp9_local_uninit(pbi);
 	if (vvp9_local_init(pbi) < 0)
 		vp9_print(pbi, 0, "%s	local_init failed \r\n", __func__);
-	init_frame_bufs(pbi);
 
-	pbi->eos = 0;
+	vp9_decoder_ctx_reset(pbi);
 
 	vp9_print(pbi, PRINT_FLAG_VDEC_DETAIL, "%s\r\n", __func__);
 }
