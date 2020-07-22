@@ -2770,6 +2770,40 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 	return buf_size;
 }
 
+static int init_mmu_box(struct hevc_state_s *hevc)
+{
+	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+		CODEC_MM_FLAGS_TVP : 0;
+	int buf_size = 64;
+
+	if ((hevc->max_pic_w * hevc->max_pic_h) > 0 &&
+		(hevc->max_pic_w * hevc->max_pic_h) <= 1920*1088) {
+		buf_size = 24;
+	}
+
+	if (get_dbg_flag(hevc)) {
+		hevc_print(hevc, 0, "%s max_w %d max_h %d\n",
+			__func__, hevc->max_pic_w, hevc->max_pic_h);
+	}
+
+	hevc->need_cache_size = buf_size * SZ_1M;
+	hevc->sc_start_time = get_jiffies_64();
+	if (hevc->mmu_enable
+		&& ((get_double_write_mode(hevc) & 0x10) == 0)) {
+		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
+			hevc->index,
+			MAX_REF_PIC_NUM,
+			buf_size * SZ_1M,
+			tvp_flag
+			);
+		if (!hevc->mmu_box) {
+			hevc_print(hevc, 0, "h265 alloc mmu box failed!!\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
 
 static int init_mmu_buffers(struct hevc_state_s *hevc)
 {
@@ -4730,6 +4764,7 @@ static void decoder_hw_reset(void)
 {
 	int i;
 	unsigned int data32;
+
 	/* reset iqit to start mem init again */
 	WRITE_VREG(DOS_SW_RESET3, (1 << 14)
 			  );
@@ -4823,6 +4858,7 @@ static void decoder_hw_reset(void)
 	WRITE_VREG(HEVCD_IPP_TOP_CNTL, (1 << 1) |	/* enable ipp */
 			   (0 << 0)	/* software reset ipp and mpp */
 			  );
+
 }
 
 #ifdef CONFIG_HEVC_CLK_FORCED_ON
@@ -6117,8 +6153,11 @@ static void set_aux_data(struct hevc_state_s *hevc,
 static void release_aux_data(struct hevc_state_s *hevc,
 	struct PIC_s *pic)
 {
-	if (pic->aux_data_buf)
+	if (pic->aux_data_buf) {
 		vfree(pic->aux_data_buf);
+		if ((run_count[hevc->index] & 63) == 0)
+			vm_unmap_aliases();
+	}
 	pic->aux_data_buf = NULL;
 	pic->aux_data_size = 0;
 }
@@ -10701,6 +10740,16 @@ force_output:
 					"interlace (%d, %d), profile_etc %x, ar 0x%x, dw %d\n",
 					hevc->pic_w, hevc->pic_h, hevc->param.p.profile_etc, hevc->frame_ar,
 					get_double_write_mode(hevc));
+				/* When dw changed from 0x10 to 1, the mmu_box is NULL */
+				if (!hevc->mmu_box && init_mmu_box(hevc) != 0) {
+					hevc->dec_result = DEC_RESULT_FORCE_EXIT;
+					hevc->fatal_error |=
+						DECODER_FATAL_ERROR_NO_MEM;
+					vdec_schedule_work(&hevc->work);
+					hevc_print(hevc,
+						0, "can not alloc mmu box, force exit\n");
+					return IRQ_HANDLED;
+				}
 			}
 #ifdef MULTI_INSTANCE_SUPPORT
 			if (hevc->m_ins_flag) {
@@ -12646,6 +12695,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		return 0;
 	else if (step == 0x11)
 		step = 0x12;
+
+	if (hevc->fatal_error & DECODER_FATAL_ERROR_NO_MEM)
+		return 0;
 
 	if (hevc->eos)
 		return 0;
