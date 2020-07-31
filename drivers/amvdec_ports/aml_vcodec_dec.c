@@ -467,6 +467,7 @@ int get_fb_from_queue(struct aml_vcodec_ctx *ctx,
 	dst_buf_info = container_of(dst_vb2_v4l2, struct aml_video_dec_buf, vb);
 
 	pfb = &dst_buf_info->frame_buffer;
+	pfb->buf_idx	= dst_buf->index;
 	pfb->num_planes = dst_buf->num_planes;
 	pfb->status		= FB_ST_NORMAL;
 	for (i = 0 ; i < dst_buf->num_planes ; i++) {
@@ -506,12 +507,16 @@ int get_fb_from_queue(struct aml_vcodec_ctx *ctx,
 
 	info = container_of(pfb, struct aml_video_dec_buf, frame_buffer);
 
-	if (for_vpp)
+	if (for_vpp) {
 		buf_flag = V4L_CAP_BUFF_IN_VPP;
-	else
+		ctx->cap_pool.vpp++;
+	} else {
 		buf_flag = V4L_CAP_BUFF_IN_DEC;
+		ctx->cap_pool.dec++;
+	}
 	ctx->cap_pool.seq[ctx->cap_pool.out++] =
 		(buf_flag << 16 | dst_buf->index);
+
 	v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 
 	aml_vcodec_ctx_unlock(ctx, flags);
@@ -2684,6 +2689,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	ctx->buf_used_count = 0;
 	ctx->cap_pool.in = 0;
 	ctx->cap_pool.out = 0;
+	ctx->cap_pool.dec = 0;
+	ctx->cap_pool.vpp = 0;
 }
 
 static void m2mops_vdec_device_run(void *priv)
