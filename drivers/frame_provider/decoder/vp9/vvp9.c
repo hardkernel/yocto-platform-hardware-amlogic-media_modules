@@ -7564,9 +7564,10 @@ static int recycle_mmu_buf_tail(struct VP9Decoder_s *pbi,
 {
 	struct VP9_Common_s *const cm = &pbi->common;
 
-	pbi->used_4k_num =
-		READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
-
+	if (pbi->used_4k_num == -1) {
+		pbi->used_4k_num =
+			READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
+	}
 	vp9_print(pbi, VP9_DEBUG_BUFMGR_MORE,
 		"pic index %d page_start %d\n",
 		cm->cur_fb_idx_mmu, pbi->used_4k_num);
