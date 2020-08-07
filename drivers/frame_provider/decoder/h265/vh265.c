@@ -8369,13 +8369,10 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
 		if (get_dbg_flag(hevc) & H265_DEBUG_DV) {
 			struct PIC_s *pic = hevc->m_PIC[vf->index & 0xff];
+			hevc_print(hevc, 0, "pic 0x%p aux size %d:\n",
+					pic, pic->aux_data_size);
 			if (pic->aux_data_buf && pic->aux_data_size > 0) {
 				int i;
-				struct PIC_s *pic =
-					hevc->m_PIC[vf->index & 0xff];
-				hevc_print(hevc, 0,
-					"pic 0x%p aux size %d:\n",
-					pic, pic->aux_data_size);
 				for (i = 0; i < pic->aux_data_size; i++) {
 					hevc_print_cont(hevc, 0,
 						"%02x ", pic->aux_data_buf[i]);
@@ -8526,7 +8523,8 @@ static int vh265_event_cb(int type, void *data, void *op_arg)
 				req->dv_enhance_exist =
 					hevc->m_PIC[index]->dv_enhance_exist;
 			hevc_print(hevc, H265_DEBUG_DV,
-			"query dv_enhance_exist for pic (vf 0x%p, poc %d index %d) flag => %d, aux sizd 0x%x\n",
+			"query dv_enhance_exist for (pic 0x%p, vf 0x%p, poc %d index %d) flag => %d, aux sizd 0x%x\n",
+			hevc->m_PIC[index],
 			req->vf,
 			hevc->m_PIC[index]->POC, index,
 			req->dv_enhance_exist, req->aux_size);
