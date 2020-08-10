@@ -8936,10 +8936,15 @@ static void av1_frame_mode_pts_save(struct AV1HW_s *hw)
 	unsigned int i, valid_pts_diff_cnt, pts_diff_sum;
 	unsigned int in_pts_diff, last_valid_pts_diff, calc_dur;
 
-	if ((hw->chunk == NULL) ||
-		(hw->frame_count && (hw->chunk->pts == 0)) ||
-		(hw->frame_mode_pts_save[0] == hw->chunk->pts))
+	if (hw->chunk == NULL)
 		return;
+	/* no return when first pts is 0 */
+	if (hw->first_pts_index) {
+		/* filtration pts 0 and continuous same pts */
+		if ((hw->chunk->pts == 0) ||
+		(hw->frame_mode_pts_save[0] == hw->chunk->pts))
+			return;
+	}
 
 	av1_print(hw, AV1_DEBUG_OUT_PTS,
 		"run_front: pts %d, pts64 %lld\n", hw->chunk->pts, hw->chunk->pts64);
