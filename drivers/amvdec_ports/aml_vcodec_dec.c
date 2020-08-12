@@ -213,6 +213,7 @@ extern int dmabuf_fd_install_data(int fd, void* data, u32 size);
 extern bool is_v4l2_buf_file(struct file *file);
 static void box_release(struct kref *kref);
 extern int get_double_write_ratio(int dw_mode);
+static void aml_recycle_dma_buffers(struct aml_vcodec_ctx *ctx);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
 {
@@ -600,6 +601,9 @@ void trans_vframe_to_user(struct aml_vcodec_ctx *ctx, struct vdec_v4l2_buffer *f
 
 	dstbuf = container_of(fb, struct aml_video_dec_buf, frame_buffer);
 	vb2_buf = &dstbuf->vb.vb2_buf;
+
+	if (ctx->is_drm_mode && vb2_buf->memory == VB2_MEMORY_DMABUF)
+		aml_recycle_dma_buffers(ctx);
 
 	if (dstbuf->frame_buffer.num_planes == 1) {
 		vb2_set_plane_payload(vb2_buf, 0, fb->m.mem[0].bytes_used);
@@ -1523,9 +1527,6 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
 		struct aml_video_dec_buf *aml_buf = NULL;
 		struct file *file = NULL;
-
-		if (ctx->is_drm_mode && ctx->output_dma_mode)
-			aml_recycle_dma_buffers(ctx);
 
 		vq = v4l2_m2m_get_vq(ctx->m2m_ctx, buf->type);
 		vb2_v4l2 = to_vb2_v4l2_buffer(vq->bufs[buf->index]);
@@ -2722,13 +2723,13 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			/*v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "idx: %d, state: %d\n",
 				q->bufs[i]->index, q->bufs[i]->state);*/
 		}
-	}
 
-	ctx->buf_used_count = 0;
-	ctx->cap_pool.in = 0;
-	ctx->cap_pool.out = 0;
-	ctx->cap_pool.dec = 0;
-	ctx->cap_pool.vpp = 0;
+		ctx->buf_used_count = 0;
+		ctx->cap_pool.in = 0;
+		ctx->cap_pool.out = 0;
+		ctx->cap_pool.dec = 0;
+		ctx->cap_pool.vpp = 0;
+	}
 }
 
 static void m2mops_vdec_device_run(void *priv)
