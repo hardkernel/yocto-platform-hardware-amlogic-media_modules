@@ -9767,6 +9767,9 @@ static void dolby_get_meta(struct hevc_state_s *hevc)
 			0, 1);
 		set_aux_data(hevc,
 		hevc->cur_pic, 0, 2);
+	} else if (vdec_frame_based(vdec)) {
+		set_aux_data(hevc,
+			hevc->cur_pic, 1, 0);
 	}
 }
 #endif
@@ -10327,8 +10330,7 @@ force_output:
 
 			hevc_print(hevc, 0, "get NAL_UNIT_EOS, flush output\n");
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-			if ((vdec->master || vdec->slave) &&
-				aux_data_is_avaible(hevc)) {
+			if ((vdec_dual(vdec)) && aux_data_is_avaible(hevc)) {
 				if (hevc->decoding_pic)
 					dolby_get_meta(hevc);
 			}
@@ -12589,8 +12591,7 @@ static void vh265_work_implement(struct hevc_state_s *hevc,
 		struct PIC_s *pic;
 		hevc->eos = 1;
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-		if ((vdec->master || vdec->slave) &&
-			aux_data_is_avaible(hevc))
+		if ((vdec_dual(vdec)) && aux_data_is_avaible(hevc))
 			dolby_get_meta(hevc);
 #endif
 		check_pic_decoded_error(hevc,
