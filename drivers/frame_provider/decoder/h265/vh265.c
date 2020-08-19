@@ -9360,10 +9360,6 @@ static int prepare_display_buf(struct hevc_state_s *hevc, struct PIC_s *pic)
 			get_pic_poc(hevc, (vf->index >> 8) & 0xff),
 			vf->pts, vf->pts_us64,
 			vf->duration);
-		update_vframe_src_fmt(vf,
-			hevc->m_PIC[vf->index & 0xff]->aux_data_buf,
-			hevc->m_PIC[vf->index & 0xff]->aux_data_size,
-			false, hevc->provider_name, NULL);
 
 		/*if (pic->vf_ref == hevc->vf_pre_count) {*/
 		if (hevc->kpi_first_i_decoded == 0) {
