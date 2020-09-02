@@ -988,6 +988,7 @@ static void set_param_ps_info(struct vdec_vp9_inst *inst,
 	struct vdec_pic_info *pic = &inst->vsi->pic;
 	struct vdec_vp9_dec_info *dec = &inst->vsi->dec;
 	struct v4l2_rect *rect = &inst->vsi->crop;
+	int dw = inst->parms.cfg.double_write_mode;
 
 	/* fill visible area size that be used for EGL. */
 	pic->visible_width	= ps->visible_width;
@@ -1003,7 +1004,8 @@ static void set_param_ps_info(struct vdec_vp9_inst *inst,
 	pic->coded_width	= ps->coded_width;
 	pic->coded_height	= ps->coded_height;
 
-	pic->y_len_sz		= pic->coded_width * pic->coded_height;
+	pic->y_len_sz		= vdec_pic_scale(inst, pic->coded_width, dw) *
+				  vdec_pic_scale(inst, pic->coded_height, dw);
 	pic->c_len_sz		= pic->y_len_sz >> 1;
 
 	/* calc DPB size */

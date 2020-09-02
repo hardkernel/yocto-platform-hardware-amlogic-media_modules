@@ -99,9 +99,9 @@ void video_vf_put(char *receiver, struct vdec_v4l2_buffer *fb, int id)
 	ATRACE_COUNTER("v4l2_to", vf->index_disp);
 
 	v4l_dbg(0, V4L_DEBUG_CODEC_OUTPUT,
-		"[%d]: TO   (%s) vf: %p, idx: %d, "
+		"[%d]: TO   (%s) vf: %px, idx: %d, "
 		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u)\n",
-		id, vfp->name, vf, vf->index,
+		id, vfp->name, vf, vf->index & 0xff,
 		fb->m.mem[0].addr, fb->m.mem[0].size,
 		fb->m.mem[1].addr, fb->m.mem[1].size,
 		fb->m.mem[2].addr, fb->m.mem[2].size);
@@ -122,6 +122,7 @@ void vpp_vf_put(char *receiver, struct vframe_s *vf, int id)
 	if (vfp && vf)
 		vf_put(vf, receiver);
 }
+
 static const struct vframe_operations_s vf_provider = {
 	.peek		= vdec_vf_peek,
 	.get		= vdec_vf_get,

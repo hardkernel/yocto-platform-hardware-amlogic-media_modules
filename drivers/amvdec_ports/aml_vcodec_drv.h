@@ -392,6 +392,16 @@ struct internal_comp_buf {
 	ulong		header_addr;
 	u32		frame_buffer_size;
 };
+
+
+/* struct dma_buf_map_rec - dma buf map to vf record in current round
+ * @dma_buf: record dma_buf
+ * @vf: record vf
+ */
+struct dma_vf_map_rec {
+	struct dma_buf	*dbuf;
+	struct vframe_s  *vf;
+};
 /**
  * struct aml_vcodec_ctx - Context (instance) private data.
  * @id: index of the context that this structure describes.
@@ -506,6 +516,8 @@ struct aml_vcodec_ctx {
 	struct kref			box_ref;
 	struct vdec_comp_buf_info	comp_info;
 	struct internal_comp_buf	*comp_bufs;
+	struct dma_vf_map_rec dma_vf_rec[32];
+	u32 dma_vf_record_cnt;
 };
 
 /**
