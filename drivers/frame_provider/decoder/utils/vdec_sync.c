@@ -26,7 +26,7 @@
 
 #define VDEC_DBG_ENABLE_FENCE	(0x100)
 
-extern u32 debug;
+extern u32 vdec_get_debug(void);
 
 static const struct fence_ops timeline_fence_ops;
 static inline struct sync_pt *fence_to_sync_pt(struct fence *fence)
@@ -276,7 +276,7 @@ static int timeline_create_fence(struct vdec_sync *sync, int usage,
 
 	pt->timestamp = local_clock();
 
-	if (debug & VDEC_DBG_ENABLE_FENCE)
+	if (vdec_get_debug() & VDEC_DBG_ENABLE_FENCE)
 		pr_info("[VDEC-FENCE]: create fence: %lx, fd: %d, ref: %d, usage: %d\n",
 			(ulong) &pt->fence, *fd, atomic_read(&pt->fence.refcount.refcount), usage);
 	return 0;
@@ -296,7 +296,7 @@ EXPORT_SYMBOL(vdec_fence_get);
 
 void vdec_fence_put(struct fence *fence)
 {
-	if (debug & VDEC_DBG_ENABLE_FENCE)
+	if (vdec_get_debug() & VDEC_DBG_ENABLE_FENCE)
 		pr_info("[VDEC-FENCE]: the fence (%px) cost time: %lld ns\n",
 			fence, local_clock() - get_sync_pt(fence)->timestamp);
 	fence_put(fence);
@@ -305,7 +305,7 @@ EXPORT_SYMBOL(vdec_fence_put);
 
 int vdec_fence_wait(struct fence *fence, long timeout)
 {
-	if (debug & VDEC_DBG_ENABLE_FENCE)
+	if (vdec_get_debug() & VDEC_DBG_ENABLE_FENCE)
 		pr_info("[VDEC-FENCE]: wait fence %lx.\n", (ulong) fence);
 
 	return fence_wait_timeout(fence, false, timeout);
@@ -365,7 +365,7 @@ void vdec_timeline_increase(struct vdec_sync *sync, u32 value)
 
 	obj->timestamp = local_clock();
 
-	if (debug & VDEC_DBG_ENABLE_FENCE)
+	if (vdec_get_debug() & VDEC_DBG_ENABLE_FENCE)
 		pr_info("[VDEC-FENCE]: update timeline %d.\n",
 			obj->value + value);
 

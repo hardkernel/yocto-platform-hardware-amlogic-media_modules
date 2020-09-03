@@ -106,8 +106,14 @@ static unsigned int clk_config;
 #define VDEC_DBG_CANVAS_STATUS	(0x4)
 #define VDEC_DBG_ENABLE_FENCE	(0x100)
 
-u32 debug = VDEC_DBG_ALWAYS_LOAD_FW;
-EXPORT_SYMBOL(debug);
+static u32 debug = VDEC_DBG_ALWAYS_LOAD_FW;
+
+u32 vdec_get_debug(void)
+{
+    return debug;
+}
+EXPORT_SYMBOL(vdec_get_debug);
+
 
 int hevc_max_reset_count;
 EXPORT_SYMBOL(hevc_max_reset_count);
@@ -143,11 +149,36 @@ static int enable_mvdec_info = 1;
 
 int decode_underflow = 0;
 
-int enable_stream_mode_multi_dec;
+static int enable_stream_mode_multi_dec;
 
 #define CANVAS_MAX_SIZE (AMVDEC_CANVAS_MAX1 - AMVDEC_CANVAS_START_INDEX + 1 + AMVDEC_CANVAS_MAX2 + 1)
 
+
+typedef void (*vdec_frame_rate_event_func)(int);
+
+#if 1
 extern void vframe_rate_uevent(int duration);
+vdec_frame_rate_event_func frame_rate_notify = vframe_rate_uevent;
+#else
+vdec_frame_rate_event_func frame_rate_notify = NULL;
+#endif
+
+static void vdec_frame_rate_uevent(int dur)
+{
+	if (frame_rate_notify == NULL)
+		return;
+
+	if (unlikely(in_interrupt()))
+		return;
+
+	frame_rate_notify(dur);
+}
+
+void register_frame_rate_uevent_func(vdec_frame_rate_event_func func)
+{
+	frame_rate_notify = func;
+}
+EXPORT_SYMBOL(register_frame_rate_uevent_func);
 
 struct am_reg {
 	char *name;
@@ -301,6 +332,15 @@ unsigned char is_mult_inc(unsigned int type)
 	return ret;
 }
 EXPORT_SYMBOL(is_mult_inc);
+
+bool is_support_no_parser(void)
+{
+	if ((enable_stream_mode_multi_dec) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2))
+		return true;
+	return false;
+}
+EXPORT_SYMBOL(is_support_no_parser);
 
 static const bool cores_with_input[VDEC_MAX] = {
 	true,   /* VDEC_1 */
@@ -668,7 +708,12 @@ static void vdec_disable_DMC(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (is_cpu_tm2_revb()) {
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
+			& mask))
+			;
+	} else if (is_cpu_tm2_revb() ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SC2)) {
 		while (!(codec_dmcbus_read(TM2_REVB_DMC_CHAN_STS)
 			& mask))
 			;
@@ -776,6 +821,11 @@ static void vdec_update_buff_status(void)
 				core->buff_flag |= vdec->core_mask;
 		} else if (input_stream_based(input)) {
 			core->stream_buff_flag |= vdec->core_mask;
+		}
+		/* slave el pre_decode_level wp update */
+		if ((is_support_no_parser()) && (vdec->slave)) {
+			STBUF_WRITE(&vdec->slave->vbuf, set_wp,
+				STBUF_READ(&vdec->vbuf, get_wp));
 		}
 	}
 	vdec_inputbuff_unlock(core, flags);
@@ -1314,7 +1364,7 @@ static void vdec_sync_input_write(struct vdec_s *vdec)
 		return;
 
 	if (vdec->input.target == VDEC_INPUT_TARGET_VLD) {
-		if (enable_stream_mode_multi_dec) {
+		if (is_support_no_parser()) {
 			if (!vdec->master) {
 				WRITE_VREG(VLD_MEM_VIFIFO_WP,
 					STBUF_READ(&vdec->vbuf, get_wp));
@@ -1327,7 +1377,7 @@ static void vdec_sync_input_write(struct vdec_s *vdec)
 				STBUF_READ(&vdec->vbuf, get_wp));
 		}
 	} else if (vdec->input.target == VDEC_INPUT_TARGET_HEVC) {
-		if (enable_stream_mode_multi_dec) {
+		if (is_support_no_parser()) {
 			if (!vdec->master) {
 				WRITE_VREG(HEVC_STREAM_WR_PTR,
 					STBUF_READ(&vdec->vbuf, get_wp));
@@ -1829,7 +1879,12 @@ void hevc_wait_ddr(void)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (is_cpu_tm2_revb()) {
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
+			& mask))
+			;
+	} else if (is_cpu_tm2_revb() ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SC2)) {
 		while (!(codec_dmcbus_read(TM2_REVB_DMC_CHAN_STS)
 			& mask))
 			;
@@ -2206,7 +2261,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 	 *todo: VFM patch control should be configurable,
 	 * for now all stream based input uses default VFM path.
 	 */
-	if (!enable_stream_mode_multi_dec) {
+	if (!is_support_no_parser()) {
 		if (vdec_stream_based(vdec) && !vdec_dual(vdec)) {
 			if (vdec_core->vfm_vdec == NULL) {
 				pr_debug("vdec_init set vfm decoder %p\n", vdec);
@@ -2240,7 +2295,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 	/* todo */
 	if (!vdec_dual(vdec)) {
 		p->use_vfm_path =
-			enable_stream_mode_multi_dec ?
+			is_support_no_parser() ?
 			vdec_single(vdec) :
 			vdec_stream_based(vdec);
 	}
@@ -2317,7 +2372,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 		/* create IONVIDEO instance and connect decoder's
 		 * vf_provider interface to it
 		 */
-		if (!enable_stream_mode_multi_dec) {
+		if (!is_support_no_parser()) {
 			if (p->type != VDEC_TYPE_FRAME_BLOCK) {
 				r = -ENODEV;
 				pr_err("vdec: Incorrect decoder type\n");
@@ -2625,7 +2680,7 @@ void vdec_release(struct vdec_s *vdec)
 	}
 #endif
 	/* When release, userspace systemctl need this duration 0 event */
-	vframe_rate_uevent(0);
+	vdec_frame_rate_uevent(0);
 	vdec_disconnect(vdec);
 
 	if (vdec->vframe_provider.name) {
@@ -3579,7 +3634,12 @@ void vdec_reset_core(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (is_cpu_tm2_revb()) {
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
+			& mask))
+			;
+	} else if (is_cpu_tm2_revb() ||
+	(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2)) {
 		while (!(codec_dmcbus_read(TM2_REVB_DMC_CHAN_STS)
 			& mask))
 			;
@@ -3663,7 +3723,12 @@ void hevc_reset_core(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (is_cpu_tm2_revb()) {
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
+			& mask))
+			;
+	} else if (is_cpu_tm2_revb() ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SC2)) {
 		while (!(codec_dmcbus_read(TM2_REVB_DMC_CHAN_STS)
 			& mask))
 			;
@@ -5053,9 +5118,9 @@ static void cal_dur_from_pts(struct vdec_s *vdec, u32 slot)
 				ready = (ready + fifo[slot].frame_dur) / 2;
 			else
 				ready = fifo[slot].frame_dur;
-		pr_debug("%s inner driver dur%u \n",__func__, ready);
-	    }
-	    goto end_handle;
+			pr_debug("%s inner driver dur%u \n",__func__, ready);
+		}
+		goto end_handle;
 	}
 
 	if (slot == 1) {
@@ -5094,7 +5159,7 @@ static void cal_dur_from_pts(struct vdec_s *vdec, u32 slot)
 end_handle:
 	if (must_send) {
 		++must_send;
-		vframe_rate_uevent(ready);
+		vdec_frame_rate_uevent(ready);
 	}
 }
 

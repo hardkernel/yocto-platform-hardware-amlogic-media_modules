@@ -5400,25 +5400,19 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			dec->avs2_dec.hc.cur_pic = NULL;
 			for (ii = 0; ii < dec->avs2_dec.ref_maxbuffer;
 					ii++) {
-				if (dec->avs2_dec.fref[ii]->
-					bg_flag == 0 &&
-					dec->avs2_dec.fref[ii]->
-					is_output == -1 &&
-					dec->avs2_dec.fref[ii]->
-					mmu_alloc_flag &&
-					dec->avs2_dec.fref[ii]->
-					vf_ref == 0) {
-					struct avs2_frame_s *pic =
-						dec->avs2_dec.fref[ii];
-					if (dec->avs2_dec.fref[ii]->
-						refered_by_others == 0) {
+				struct avs2_frame_s *pic =
+					dec->avs2_dec.fref[ii];
+				if (pic->bg_flag == 0 &&
+					pic->is_output == -1 &&
+					pic->mmu_alloc_flag &&
+					pic->vf_ref == 0) {
+					if (pic->refered_by_others == 0) {
 #ifdef AVS2_10B_MMU
-						dec->avs2_dec.fref[ii]->
-						mmu_alloc_flag = 0;
+						pic->mmu_alloc_flag = 0;
 						/*release_buffer_4k(
 						dec->avs2_dec.fref[ii]->index);*/
 						decoder_mmu_box_free_idx(dec->mmu_box,
-							dec->avs2_dec.fref[ii]->index);
+							pic->index);
 #ifdef DYNAMIC_ALLOC_HEAD
 						decoder_bmmu_box_free_idx(
 							dec->bmmu_box,
@@ -5433,10 +5427,11 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 						pic->mpred_mv_wr_start_addr = 0;
 #endif
 					}
+					/*
 					decoder_bmmu_box_free_idx(
 						dec->bmmu_box,
 						VF_BUFFER_IDX(pic->index));
-					dec->cma_alloc_addr = 0;
+					dec->cma_alloc_addr = 0;*/
 				}
 			}
 		}

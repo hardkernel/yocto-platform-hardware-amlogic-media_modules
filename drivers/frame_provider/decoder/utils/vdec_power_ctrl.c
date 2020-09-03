@@ -19,10 +19,9 @@
 #include "vdec_power_ctrl.h"
 #include <linux/amlogic/media/utils/vdec_reg.h>
 #include <linux/amlogic/power_ctrl.h>
-//#include <dt-bindings/power/sc2-pd.h>
-//#include <linux/amlogic/pwr_ctrl.h>
 #include <linux/amlogic/power_domain.h>
 #include <dt-bindings/power/amlogic,pd.h>
+#include <dt-bindings/power/pd.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include "../../../common/media_clock/switch/amports_gate.h"
 #include "../../../common/chips/decoder_cpu_ver_info.h"
@@ -687,38 +686,32 @@ static bool pm_vdec_legacy_power_state(struct device *dev, int id)
 
 static void pm_vdec_pd_sec_api_power_on(struct device *dev, int id)
 {
-#if 0
 	int pd_id = (id == VDEC_1) ? PDID_DOS_VDEC :
 		    (id == VDEC_HEVC) ? PDID_DOS_HEVC :
 		    PDID_DOS_HCODEC;
 
 	pm_vdec_clock_on(id);
 	pwr_ctrl_psci_smc(pd_id, PWR_ON);
-#endif
 }
 
 static void pm_vdec_pd_sec_api_power_off(struct device *dev, int id)
 {
-#if 0
+
 	int pd_id = (id == VDEC_1) ? PDID_DOS_VDEC :
 		    (id == VDEC_HEVC) ? PDID_DOS_HEVC :
 		    PDID_DOS_HCODEC;
 
 	pm_vdec_clock_off(id);
 	pwr_ctrl_psci_smc(pd_id, PWR_OFF);
-#endif
 }
 
 static bool pm_vdec_pd_sec_api_power_state(struct device *dev, int id)
 {
-#if 0
 	int pd_id = (id == VDEC_1) ? PDID_DOS_VDEC :
 		    (id == VDEC_HEVC) ? PDID_DOS_HEVC :
 		    PDID_DOS_HCODEC;
 
 	return !pwr_ctrl_status_psci_smc(pd_id);
-#endif
-	return 0;
 }
 
 static void pm_vdec_pd_nosec_api_power_on(struct device *dev, int id)

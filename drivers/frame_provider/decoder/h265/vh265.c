@@ -79,7 +79,7 @@ to enable DV of frame mode
 #define MMU_COMPRESS_8K_HEADER_SIZE  (0x48000*4)
 
 #define MAX_FRAME_4K_NUM 0x1200
-#define MAX_FRAME_8K_NUM (0x1200*4)
+#define MAX_FRAME_8K_NUM ((MAX_FRAME_4K_NUM) * 4)
 
 //#define FRAME_MMU_MAP_SIZE  (MAX_FRAME_4K_NUM * 4)
 #define H265_MMU_MAP_BUFFER       HEVC_ASSIST_SCRATCH_7

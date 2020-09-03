@@ -1339,7 +1339,9 @@ static void  hevc_mcr_sao_global_hw_init(struct vdec_h264_hw_s *hw,
 	u32 mc_buffer_size_u_v_h;
 	int  dw_mode = hw->double_write_mode;
 
-	lcu_x_num = (width + 15) >> 4;
+	/*lcu_x_num = (width + 15) >> 4;*/
+	// width need to be round to 64 pixel -- case0260 1/10/2020
+	lcu_x_num = (((width + 63) >> 6) << 2);
 	lcu_y_num = (height + 15) >> 4;
 	lcu_total = lcu_x_num * lcu_y_num;
 

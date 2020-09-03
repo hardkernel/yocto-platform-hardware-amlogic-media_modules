@@ -1061,6 +1061,11 @@ static s32 vvc1_init(void)
 
 	stat |= STAT_TIMER_INIT;
 
+	/* fix vc1 can not start decode after play h264. it must reset before amvdec_enable*/
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		WRITE_VREG(DOS_SW_RESET0, (1 << 7) | (1 << 6) | (1 << 4) | (1 << 2));
+		WRITE_VREG(DOS_SW_RESET0, 0);
+	}
 	intra_output = 0;
 	amvdec_enable();
 

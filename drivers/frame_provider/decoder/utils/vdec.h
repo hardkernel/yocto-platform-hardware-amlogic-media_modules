@@ -473,4 +473,6 @@ int show_stream_buffer_status(char *buf,
 	int (*callback) (struct stream_buf_s *, char *));
 
 extern int get_double_write_ratio(int dw_mode);
+
+bool is_support_no_parser(void);
 #endif				/* VDEC_H */

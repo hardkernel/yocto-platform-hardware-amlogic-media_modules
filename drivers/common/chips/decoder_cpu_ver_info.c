@@ -61,6 +61,11 @@ static enum AM_MESON_CPU_MAJOR_ID cpu_ver_info[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR
 	AM_MESON_CPU_MAJOR_ID_RES_0x2d,
 	AM_MESON_CPU_MAJOR_ID_TL1,
 	AM_MESON_CPU_MAJOR_ID_TM2,
+	AM_MESON_CPU_MAJOR_ID_RES_0x30,
+	AM_MESON_CPU_MAJOR_ID_RES_0x31,
+	AM_MESON_CPU_MAJOR_ID_SC2,
+	AM_MESON_CPU_MAJOR_ID_RES_0x33,
+	AM_MESON_CPU_MAJOR_ID_T5,
 };
 
 static const struct of_device_id cpu_ver_of_match[] = {
@@ -107,6 +112,14 @@ static const struct of_device_id cpu_ver_of_match[] = {
 		.compatible = "amlogic, cpu-major-id-tm2",
 		.data = &cpu_ver_info[AM_MESON_CPU_MAJOR_ID_TM2 - MAJOR_ID_START],
 	},
+	{
+		.compatible = "amlogic, cpu-major-id-sc2",
+		.data = &cpu_ver_info[AM_MESON_CPU_MAJOR_ID_SC2 - MAJOR_ID_START],
+	},
+	{
+		.compatible = "amlogic, cpu-major-id-t5",
+		.data = &cpu_ver_info[AM_MESON_CPU_MAJOR_ID_T5 - MAJOR_ID_START],
+	},
 	{},
 };
 
@@ -149,6 +162,9 @@ static void initial_cpu_id(void)
 	if (AM_MESON_CPU_MAJOR_ID_G12B == cpu_ver_id)
 		if (is_meson_rev_b())
 			cpu_ver_id = AM_MESON_CPU_MAJOR_ID_TL1;
+
+	pr_info("vdec %s, cpu id 0x%x(%c)\n",
+		__func__, cpu_ver_id, (is_meson_rev_b())?'B':'A');
 }
 
 enum AM_MESON_CPU_MAJOR_ID get_cpu_major_id(void)

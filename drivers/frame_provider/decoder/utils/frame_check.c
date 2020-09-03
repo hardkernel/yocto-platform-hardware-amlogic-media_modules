@@ -1104,6 +1104,10 @@ int decoder_do_frame_check(struct vdec_s *vdec, struct vframe_s *vf)
 		single_mode_vdec = NULL;
 	}
 
+	if (!single_mode_vdec &&
+		unlikely(in_interrupt()))
+		return 0;
+
 	if ((mgr == NULL) || (vf == NULL) ||
 		(mgr->enable == 0))
 		return 0;
