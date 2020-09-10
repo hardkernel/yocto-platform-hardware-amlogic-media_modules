@@ -475,4 +475,7 @@ int show_stream_buffer_status(char *buf,
 extern int get_double_write_ratio(int dw_mode);
 
 bool is_support_no_parser(void);
+
+int vdec_resource_checking(struct vdec_s *vdec);
+
 #endif				/* VDEC_H */
