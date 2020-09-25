@@ -3652,6 +3652,7 @@ static irqreturn_t vmavs_isr_thread_fn(struct vdec_s *vdec, int irq)
 				if (hw->m_ins_flag && vdec_frame_based(hw_to_vdec(hw)))
 					set_vframe_pts(hw, decode_pic_count, vf);
 
+				vdec_vframe_ready(hw_to_vdec(hw), vf);
 				kfifo_put(&hw->display_q,
 						  (const struct vframe_s *)vf);
 				avs_vf_notify_receiver(hw, PROVIDER_NAME,
