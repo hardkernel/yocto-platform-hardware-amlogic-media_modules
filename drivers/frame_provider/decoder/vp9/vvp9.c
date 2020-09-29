@@ -9584,6 +9584,12 @@ static int amvdec_vp9_probe(struct platform_device *pdev)
 #ifndef MULTI_INSTANCE_SUPPORT
 	int i;
 #endif
+	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		pr_info("vp9 unsupported on cpu 0x%x\n", get_cpu_major_id());
+		return -EINVAL;
+	}
 	pr_debug("%s\n", __func__);
 
 	mutex_lock(&vvp9_mutex);
@@ -10798,6 +10804,13 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 
 	struct BUF_s BUF[MAX_BUF_NUM];
 	struct VP9Decoder_s *pbi = NULL;
+
+	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+		pr_info("vp9 unsupported on cpu 0x%x\n", get_cpu_major_id());
+		return -EINVAL;
+	}
 	pr_debug("%s\n", __func__);
 
 	if (pdata == NULL) {
@@ -11251,30 +11264,20 @@ static int __init amvdec_vp9_driver_init_module(void)
 		return -ENODEV;
 	}
 
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
-		amvdec_vp9_profile.profile =
-				"8k, 10bit, dwrite, compressed, fence";
-	} else if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_GXL
-		/*&& get_cpu_major_id() != MESON_CPU_MAJOR_ID_GXLX*/
-		&& get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TXL) {
-			if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_TXLX) {
-				if (vdec_is_support_4k())
-					amvdec_vp9_profile.profile =
-						"4k, 10bit, dwrite, compressed, fence";
-				else
-					amvdec_vp9_profile.profile =
-						"10bit, dwrite, compressed, fence";
-			} else {
-				if (vdec_is_support_4k())
-					amvdec_vp9_profile.profile =
-						"4k, 10bit, dwrite, compressed, fence";
-				else
-					amvdec_vp9_profile.profile =
-						"10bit, dwrite, compressed, fence";
-			}
-
-	} else {
+	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXL ||
+		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
 		amvdec_vp9_profile.name = "vp9_unsupport";
+	} else if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
+		amvdec_vp9_profile.profile =
+			"8k, 10bit, dwrite, compressed, fence";
+	} else {
+		if (vdec_is_support_4k())
+			amvdec_vp9_profile.profile =
+				"4k, 10bit, dwrite, compressed, fence";
+		else
+			amvdec_vp9_profile.profile =
+				"10bit, dwrite, compressed, fence";
 	}
 
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A)

@@ -8435,13 +8435,12 @@ static int amvdec_av1_probe(struct platform_device *pdev)
 #ifndef MULTI_INSTANCE_SUPPORT
 	int i;
 #endif
-	pr_debug("%s\n", __func__);
-
-	if (!(is_cpu_tm2_revb() ||
-	(get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2))) {
-		pr_err("unsupport av1, cpu %d, is_tm2_revb %d\n",
+	if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_TM2) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) ||
+		((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TM2) && !is_meson_rev_b())) {
+		pr_err("av1 unsupported on cpu %d, is_tm2_revb %d\n",
 			get_cpu_major_id(), is_cpu_tm2_revb());
-		return -EFAULT;
+		return -EINVAL;
 	}
 
 	mutex_lock(&vav1_mutex);
@@ -9341,13 +9340,13 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 
 	struct BUF_s BUF[MAX_BUF_NUM];
 	struct AV1HW_s *hw = NULL;
-	pr_debug("%s\n", __func__);
 
-	if (!(is_cpu_tm2_revb() ||
-	(get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2))) {
-		pr_err("unsupport av1, cpu %d, is_tm2_revb %d\n",
+	if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_TM2) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) ||
+		((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TM2) && !is_meson_rev_b())) {
+		pr_err("av1 unsupported on cpu %d, is_tm2_revb %d\n",
 			get_cpu_major_id(), is_cpu_tm2_revb());
-		return -EFAULT;
+		return -EINVAL;
 	}
 
 	if (pdata == NULL) {
@@ -9729,12 +9728,10 @@ static struct mconfig_node av1_node;
 
 static int __init amvdec_av1_driver_init_module(void)
 {
-
 	struct BuffInfo_s *p_buf_info;
 #ifdef BUFMGR_ONLY_OLD_CHIP
 	debug |= AOM_DEBUG_BUFMGR_ONLY;
 #endif
-
 	if (vdec_is_support_4k()) {
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)
 			p_buf_info = &aom_workbuff_spec[1];
@@ -9771,7 +9768,8 @@ static int __init amvdec_av1_driver_init_module(void)
 		return -ENODEV;
 	}
 
-	if ((get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2) || is_cpu_tm2_revb()) {
+	if (((get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2) || is_cpu_tm2_revb())
+		&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5)) {
 		amvdec_av1_profile.profile =
 				"8k, 10bit, dwrite, compressed, no_head, frame_dv";
 	} else {
