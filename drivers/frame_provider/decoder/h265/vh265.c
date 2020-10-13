@@ -8454,7 +8454,7 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 	if (kfifo_get(&hevc->display_q, &vf)) {
 		struct vframe_s *next_vf;
 
-		ATRACE_COUNTER(__func__, (int)vf);
+		ATRACE_COUNTER(__func__, (long)vf);
 #ifdef MULTI_INSTANCE_SUPPORT
 		ATRACE_COUNTER("get canvas0 addr", vf->canvas0_config[0].phy_addr);
 #else
@@ -8539,7 +8539,7 @@ static void vh265_vf_put(struct vframe_s *vf, void *op_arg)
 	if (!vf)
 		return;
 
-	ATRACE_COUNTER(__func__, (int)vf);
+	ATRACE_COUNTER(__func__, (long)vf);
 #ifdef MULTI_INSTANCE_SUPPORT
 	ATRACE_COUNTER("put canvas0 addr", vf->canvas0_config[0].phy_addr);
 #else
