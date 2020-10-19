@@ -138,7 +138,8 @@ static void pm_vdec_clock_on(int id)
 	} else if (id == VDEC_HEVC) {
 		/* enable hevc clock */
 		amports_switch_gate("clk_hevc_mux", 1);
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A)
+		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
+			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5))
 			amports_switch_gate("clk_hevcb_mux", 1);
 		hevc_clock_hi_enable();
 		hevc_back_clock_hi_enable();
@@ -154,7 +155,8 @@ static void pm_vdec_clock_off(int id)
 	} else if (id == VDEC_HEVC) {
 		/* disable hevc clock */
 		hevc_clock_off();
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A)
+		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
+			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5))
 			hevc_back_clock_off();
 	}
 }
