@@ -226,7 +226,7 @@ struct vdec_mjpeg_hw_s {
 	int dynamic_buf_num_margin;
 	int sidebind_type;
 	int sidebind_channel_id;
-	unsigned int res_ch_flag;
+	u32 res_ch_flag;
 	u32 canvas_mode;
 	u32 canvas_endian;
 };
@@ -318,6 +318,7 @@ static int v4l_res_change(struct vdec_mjpeg_hw_s *hw, int width, int height)
 			vdec_v4l_res_ch_event(ctx);
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
+			ctx->v4l_resolution_change = 1;
 			hw->eos = 1;
 			notify_v4l_eos(hw_to_vdec(hw));
 
@@ -1284,9 +1285,7 @@ static unsigned long run_ready(struct vdec_s *vdec,
 					run_ready_min_buf_num)
 					return 0;
 			} else {
-				if ((hw->res_ch_flag == 1) &&
-				((ctx->state <= AML_STATE_INIT) ||
-				(ctx->state >= AML_STATE_FLUSHING)))
+				if (ctx->v4l_resolution_change)
 					return 0;
 			}
 		} else if (!ctx->v4l_codec_dpb_ready) {
