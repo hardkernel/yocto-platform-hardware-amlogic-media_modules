@@ -4762,7 +4762,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 static void aom_config_work_space_hw(struct AV1HW_s *hw, u32 mask)
 {
 	struct BuffInfo_s *buf_spec = hw->work_space_buf;
-	unsigned int data32;
+	unsigned int data32, data_tmp;
 	av1_print(hw, AOM_DEBUG_HW_MORE, "%s %d\n", __func__, __LINE__);
 	if (debug && hw->init_flag == 0)
 		av1_print(hw, AOM_DEBUG_HW_MORE, "%s %x %x %x %x %x %x %x %x\n",
@@ -4891,9 +4891,9 @@ static void aom_config_work_space_hw(struct AV1HW_s *hw, u32 mask)
 #ifdef AOM_AV1_MMU_DW
     data32 = READ_VREG(HEVC_SAO_CTRL5);
 	if (hw->dw_mmu_enable) {
-		data32 = READ_VREG(HEVC_SAO_CTRL9);
-		data32 |= (1<<10);
-		WRITE_VREG(HEVC_SAO_CTRL9, data32);
+		data_tmp = READ_VREG(HEVC_SAO_CTRL9);
+		data_tmp |= (1<<10);
+		WRITE_VREG(HEVC_SAO_CTRL9, data_tmp);
 
 	    WRITE_VREG(HEVC_CM_BODY_LENGTH2,losless_comp_body_size_dw);
 	    WRITE_VREG(HEVC_CM_HEADER_OFFSET2,losless_comp_body_size_dw);

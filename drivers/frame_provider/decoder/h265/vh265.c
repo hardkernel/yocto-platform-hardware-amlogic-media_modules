@@ -76,7 +76,9 @@ to enable DV of frame mode
 #define MPRED_MV_BUF_SIZE		(0x40000)
 
 #define MMU_COMPRESS_HEADER_SIZE  0x48000
-#define MMU_COMPRESS_8K_HEADER_SIZE  (0x48000*4)
+#define MMU_COMPRESS_8K_HEADER_SIZE  (MMU_COMPRESS_HEADER_SIZE * 4)
+#define MMU_COMPRESS_HEADER_SIZE_DW  0x48000
+#define DB_NUM 20
 
 #define MAX_FRAME_4K_NUM 0x1200
 #define MAX_FRAME_8K_NUM ((MAX_FRAME_4K_NUM) * 4)
@@ -105,7 +107,9 @@ to enable DV of frame mode
 
 #define SEND_LMEM_WITH_RPM
 #define SUPPORT_10BIT
+#define H265_10B_MMU_DW
 /* #define ERROR_HANDLE_DEBUG */
+
 
 #ifndef STAT_KTHREAD
 #define STAT_KTHREAD 0x40
@@ -232,6 +236,7 @@ static const char * const matrix_coeffs_names[] = {
 	"YCgCo", "bt2020nc", "bt2020c"
 };
 */
+
 #ifdef SUPPORT_10BIT
 #define HEVC_CM_BODY_START_ADDR                    0x3626
 #define HEVC_CM_BODY_LENGTH                        0x3627
@@ -941,6 +946,10 @@ struct BuffInfo_s {
 	struct buff_s dblk_data2;
 	struct buff_s mmu_vbh;
 	struct buff_s cm_header;
+#ifdef H265_10B_MMU_DW
+	struct buff_s mmu_vbh_dw;
+	struct buff_s cm_header_dw;
+#endif
 	struct buff_s mpred_above;
 #ifdef MV_USE_FIXED_BUF
 	struct buff_s mpred_mv;
@@ -948,6 +957,10 @@ struct BuffInfo_s {
 	struct buff_s rpm;
 	struct buff_s lmem;
 };
+
+#define VBH_BUF_SIZE (2 * 16 * 2304)
+#define VBH_BUF_COUNT 4
+
 #define WORK_BUF_SPEC_NUM 3
 static struct BuffInfo_s amvh265_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 	{
@@ -1034,6 +1047,14 @@ static struct BuffInfo_s amvh265_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 		.cm_header = {/* 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)*/
 			.buf_size = MMU_COMPRESS_HEADER_SIZE *
 			(MAX_REF_PIC_NUM + 1),
+		},
+#endif
+#ifdef H265_10B_MMU_DW
+		.mmu_vbh_dw = {
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*2304/4, 4K
+		},
+		.cm_header_dw = {
+			.buf_size = MMU_COMPRESS_HEADER_SIZE_DW * DB_NUM, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
 		},
 #endif
 		.mpred_above = {
@@ -1133,6 +1154,14 @@ static struct BuffInfo_s amvh265_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 			(MAX_REF_PIC_NUM + 1),
 		},
 #endif
+#ifdef H265_10B_MMU_DW
+		.mmu_vbh_dw = {
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*(more than 2304)/4, 4K
+		},
+		.cm_header_dw = {
+			.buf_size = MMU_COMPRESS_HEADER_SIZE_DW * DB_NUM, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+		},
+#endif
 		.mpred_above = {
 			.buf_size = 0x8000,
 		},
@@ -1208,6 +1237,14 @@ static struct BuffInfo_s amvh265_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 				MAX_REF_PIC_NUM, 	// 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
 		},
 #endif
+#ifdef H265_10B_MMU_DW
+		.mmu_vbh_dw = {
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*2304/4, 4K
+		},
+		.cm_header_dw = {
+			.buf_size = MMU_COMPRESS_HEADER_SIZE_DW * DB_NUM, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+		},
+#endif
 		.mpred_above = {
 			.buf_size = 0x8000*2,
 		},
@@ -1224,6 +1261,7 @@ static struct BuffInfo_s amvh265_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 		},
 	}
 };
+
 
 static void init_buff_spec(struct hevc_state_s *hevc,
 	struct BuffInfo_s *buf_spec)
@@ -1259,8 +1297,17 @@ static void init_buff_spec(struct hevc_state_s *hevc,
 		buf_spec->dblk_data.buf_start + buf_spec->dblk_data.buf_size;
 	buf_spec->mmu_vbh.buf_start  =
 		buf_spec->dblk_data2.buf_start + buf_spec->dblk_data2.buf_size;
+#ifdef H265_10B_MMU_DW
+	buf_spec->mmu_vbh_dw.buf_start =
+		buf_spec->cm_header.buf_start + buf_spec->mmu_vbh.buf_size;
+	buf_spec->cm_header_dw.buf_start =
+		buf_spec->mmu_vbh_dw.buf_start + buf_spec->mmu_vbh_dw.buf_size;
+	buf_spec->mpred_above.buf_start =
+		buf_spec->cm_header_dw.buf_start + buf_spec->cm_header_dw.buf_size;
+#else
 	buf_spec->mpred_above.buf_start =
 		buf_spec->mmu_vbh.buf_start + buf_spec->mmu_vbh.buf_size;
+#endif
 #ifdef MV_USE_FIXED_BUF
 	buf_spec->mpred_mv.buf_start =
 		buf_spec->mpred_above.buf_start +
@@ -1329,6 +1376,14 @@ static void init_buff_spec(struct hevc_state_s *hevc,
 		hevc_print(hevc, 0,
 			"dblk_data2.buf_start       :%x\n",
 			buf_spec->dblk_data2.buf_start);
+#ifdef H265_10B_MMU_DW
+		hevc_print(hevc, 0,
+			"mmu_vbh_dw.buf_start       :%x\n",
+			buf_spec->mmu_vbh_dw.buf_start);
+		hevc_print(hevc, 0,
+			"cm_header_dw.buf_start     :%x\n",
+			buf_spec->cm_header_dw.buf_start);
+#endif
 		hevc_print(hevc, 0,
 			"mpred_above.buf_start     :%x\n",
 			buf_spec->mpred_above.buf_start);
@@ -1431,6 +1486,9 @@ struct PIC_s {
 #endif
 #ifdef LOSLESS_COMPRESS_MODE
 	unsigned int losless_comp_body_size;
+#endif
+#ifdef H265_10B_MMU_DW
+	u32 header_dw_adr;
 #endif
 	unsigned char pic_struct;
 	int vf_ref;
@@ -1735,12 +1793,15 @@ struct hevc_state_s {
 	u32 sei_present_flag;
 	void *frame_mmu_map_addr;
 	dma_addr_t frame_mmu_map_phy_addr;
-	unsigned int mmu_mc_buf_start;
-	unsigned int mmu_mc_buf_end;
-	unsigned int mmu_mc_start_4k_adr;
 	void *mmu_box;
 	void *bmmu_box;
 	int mmu_enable;
+#ifdef H265_10B_MMU_DW
+	void *frame_dw_mmu_map_addr;
+	dma_addr_t frame_dw_mmu_map_phy_addr;
+	void *mmu_box_dw;
+	int dw_mmu_enable;
+#endif
 
 	unsigned int dec_status;
 
@@ -1916,7 +1977,7 @@ void check_head_error(struct hevc_state_s *hevc)
 
 #ifdef SUPPORT_10BIT
 /* Losless compression body buffer size 4K per 64x32 (jt) */
-static  int  compute_losless_comp_body_size(struct hevc_state_s *hevc,
+static int compute_losless_comp_body_size(struct hevc_state_s *hevc,
 	int width, int height, int mem_saving_mode)
 {
 	int width_x64;
@@ -1939,7 +2000,7 @@ static  int  compute_losless_comp_body_size(struct hevc_state_s *hevc,
 }
 
 /* Losless compression header buffer size 32bytes per 128x64 (jt) */
-static  int  compute_losless_comp_header_size(int width, int height)
+static int compute_losless_comp_header_size(int width, int height)
 {
 	int     width_x128;
 	int     height_x64;
@@ -1955,6 +2016,7 @@ static  int  compute_losless_comp_header_size(int width, int height)
 
 	return  hsize;
 }
+
 #endif
 
 static int add_log(struct hevc_state_s *hevc,
@@ -2023,10 +2085,15 @@ static int get_pic_poc(struct hevc_state_s *hevc,
 #ifdef CONFIG_AMLOGIC_MEDIA_MULTI_DEC
 static int get_valid_double_write_mode(struct hevc_state_s *hevc)
 {
-	return (hevc->m_ins_flag &&
+	u32 dw = (hevc->m_ins_flag &&
 		((double_write_mode & 0x80000000) == 0)) ?
 		hevc->double_write_mode :
 		(double_write_mode & 0x7fffffff);
+	if ((dw & 0x20) && ((dw & 0xf) == 2 || (dw & 0xf) == 3)) {
+		pr_info("MMU doueble write 1:4 not supported !!!\n");
+		dw = 0;
+	}
+	return dw;
 }
 
 static int get_dynamic_buf_num_margin(struct hevc_state_s *hevc)
@@ -2342,6 +2409,10 @@ static int prepare_display_buf(struct vdec_s *vdec, struct PIC_s *pic);
 static int H265_alloc_mmu(struct hevc_state_s *hevc,
 			struct PIC_s *new_pic,	unsigned short bit_depth,
 			unsigned int *mmu_index_adr);
+#ifdef H265_10B_MMU_DW
+static int H265_alloc_mmu_dw(struct hevc_state_s *hevc, struct PIC_s *new_pic,
+		unsigned short bit_depth, unsigned int *mmu_index_adr);
+#endif
 
 #ifdef DETREFILL_ENABLE
 #define DETREFILL_BUF_SIZE (4 * 0x4000)
@@ -2835,7 +2906,12 @@ static void uninit_mmu_buffers(struct hevc_state_s *hevc)
 		decoder_mmu_box_free(hevc->mmu_box);
 		hevc->mmu_box = NULL;
 	}
-
+#ifdef H265_10B_MMU_DW
+	if (hevc->mmu_box_dw) {
+		decoder_mmu_box_free(hevc->mmu_box_dw);
+		hevc->mmu_box_dw = NULL;
+	}
+#endif
 	if (hevc->bmmu_box) {
 		/* release workspace */
 		decoder_bmmu_box_free_idx(hevc->bmmu_box,
@@ -2857,42 +2933,7 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 	return buf_size;
 }
 
-static int init_mmu_box(struct hevc_state_s *hevc)
-{
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
-		CODEC_MM_FLAGS_TVP : 0;
-	int buf_size = 64;
-
-	if ((hevc->max_pic_w * hevc->max_pic_h) > 0 &&
-		(hevc->max_pic_w * hevc->max_pic_h) <= 1920*1088) {
-		buf_size = 24;
-	}
-
-	if (get_dbg_flag(hevc)) {
-		hevc_print(hevc, 0, "%s max_w %d max_h %d\n",
-			__func__, hevc->max_pic_w, hevc->max_pic_h);
-	}
-
-	hevc->need_cache_size = buf_size * SZ_1M;
-	hevc->sc_start_time = get_jiffies_64();
-	if (hevc->mmu_enable
-		&& ((get_double_write_mode(hevc) & 0x10) == 0)) {
-		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
-			MAX_REF_PIC_NUM,
-			buf_size * SZ_1M,
-			tvp_flag
-			);
-		if (!hevc->mmu_box) {
-			hevc_print(hevc, 0, "h265 alloc mmu box failed!!\n");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-static int init_mmu_buffers(struct hevc_state_s *hevc)
+static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
 	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
 		CODEC_MM_FLAGS_TVP : 0;
@@ -2917,7 +2958,21 @@ static int init_mmu_buffers(struct hevc_state_s *hevc)
 			pr_err("h265 alloc mmu box failed!!\n");
 			return -1;
 		}
+#ifdef H265_10B_MMU_DW
+		if (hevc->dw_mmu_enable) {
+			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
+				hevc->index,
+				MAX_REF_PIC_NUM,
+				buf_size * SZ_1M,
+				tvp_flag
+				);
+			if (!hevc->mmu_box_dw)
+				goto dw_mmu_box_failed;
+		}
+#endif
 	}
+	if (bmmu_flag)
+		return 0;
 
 	hevc->bmmu_box = decoder_bmmu_box_alloc_box(DRIVER_NAME,
 			hevc->index,
@@ -2926,14 +2981,22 @@ static int init_mmu_buffers(struct hevc_state_s *hevc)
 			CODEC_MM_FLAGS_CMA_CLEAR |
 			CODEC_MM_FLAGS_FOR_VDECODER |
 			tvp_flag);
-	if (!hevc->bmmu_box) {
-		if (hevc->mmu_box)
-			decoder_mmu_box_free(hevc->mmu_box);
-		hevc->mmu_box = NULL;
-		pr_err("h265 alloc mmu box failed!!\n");
-		return -1;
-	}
+	if (!hevc->bmmu_box)
+		goto bmmu_box_failed;
+
 	return 0;
+bmmu_box_failed:
+#ifdef H265_10B_MMU_DW
+	if (hevc->mmu_box_dw)
+		decoder_mmu_box_free(hevc->mmu_box_dw);
+	hevc->mmu_box_dw = NULL;
+#endif
+dw_mmu_box_failed:
+	if (hevc->mmu_box) {
+		decoder_mmu_box_free(hevc->mmu_box);
+	}
+	hevc->mmu_box = NULL;
+	return -1;
 }
 
 struct buf_stru_s
@@ -3115,10 +3178,18 @@ static void put_mv_buf(struct hevc_state_s *hevc,
 #endif
 }
 
+static int hevc_get_header_size(int w, int h)
+{
+	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
+			(IS_8K_SIZE(w, h)))
+		return ALIGN(MMU_COMPRESS_8K_HEADER_SIZE, 0x10000);
+	else
+		return ALIGN(MMU_COMPRESS_HEADER_SIZE, 0x10000);
+}
+
 static int cal_current_buf_size(struct hevc_state_s *hevc,
 	struct buf_stru_s *buf_stru)
 {
-
 	int buf_size;
 	int pic_width = hevc->pic_w;
 	int pic_height = hevc->pic_h;
@@ -3140,18 +3211,15 @@ static int cal_current_buf_size(struct hevc_state_s *hevc,
 
 	int dw_mode = get_double_write_mode(hevc);
 
-	if (hevc->mmu_enable) {
-		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-			(IS_8K_SIZE(hevc->pic_w, hevc->pic_h)))
-			buf_size = ((MMU_COMPRESS_8K_HEADER_SIZE + 0xffff) >> 16)
-				<< 16;
-		else
-			buf_size = ((MMU_COMPRESS_HEADER_SIZE + 0xffff) >> 16)
-				<< 16;
-	} else
+	if (hevc->mmu_enable)
+		buf_size = hevc_get_header_size(hevc->pic_w, hevc->pic_h);
+	else
 		buf_size = 0;
-
-	if (dw_mode) {
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable)
+		buf_size += hevc_get_header_size(hevc->pic_w, hevc->pic_h);
+#endif
+	if (dw_mode && ((dw_mode & 0x20) == 0)) {
 		int pic_width_dw = pic_width /
 			get_double_write_ratio(dw_mode);
 		int pic_height_dw = pic_height /
@@ -3194,15 +3262,6 @@ static int cal_current_buf_size(struct hevc_state_s *hevc,
 		mc_buffer_size_u_v_h, buf_size);
 
 	return buf_size;
-}
-
-static int hevc_get_header_size(int w, int h)
-{
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-			(IS_8K_SIZE(w, h)))
-		return ALIGN(MMU_COMPRESS_8K_HEADER_SIZE, 0x10000);
-	else
-		return ALIGN(MMU_COMPRESS_HEADER_SIZE, 0x10000);
 }
 
 static struct internal_comp_buf* v4lfb_to_icomp_buf(
@@ -3575,17 +3634,27 @@ static int config_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 
 	if (hevc->mmu_enable) {
 		pic->header_adr = hevc->m_BUF[i].start_adr;
-		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-			(IS_8K_SIZE(hevc->pic_w, hevc->pic_h)))
-			y_adr = hevc->m_BUF[i].start_adr +
-				MMU_COMPRESS_8K_HEADER_SIZE;
-		else
-			y_adr = hevc->m_BUF[i].start_adr +
-				MMU_COMPRESS_HEADER_SIZE;
+		y_adr = hevc->m_BUF[i].start_adr +
+			hevc_get_header_size(hevc->pic_w, hevc->pic_h);
 	} else
 		y_adr = hevc->m_BUF[i].start_adr;
 
 	y_adr = ((y_adr + 0xffff) >> 16) << 16; /*64k alignment*/
+
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable) {
+#ifdef USE_FIXED_MMU_DW_HEADER
+		pic->header_dw_adr = hevc->work_space_buf->cm_header_dw.buf_start +
+			(i * MMU_COMPRESS_HEADER_SIZE_DW);
+#else
+		pic->header_dw_adr = y_adr;
+		y_adr = pic->header_dw_adr +
+			hevc_get_header_size(hevc->pic_w, hevc->pic_h);
+#endif
+		hevc_print(hevc, H265_DEBUG_BUFMGR,
+			"MMU header_dw_adr %d: %x\n", pic->header_dw_adr);
+	}
+#endif
 
 	pic->POC = INVALID_POC;
 	/*ensure get_pic_by_POC()
@@ -3593,8 +3662,7 @@ static int config_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 	pic->BUF_index = i;
 
 	if ((!hevc->mmu_enable) &&
-		((dw_mode & 0x10) == 0)
-		) {
+		((dw_mode & 0x10) == 0)) {
 		pic->mc_y_adr = y_adr;
 		y_adr += (buf_stru.mc_buffer_size_h << 16);
 	}
@@ -3609,7 +3677,7 @@ static int config_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 
 		pic->dw_y_adr = pic->mc_y_adr;
 		pic->dw_u_v_adr = pic->mc_u_v_adr;
-	} else if (dw_mode) {
+	} else if (dw_mode && (dw_mode & 0x20) == 0) {
 		pic->dw_y_adr = y_adr;
 		pic->dw_u_v_adr = pic->dw_y_adr +
 			((buf_stru.mc_buffer_size_u_v_h << 16) << 1);
@@ -3620,8 +3688,7 @@ static int config_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 		"%s index %d BUF_index %d mc_y_adr %x\n",
 		 __func__, pic->index,
 		 pic->BUF_index, pic->mc_y_adr);
-		if (hevc->mmu_enable &&
-			dw_mode)
+		if (hevc->mmu_enable && dw_mode)
 			hevc_print(hevc, 0,
 			"mmu double write  adr %ld\n",
 			 pic->cma_alloc_addr);
@@ -3723,7 +3790,7 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 {
 
 	struct BuffInfo_s *buf_spec = hevc->work_space_buf;
-	unsigned int data32;
+	unsigned int data32, data_tmp;
 
 	int losless_comp_header_size =
 		compute_losless_comp_header_size(hevc->pic_w,
@@ -3732,7 +3799,6 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 		hevc->pic_w, hevc->pic_h, hevc->mem_saving_mode);
 
 	hevc->losless_comp_body_size = losless_comp_body_size;
-
 
 	if (hevc->mmu_enable) {
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, (0x1 << 4));
@@ -3768,7 +3834,34 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 		data32 |= (1<<10);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 	}
+#ifdef H265_10B_MMU_DW
+	data32 = READ_VREG(HEVC_SAO_CTRL5);
+	if (hevc->dw_mmu_enable) {
+		data_tmp = READ_VREG(HEVC_SAO_CTRL9);
+		data_tmp |= (1 << 10);
+		WRITE_VREG(HEVC_SAO_CTRL9, data_tmp);
 
+	    WRITE_VREG(HEVC_CM_BODY_LENGTH2,
+			losless_comp_header_size);
+	    WRITE_VREG(HEVC_CM_HEADER_OFFSET2,
+			losless_comp_header_size);
+	    WRITE_VREG(HEVC_CM_HEADER_LENGTH2,
+			losless_comp_header_size);
+
+		WRITE_VREG(HEVC_SAO_MMU_VH0_ADDR2,
+			buf_spec->mmu_vbh_dw.buf_start);
+		WRITE_VREG(HEVC_SAO_MMU_VH1_ADDR2,
+			buf_spec->mmu_vbh_dw.buf_start + VBH_BUF_SIZE);
+		WRITE_VREG(HEVC_DW_VH0_ADDDR,
+			buf_spec->mmu_vbh_dw.buf_start + (2 * VBH_BUF_SIZE));
+		WRITE_VREG(HEVC_DW_VH1_ADDDR,
+			buf_spec->mmu_vbh_dw.buf_start + (3 * VBH_BUF_SIZE));
+	    /* use HEVC_CM_HEADER_START_ADDR */
+	    data32 |= (1 << 15);
+	} else
+		data32 &= ~(1 << 15);
+	WRITE_VREG(HEVC_SAO_CTRL5, data32);
+#endif
 	if (!hevc->m_ins_flag)
 		hevc_print(hevc, 0,
 			"%s: (%d, %d) body_size 0x%x header_size 0x%x\n",
@@ -4742,6 +4835,15 @@ static void hevc_config_work_space_hw(struct hevc_state_s *hevc)
 				"write HEVC_DBLK_CFG3\n");
 	}
 #endif
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable) {
+	    //WRITE_VREG(HEVC_ASSIST_MMU_MAP_ADDR2, FRAME_MMU_MAP_ADDR_DW);
+	    WRITE_VREG(HEVC_SAO_MMU_DMA_CTRL2, hevc->frame_dw_mmu_map_phy_addr);
+		//default of 0xffffffff will disable dw
+	    WRITE_VREG(HEVC_SAO_Y_START_ADDR, 0);
+	    WRITE_VREG(HEVC_SAO_C_START_ADDR, 0);
+	}
+#endif
 	/* cfg_p_addr */
 	WRITE_VREG(HEVC_DBLK_CFG4, buf_spec->dblk_para.buf_start);
 	/* cfg_d_addr */
@@ -5029,7 +5131,6 @@ static void decoder_hw_reset(void)
 	WRITE_VREG(HEVCD_IPP_TOP_CNTL, (1 << 1) |	/* enable ipp */
 			   (0 << 0)	/* software reset ipp and mpp */
 			  );
-
 }
 
 #ifdef CONFIG_HEVC_CLK_FORCED_ON
@@ -5415,6 +5516,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 	int mc_buffer_size_u_v_h = (mc_buffer_size_u_v + 0xffff) >> 16;
 	struct PIC_s *cur_pic = hevc->cur_pic;
 	struct aml_vcodec_ctx * v4l2_ctx = hevc->v4l2_ctx;
+	int dw_mode = get_double_write_mode(hevc);
 
 	data32 = READ_VREG(HEVC_SAO_CTRL0);
 	data32 &= (~0xf);
@@ -5431,34 +5533,42 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 		WRITE_VREG(HEVC_SAO_Y_START_ADDR, 0xffffffff);
 #ifdef LOSLESS_COMPRESS_MODE
 /*SUPPORT_10BIT*/
-	if ((get_double_write_mode(hevc) & 0x10) == 0) {
+	if ((dw_mode & 0x10) == 0) {
 		data32 = READ_VREG(HEVC_SAO_CTRL5);
 		data32 &= (~(0xff << 16));
+		if ((READ_VREG(HEVC_SAO_CTRL9) & (1<<10)) == 0) {
+			if ((dw_mode & 0xf) == 2 ||
+				(dw_mode & 0xf) == 3)
+				data32 |= (0xff<<16);
+			else if ((dw_mode & 0xf) == 4 ||
+				(dw_mode & 0xf) == 5)
+				data32 |= (0x33<<16);
 
-		if (get_double_write_mode(hevc) == 2 ||
-			get_double_write_mode(hevc) == 3)
-			data32 |= (0xff<<16);
-		else if (get_double_write_mode(hevc) == 4 ||
-				get_double_write_mode(hevc) == 5)
-			data32 |= (0x33<<16);
-
-		if (hevc->mem_saving_mode == 1)
-			data32 |= (1 << 9);
-		else
-			data32 &= ~(1 << 9);
-		if (workaround_enable & 1)
-			data32 |= (1 << 7);
+			if (hevc->mem_saving_mode == 1)
+				data32 |= (1 << 9);
+			else
+				data32 &= ~(1 << 9);
+			if (workaround_enable & 1)
+				data32 |= (1 << 7);
+		}
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 	}
 	data32 = cur_pic->mc_y_adr;
-	if (get_double_write_mode(hevc))
+	if (dw_mode && ((dw_mode & 0x20) == 0))
 		WRITE_VREG(HEVC_SAO_Y_START_ADDR, cur_pic->dw_y_adr);
 
-	if ((get_double_write_mode(hevc) & 0x10) == 0)
+	if ((dw_mode & 0x10) == 0)
 		WRITE_VREG(HEVC_CM_BODY_START_ADDR, data32);
 
 	if (hevc->mmu_enable)
 		WRITE_VREG(HEVC_CM_HEADER_START_ADDR, cur_pic->header_adr);
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable) {
+		WRITE_VREG(HEVC_SAO_Y_START_ADDR, 0);
+		WRITE_VREG(HEVC_SAO_C_START_ADDR, 0);
+		WRITE_VREG(HEVC_CM_HEADER_START_ADDR2, cur_pic->header_dw_adr);
+	}
+#endif
 #else
 	data32 = cur_pic->mc_y_adr;
 	WRITE_VREG(HEVC_SAO_Y_START_ADDR, data32);
@@ -5468,7 +5578,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 
 #ifdef LOSLESS_COMPRESS_MODE
 /*SUPPORT_10BIT*/
-	if (get_double_write_mode(hevc))
+	if (dw_mode && ((dw_mode & 0x20) == 0))
 		WRITE_VREG(HEVC_SAO_C_START_ADDR, cur_pic->dw_u_v_adr);
 #else
 	data32 = cur_pic->mc_u_v_adr;
@@ -5479,7 +5589,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 
 #ifdef LOSLESS_COMPRESS_MODE
 /*SUPPORT_10BIT*/
-	if (get_double_write_mode(hevc)) {
+	if (dw_mode && ((dw_mode & 0x20) == 0)) {
 		WRITE_VREG(HEVC_SAO_Y_WPTR, cur_pic->dw_y_adr);
 		WRITE_VREG(HEVC_SAO_C_WPTR, cur_pic->dw_u_v_adr);
 	}
@@ -5503,9 +5613,9 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 			if (hevc->pic_w >= 1280)
 				data32 |= (0x1 << 4); /*dblk pipeline mode=1 for performance*/
 			data32 &= (~0x300); /*[8]:first write enable (compress)  [9]:double write enable (uncompress)*/
-			if (get_double_write_mode(hevc) == 0)
+			if (dw_mode == 0)
 				data32 |= (0x1 << 8); /*enable first write*/
-			else if (get_double_write_mode(hevc) == 0x10)
+			else if (dw_mode == 0x10)
 				data32 |= (0x1 << 9); /*double write only*/
 			else
 				data32 |= ((0x1 << 8)  |(0x1 << 9));
@@ -5545,7 +5655,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 			/*}*/
 		}
 	}
-#if 0
+#if 0 //DOS_PROJECT
 	data32 = READ_VREG(HEVC_SAO_CTRL1);
 	data32 &= (~0x3000);
 	data32 |= (hevc->mem_map_mode <<
@@ -5577,22 +5687,30 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
  */
 	data32 &= (~0xff0);
 	/* data32 |= 0x670;  // Big-Endian per 64-bit */
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable == 0)
+		data32 |= endian;
+#else
 	data32 |= endian;	/* Big-Endian per 64-bit */
+#endif
 	data32 &= (~0x3); /*[1]:dw_disable [0]:cm_disable*/
-	if (get_double_write_mode(hevc) == 0)
+	if (dw_mode == 0)
 		data32 |= 0x2; /*disable double write*/
-	else if (get_double_write_mode(hevc) & 0x10)
+	else if (dw_mode & 0x10)
 		data32 |= 0x1; /*disable cm*/
 	 if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) {
 			unsigned int data;
-			data = (0x57 << 8) |  /* 1st/2nd write both enable*/
-				(0x0  << 0);   /* h265 video format*/
+			if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)
+				data = (0xff << 8) | (0x0  << 0);
+			else
+				data = (0x57 << 8) |  /* 1st/2nd write both enable*/
+					(0x0  << 0);   /* h265 video format*/
 			if (hevc->pic_w >= 1280)
 				data |= (0x1 << 4); /*dblk pipeline mode=1 for performance*/
 			data &= (~0x300); /*[8]:first write enable (compress)  [9]:double write enable (uncompress)*/
-			if (get_double_write_mode(hevc) == 0)
+			if (dw_mode == 0)
 				data |= (0x1 << 8); /*enable first write*/
-			else if (get_double_write_mode(hevc) & 0x10)
+			else if (dw_mode & 0x10)
 				data |= (0x1 << 9); /*double write only*/
 			else
 				data |= ((0x1 << 8)  |(0x1 << 9));
@@ -5624,7 +5742,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 	*/
 
 	WRITE_VREG(HEVC_SAO_CTRL1, data32);
-	if (get_double_write_mode(hevc) & 0x10) {
+	if (dw_mode & 0x10) {
 		/* [23:22] dw_v1_ctrl
 		 *[21:20] dw_v0_ctrl
 		 *[19:18] dw_h1_ctrl
@@ -5664,6 +5782,18 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 	* [31:13] reserved
 	*/
 	WRITE_VREG(HEVCD_IPP_AXIIF_CONFIG, data32);
+#endif
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable) {
+		WRITE_VREG(HEVC_SAO_MMU_VH0_ADDR2,
+			hevc->work_space_buf->mmu_vbh_dw.buf_start);
+		WRITE_VREG(HEVC_SAO_MMU_VH1_ADDR2,
+			hevc->work_space_buf->mmu_vbh_dw.buf_start + VBH_BUF_SIZE);
+		WRITE_VREG(HEVC_DW_VH0_ADDDR,
+			hevc->work_space_buf->mmu_vbh_dw.buf_start + (2 * VBH_BUF_SIZE));
+		WRITE_VREG(HEVC_DW_VH1_ADDDR,
+			hevc->work_space_buf->mmu_vbh_dw.buf_start + (3 * VBH_BUF_SIZE));
+	}
 #endif
 	data32 = 0;
 	data32_2 = READ_VREG(HEVC_SAO_CTRL0);
@@ -5891,6 +6021,21 @@ static struct PIC_s *get_new_pic(struct hevc_state_s *hevc,
 				return NULL;
 			}
 		}
+#ifdef H265_10B_MMU_DW
+		if (hevc->dw_mmu_enable) {
+			ret = H265_alloc_mmu_dw(hevc, new_pic,
+				rpm_param->p.bit_depth,
+				hevc->frame_dw_mmu_map_addr);
+			if (ret != 0) {
+				put_mv_buf(hevc, new_pic);
+				hevc_print(hevc, 0,
+				"can't alloc need mmu_dw_1,idx %d ret =%d\n",
+				new_pic->decode_idx,
+				ret);
+				return NULL;
+			}
+		}
+#endif
 		new_pic->referenced = 1;
 		new_pic->decode_idx = hevc->decode_idx;
 		new_pic->slice_idx = 0;
@@ -6016,7 +6161,6 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 			return NULL;
 		}
 	}
-
 	new_pic->referenced = 1;
 	new_pic->decode_idx = hevc->decode_idx;
 	new_pic->slice_idx = 0;
@@ -7762,7 +7906,40 @@ static int H265_alloc_mmu(struct hevc_state_s *hevc, struct PIC_s *new_pic,
 		cur_mmu_4k_number, ret);
 	return ret;
 }
+#ifdef H265_10B_MMU_DW
+static int H265_alloc_mmu_dw(struct hevc_state_s *hevc, struct PIC_s *new_pic,
+		unsigned short bit_depth, unsigned int *mmu_index_adr) {
+	int bit_depth_10 = (bit_depth != 0x00);
+	int cur_mmu_4k_number;
+	int ret;
 
+	if (!hevc->mmu_box_dw) {
+		hevc_print(hevc, 0,
+			"%s, error no mmu box dw!\n", __func__);
+		return -1;
+	}
+
+	if (get_double_write_mode(hevc) == 0x10)
+		return 0;
+
+	cur_mmu_4k_number = hevc_mmu_page_num(hevc, new_pic->width,
+			new_pic->height, !bit_depth_10);
+	if (cur_mmu_4k_number < 0)
+		return -1;
+
+	ret = decoder_mmu_box_alloc_idx(
+			hevc->mmu_box_dw,
+			new_pic->index,
+			cur_mmu_4k_number,
+			mmu_index_adr);
+
+	hevc_print(hevc, H265_DEBUG_BUFMGR_MORE,
+		"%s pic index %d page count(%d) ret =%d\n",
+		__func__, new_pic->index,
+		cur_mmu_4k_number, ret);
+	return ret;
+}
+#endif
 
 static void release_pic_mmu_buf(struct hevc_state_s *hevc,
 	struct PIC_s *pic)
@@ -7783,6 +7960,10 @@ static void release_pic_mmu_buf(struct hevc_state_s *hevc,
 			decoder_mmu_box_free_idx(ibuf->mmu_box, ibuf->index);
 		}
 	}
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable)
+		decoder_mmu_box_free_idx(hevc->mmu_box_dw, pic->index);
+#endif
 	pic->scatter_alloc = 0;
 }
 
@@ -7842,7 +8023,16 @@ static void hevc_local_uninit(struct hevc_state_s *hevc)
 
 		hevc->frame_mmu_map_addr = NULL;
 	}
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable && hevc->frame_dw_mmu_map_addr) {
+		if (hevc->frame_dw_mmu_map_phy_addr)
+			dma_free_coherent(amports_get_dma_device(),
+				get_frame_mmu_map_size(), hevc->frame_dw_mmu_map_addr,
+					hevc->frame_dw_mmu_map_phy_addr);
 
+		hevc->frame_dw_mmu_map_addr = NULL;
+	}
+#endif
 	//pr_err("[%s line %d] hevc->gvs=0x%p operation\n",__func__, __LINE__, hevc->gvs);
 }
 
@@ -7896,7 +8086,7 @@ static int hevc_local_init(struct hevc_state_s *hevc)
 		hevc->prefix_aux_size = AUX_BUF_ALIGN(prefix_aux_buf_size);
 		hevc->suffix_aux_size = AUX_BUF_ALIGN(suffix_aux_buf_size);
 		aux_buf_size = hevc->prefix_aux_size + hevc->suffix_aux_size;
-		hevc->aux_addr =dma_alloc_coherent(amports_get_dma_device(),
+		hevc->aux_addr = dma_alloc_coherent(amports_get_dma_device(),
 				aux_buf_size, &hevc->aux_phy_addr, GFP_KERNEL);
 		if (hevc->aux_addr == NULL) {
 			pr_err("%s: failed to alloc rpm buffer\n", __func__);
@@ -7923,6 +8113,19 @@ static int hevc_local_init(struct hevc_state_s *hevc)
 		}
 		memset(hevc->frame_mmu_map_addr, 0, get_frame_mmu_map_size());
 	}
+#ifdef H265_10B_MMU_DW
+	if (hevc->dw_mmu_enable) {
+		hevc->frame_dw_mmu_map_addr =
+				dma_alloc_coherent(amports_get_dma_device(),
+				get_frame_mmu_map_size(),
+				&hevc->frame_dw_mmu_map_phy_addr, GFP_KERNEL);
+		if (hevc->frame_dw_mmu_map_addr == NULL) {
+			pr_err("%s: failed to alloc count_buffer\n", __func__);
+			return -1;
+		}
+		memset(hevc->frame_dw_mmu_map_addr, 0, get_frame_mmu_map_size());
+	}
+#endif
 	ret = 0;
 	return ret;
 }
@@ -7959,11 +8162,12 @@ static void set_canvas(struct hevc_state_s *hevc, struct PIC_s *pic)
 
 	/*CANVAS_BLKMODE_64X32*/
 #ifdef SUPPORT_10BIT
-	if	(pic->double_write_mode) {
+	if	(pic->double_write_mode &&
+		((pic->double_write_mode & 0x20) == 0)) {
 		canvas_w = pic->width /
-			get_double_write_ratio(pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode & 0xf);
 		canvas_h = pic->height /
-			get_double_write_ratio(pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode & 0xf);
 
 		if (hevc->mem_map_mode == 0)
 			canvas_w = ALIGN(canvas_w, 32);
@@ -8984,12 +9188,25 @@ static void update_vf_memhandle(struct hevc_state_s *hevc,
 		return;
 
 	if (vf->type & VIDTYPE_SCATTER) {
-		vf->mem_handle =
-			decoder_mmu_box_get_mem_handle(
-				hevc->mmu_box, pic->index);
-		vf->mem_head_handle =
-			decoder_bmmu_box_get_mem_handle(
-				hevc->bmmu_box, VF_BUFFER_IDX(pic->BUF_index));
+#ifdef H265_10B_MMU_DW
+		if (hevc->dw_mmu_enable) {
+			vf->mem_handle =
+				decoder_mmu_box_get_mem_handle(
+					hevc->mmu_box_dw, pic->index);
+			vf->mem_head_handle =
+				decoder_bmmu_box_get_mem_handle(
+					hevc->bmmu_box, VF_BUFFER_IDX(pic->BUF_index));
+		} else
+
+#endif
+		{
+			vf->mem_handle =
+				decoder_mmu_box_get_mem_handle(
+					hevc->mmu_box, pic->index);
+			vf->mem_head_handle =
+				decoder_bmmu_box_get_mem_handle(
+					hevc->bmmu_box, VF_BUFFER_IDX(pic->BUF_index));
+		}
 	} else {
 		vf->mem_handle =
 			decoder_bmmu_box_get_mem_handle(
@@ -9263,22 +9480,39 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 			/* double write only */
 			vf->compBodyAddr = 0;
 			vf->compHeadAddr = 0;
+#ifdef H265_10B_MMU_DW
+			vf->dwBodyAddr = 0;
+			vf->dwHeadAddr = 0;
+#endif
 		} else {
-
-		if (hevc->mmu_enable) {
-			vf->compBodyAddr = 0;
-			vf->compHeadAddr = pic->header_adr;
-		} else {
-			vf->compBodyAddr = pic->mc_y_adr; /*body adr*/
-			vf->compHeadAddr = pic->mc_y_adr +
-						pic->losless_comp_body_size;
-			vf->mem_head_handle = NULL;
-		}
-
-					/*head adr*/
+			if (hevc->mmu_enable) {
+				vf->compBodyAddr = 0;
+				vf->compHeadAddr = pic->header_adr;
+#ifdef H265_10B_MMU_DW
+				vf->dwBodyAddr = 0;
+				vf->dwHeadAddr = 0;
+				if (pic->double_write_mode & 0x20) {
+					u32 mode = pic->double_write_mode & 0xf;
+					if (mode == 5 || mode == 3)
+						vf->dwHeadAddr = pic->header_dw_adr;
+					else if ((mode == 1 || mode == 2 || mode == 4)
+					&& (debug & H265_DEBUG_OUT_PTS) == 0) {
+						vf->compHeadAddr = pic->header_dw_adr;
+						pr_debug("Use dw mmu for display\n");
+					}
+				}
+#endif
+			} else {
+				vf->compBodyAddr = pic->mc_y_adr; /*body adr*/
+				vf->compHeadAddr = pic->mc_y_adr +
+							pic->losless_comp_body_size;
+				vf->mem_head_handle = NULL;
+			}
+			/*head adr*/
 			vf->canvas0Addr = vf->canvas1Addr = 0;
 		}
-		if (pic->double_write_mode) {
+		if (pic->double_write_mode &&
+			((pic->double_write_mode & 0x20) == 0)) {
 			vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD;
 			vf->type |= nv_order;
 
@@ -9355,11 +9589,6 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		if (hevc->discard_dv_data) {
 			vf->discard_dv_data = true;
 		}
-
-		/* if((vf->width!=pic->width)||(vf->height!=pic->height)) */
-		/* hevc_print(hevc, 0,
-			"aaa: %d/%d, %d/%d\n",
-		   vf->width,vf->height, pic->width, pic->height); */
 		vf->width = pic->width;
 		vf->height = pic->height;
 
@@ -9429,9 +9658,18 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		}
 
 		vf->width = vf->width /
-			get_double_write_ratio(pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode & 0xf);
 		vf->height = vf->height /
-			get_double_write_ratio(pic->double_write_mode);
+			get_double_write_ratio(pic->double_write_mode & 0xf);
+
+#ifdef H265_10B_MMU_DW
+		if ((pic->double_write_mode & 0x20) &&
+			((pic->double_write_mode & 0xf) == 2 ||
+			(pic->double_write_mode & 0xf) == 4)) {
+			vf->compWidth = vf->width;
+			vf->compHeight = vf->height;
+		}
+#endif
 #ifdef HEVC_PIC_STRUCT_SUPPORT
 		if (pic->pic_struct == 3 || pic->pic_struct == 4) {
 			struct vframe_s *vf2;
@@ -11098,7 +11336,7 @@ force_output:
 					hevc->pic_w, hevc->pic_h, hevc->param.p.profile_etc, hevc->frame_ar,
 					get_double_write_mode(hevc));
 				/* When dw changed from 0x10 to 1, the mmu_box is NULL */
-				if (!hevc->mmu_box && init_mmu_box(hevc) != 0) {
+				if (!hevc->mmu_box && init_mmu_buffers(hevc, 1) != 0) {
 					hevc->dec_result = DEC_RESULT_FORCE_EXIT;
 					hevc->fatal_error |=
 						DECODER_FATAL_ERROR_NO_MEM;
@@ -11980,7 +12218,7 @@ static s32 vh265_init(struct hevc_state_s *hevc)
 	if (IS_ERR_OR_NULL(fw))
 		return -ENOMEM;
 
-	if (hevc->mmu_enable)
+	if (hevc->mmu_enable) {
 		if (get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_GXM)
 			size = get_firmware_data(VIDEO_DEC_HEVC_MMU, fw->data);
 		else {
@@ -11999,7 +12237,7 @@ static s32 vh265_init(struct hevc_state_s *hevc)
 				size = get_firmware_data(VIDEO_DEC_HEVC_MMU,
 					fw->data);
 		}
-	else
+	} else
 		size = get_firmware_data(VIDEO_DEC_HEVC, fw->data);
 
 	if (size < 0) {
@@ -13403,7 +13641,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			get_cpu_major_id() <= AM_MESON_CPU_MAJOR_ID_GXM)
 			WRITE_VREG(HEVC_STREAM_SWAP_BUFFER2, hevc->swap_addr);
 	} else {
-		if (hevc->mmu_enable)
+		if (hevc->mmu_enable) {
 			if (get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_GXM)
 				loadr = amhevc_vdec_loadmc_ex(VFORMAT_HEVC, vdec,
 						"h265_mmu", hevc->fw->data);
@@ -13428,7 +13666,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 						VFORMAT_HEVC, vdec,
 						"h265_mmu", hevc->fw->data);
 			}
-		else
+		} else
 			loadr = amhevc_vdec_loadmc_ex(VFORMAT_HEVC, vdec,
 					NULL, hevc->fw->data);
 		if (loadr < 0) {
@@ -13615,7 +13853,15 @@ static int amvdec_h265_probe(struct platform_device *pdev)
 		else
 			hevc->mmu_enable = 1;
 	}
-	if (init_mmu_buffers(hevc)) {
+#ifdef H265_10B_MMU_DW
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5D) {
+		hevc->dw_mmu_enable =
+			get_double_write_mode(hevc) & 0x20 ? 1 : 0;
+	} else {
+		hevc->dw_mmu_enable = 0;
+	}
+#endif
+	if (init_mmu_buffers(hevc, 0)) {
 		hevc_print(hevc, 0,
 			"\n 265 mmu init failed!\n");
 		vfree(hevc);
@@ -13632,7 +13878,6 @@ static int amvdec_h265_probe(struct platform_device *pdev)
 		return ret;
 	}
 	hevc->buf_size = work_buf_size;
-
 
 	if (!vdec_secure(pdata)) {
 			tmpbuf = (char *)codec_mm_phys_to_virt(hevc->buf_start);
@@ -14015,7 +14260,7 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 	hevc->platform_dev = pdev;
 
 	if (((get_dbg_flag(hevc) & IGNORE_PARAM_FROM_CONFIG) == 0) &&
-			pdata->config && pdata->config_len) {
+			pdata->config_len) {
 #ifdef CONFIG_AMLOGIC_MEDIA_MULTI_DEC
 		/*use ptr config for doubel_write_mode, etc*/
 		hevc_print(hevc, 0, "pdata->config=%s\n", pdata->config);
@@ -14126,8 +14371,16 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 		else
 			hevc->mmu_enable = 1;
 	}
+#ifdef H265_10B_MMU_DW
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5D) {
+		hevc->dw_mmu_enable =
+			get_double_write_mode(hevc) & 0x20 ? 1 : 0;
+	} else {
+		hevc->dw_mmu_enable = 0;
+	}
+#endif
 
-	if (init_mmu_buffers(hevc) < 0) {
+	if (init_mmu_buffers(hevc, 0) < 0) {
 		hevc_print(hevc, 0,
 			"\n 265 mmu init failed!\n");
 		mutex_unlock(&vh265_mutex);
