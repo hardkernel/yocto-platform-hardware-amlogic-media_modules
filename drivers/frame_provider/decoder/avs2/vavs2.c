@@ -7613,10 +7613,10 @@ static int __init amvdec_avs2_driver_init_module(void)
 		return -ENODEV;
 	}
 
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
-		amvdec_avs2_profile.profile =
-				"8k, 10bit, dwrite, compressed";
-	} else if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) {
+	if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_G12A) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)) {
+		amvdec_avs2_profile.name = "avs2_unsupport";
+	} else if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_SM1) {
 		if (vdec_is_support_4k())
 			amvdec_avs2_profile.profile =
 				"4k, 10bit, dwrite, compressed";
@@ -7624,7 +7624,9 @@ static int __init amvdec_avs2_driver_init_module(void)
 			amvdec_avs2_profile.profile =
 				"10bit, dwrite, compressed";
 	} else {
-		amvdec_avs2_profile.name = "avs2_unsupport";
+		/* cpu id larger than sm1 support 8k */
+		amvdec_avs2_profile.profile =
+				"8k, 10bit, dwrite, compressed";
 	}
 
 	vcodec_profile_register(&amvdec_avs2_profile);

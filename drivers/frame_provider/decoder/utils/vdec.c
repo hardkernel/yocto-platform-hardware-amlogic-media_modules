@@ -709,7 +709,7 @@ static void vdec_disable_DMC(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5) {
 		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
 			& mask))
 			;
@@ -949,6 +949,7 @@ void  vdec_count_info(struct vdec_info *vs, unsigned int err,
 	return;
 }
 EXPORT_SYMBOL(vdec_count_info);
+
 int vdec_is_support_4k(void)
 {
 	return !is_meson_gxl_package_805X();
@@ -1880,7 +1881,7 @@ void hevc_wait_ddr(void)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5) {
 		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
 			& mask))
 			;
@@ -3700,7 +3701,7 @@ void vdec_reset_core(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5) {
 		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
 			& mask))
 			;
@@ -3789,7 +3790,7 @@ void hevc_reset_core(struct vdec_s *vdec)
 		codec_dmcbus_read(DMC_REQ_CTRL) & ~mask);
 	spin_unlock_irqrestore(&vdec_spin_lock, flags);
 
-	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T5) {
 		while (!(codec_dmcbus_read(T5_DMC_CHAN_STS)
 			& mask))
 			;
@@ -3854,6 +3855,7 @@ void hevc_reset_core(struct vdec_s *vdec)
 	case AM_MESON_CPU_MAJOR_ID_TL1:
 	case AM_MESON_CPU_MAJOR_ID_TM2:
 	case AM_MESON_CPU_MAJOR_ID_T5:
+	case AM_MESON_CPU_MAJOR_ID_T5D:
 		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
 				READ_RESET_REG(RESET7_REGISTER_LEVEL) & (~((1<<13))));
 		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),

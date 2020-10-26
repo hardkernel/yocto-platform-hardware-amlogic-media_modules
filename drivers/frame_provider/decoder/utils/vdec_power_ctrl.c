@@ -21,7 +21,7 @@
 #include <linux/amlogic/power_ctrl.h>
 #include <linux/amlogic/power_domain.h>
 #include <dt-bindings/power/amlogic,pd.h>
-#include <dt-bindings/power/pd.h>
+//#include <dt-bindings/power/pd.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include "../../../common/media_clock/switch/amports_gate.h"
 #include "../../../common/chips/decoder_cpu_ver_info.h"
@@ -29,6 +29,13 @@
 
 #define HEVC_TEST_LIMIT		(100)
 #define GXBB_REV_A_MINOR	(0xa)
+
+
+#define PDID_DSP            0
+#define PDID_DOS_HCODEC             1
+#define PDID_DOS_HEVC               2
+#define PDID_DOS_VDEC               3
+#define PDID_DOS_WAVE               4
 
 extern int no_powerdown;
 extern int hevc_max_reset_count;
@@ -139,7 +146,7 @@ static void pm_vdec_clock_on(int id)
 		/* enable hevc clock */
 		amports_switch_gate("clk_hevc_mux", 1);
 		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
-			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5))
+			(get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_T5))
 			amports_switch_gate("clk_hevcb_mux", 1);
 		hevc_clock_hi_enable();
 		hevc_back_clock_hi_enable();
@@ -156,7 +163,7 @@ static void pm_vdec_clock_off(int id)
 		/* disable hevc clock */
 		hevc_clock_off();
 		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
-			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5))
+			(get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_T5))
 			hevc_back_clock_off();
 	}
 }

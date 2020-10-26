@@ -84,6 +84,8 @@
 
 #define USE_DEC_PIC_END
 
+#define SANITY_CHECK
+#define CO_MV_COMPRESS
 
 #include "vav1.h"
 
@@ -3426,7 +3428,15 @@ static void config_mpred_hw(struct AV1HW_s *hw, unsigned char inter_flag)
 	cur_pic_config->index, last_frame_pic_config->index);*/
 
 	//WRITE_VREG(HEVC_MPRED_CTRL3,0x24122412);
-	WRITE_VREG(HEVC_MPRED_CTRL3, 0x13151315); // 'd19, 'd21 for AV1
+#ifdef CO_MV_COMPRESS
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) {
+		WRITE_VREG(HEVC_MPRED_CTRL3,0x10151015); // 'd10, 'd21 for AV1
+	} else {
+		WRITE_VREG(HEVC_MPRED_CTRL3,0x13151315); // 'd19, 'd21 for AV1
+	}
+#else
+	WRITE_VREG(HEVC_MPRED_CTRL3,0x13151315); // 'd19, 'd21 for AV1
+#endif
 	WRITE_VREG(HEVC_MPRED_ABV_START_ADDR,
 	hw->pbi->work_space_buf->mpred_above.buf_start);
 
@@ -3452,11 +3462,19 @@ static void config_mpred_hw(struct AV1HW_s *hw, unsigned char inter_flag)
 			"WRITE_VREG(HEVC_MPRED_CTRL4, 0x%x)\n", data32);
 	}
 #if 1
-	data32 = (
-		(cm->seq_params.order_hint_info.enable_order_hint << 27) |
+	data32 = ((cm->seq_params.order_hint_info.enable_order_hint << 27) |
 		(cm->seq_params.order_hint_info.order_hint_bits_minus_1 << 24) |
-		(cm->cur_frame->order_hint <<16 ) |
-		(0x13 << 8) | (0x13 << 0));
+		(cm->cur_frame->order_hint << 16 ));
+#ifdef CO_MV_COMPRESS
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) {
+		data32 |= (0x10 << 8) | (0x10 << 0);
+	} else {
+		data32 |= (0x13 << 8) | (0x13 << 0);
+	}
+#else
+		data32 |= (0x13 << 8) | (0x13 << 0);
+#endif
+
 #else
 	data32 = READ_VREG(HEVC_MPRED_L0_REF00_POC);
 	data32 &= (~(0xff << 16));
@@ -6886,7 +6904,10 @@ static void  config_mcrcc_axi_hw_nearest_ref(struct AV1HW_s *hw)
 
 int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 {
-	int ret;
+	int ret = 0;
+#ifdef SANITY_CHECK
+	param_t* params = &hw->aom_param;
+#endif
 #if 1
 	//def CHANGE_DONE
 	AV1Decoder *pbi = hw->pbi;
@@ -6930,18 +6951,47 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 	} else {
 		hw->new_compressed_data = 0;
 	}
-	ret = av1_bufmgr_process(pbi, &hw->aom_param,
-		hw->new_compressed_data, obu_type);
+#ifdef SANITY_CHECK
+	ret = 0;
 	av1_print(hw, AOM_DEBUG_HW_MORE,
-		"%s: pbi %p cm %p cur_frame %p\n",
-		__func__, pbi, cm, cm->cur_frame);
+		"Check Picture size, max (%d, %d), width/height (%d, %d), dec_width %d\n",
+		params->p.max_frame_width,
+		params->p.max_frame_height,
+		params->p.frame_width_scaled,
+		params->p.frame_height,
+		params->p.dec_frame_width
+	);
 
-	av1_print(hw, AOM_DEBUG_HW_MORE,
-		"1+++++++++++++++++++++++++++++++++++%d %p\n",
-		ret, cm->cur_frame);
-	if (hw->new_compressed_data)
-		WRITE_VREG(PIC_END_LCU_COUNT, 0);
+	if (/*params->p.max_frame_width > MAX_PIC_WIDTH ||
+	params->p.max_frame_height > MAX_PIC_HEIGHT ||*/
+	(params->p.frame_width_scaled * params->p.frame_height) > MAX_SIZE_8K ||
+	(params->p.dec_frame_width * params->p.frame_height) > MAX_SIZE_8K ||
+	params->p.frame_width_scaled <= 0 ||
+	params->p.dec_frame_width <= 0 ||
+	params->p.frame_height <= 0) {
+		av1_print(hw, 0, "!!Picture size error, max (%d, %d), width/height (%d, %d), dec_width %d\n",
+			params->p.max_frame_width,
+			params->p.max_frame_height,
+			params->p.frame_width_scaled,
+			params->p.frame_height,
+			params->p.dec_frame_width
+		);
+		ret = -1;
+	}
+#endif
+	if (ret >= 0) {
+		ret = av1_bufmgr_process(pbi, &hw->aom_param,
+			hw->new_compressed_data, obu_type);
+		av1_print(hw, AOM_DEBUG_HW_MORE,
+			"%s: pbi %p cm %p cur_frame %p\n",
+			__func__, pbi, cm, cm->cur_frame);
 
+		av1_print(hw, AOM_DEBUG_HW_MORE,
+			"1+++++++++++++++++++++++++++++++++++%d %p\n",
+			ret, cm->cur_frame);
+		if (hw->new_compressed_data)
+			WRITE_VREG(PIC_END_LCU_COUNT, 0);
+	}
 	if (ret > 0) {
 		/* the case when cm->show_existing_frame is 1 */
 		/*case 3016*/
@@ -7960,11 +8010,9 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 
 			}
 			/*
-			if (debug &
-				AV1_DEBUG_BUFMGR_MORE)
+			if (debug & AV1_DEBUG_BUFMGR_MORE)
 				dump_aux_buf(hw);
-			set_aux_data(hw,
-				&cm->cur_frame->buf, 0, 0);
+			set_aux_data(hw, &cm->cur_frame->buf, 0, 0);
 			*/
 			if (/*hw->vf_pre_count == 0 ||*/ hw->low_latency_flag)
 				av1_postproc(hw);
@@ -7991,7 +8039,6 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
             av1_print(hw, AOM_DEBUG_HW_MORE,
             	"PIC_END, fgs_valid %d search head ...\n",
             	hw->fgs_valid);
-            WRITE_VREG(HEVC_DEC_STATUS_REG, AOM_AV1_SEARCH_HEAD);
 #ifdef USE_DEC_PIC_END
 		    if (READ_VREG(PIC_END_LCU_COUNT) != 0) {
 			    hw->frame_decoded = 1;
@@ -8007,6 +8054,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 				config_next_ref_info_hw(hw);
 			}
 #endif
+			WRITE_VREG(HEVC_DEC_STATUS_REG, AOM_AV1_SEARCH_HEAD);
 			/*
 			if (debug &
 				AV1_DEBUG_BUFMGR_MORE)
