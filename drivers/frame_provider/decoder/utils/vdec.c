@@ -5340,7 +5340,8 @@ int get_double_write_ratio(int dw_mode)
 	if ((dw_mode == 2) ||
 			(dw_mode == 3))
 		ratio = 4;
-	else if (dw_mode == 4)
+	else if ((dw_mode == 4) ||
+				(dw_mode == 5))
 		ratio = 2;
 	return ratio;
 }
