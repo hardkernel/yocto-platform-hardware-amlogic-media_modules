@@ -64,10 +64,10 @@
 			printk(args);\
 	} while (0)
 #define pr_error(fmt, args...) printk("DVB: " fmt, ## args)
-#define pr_inf(fmt, args...)   printk("DVB: " fmt, ## args)
+#define pr_inf(fmt, args...)   printk(fmt, ## args)
 
 MODULE_PARM_DESC(debug_dvb, "\n\t\t Enable dvb debug information");
-static int debug_dvb = 1;
+static int debug_dvb;
 module_param(debug_dvb, int, 0644);
 
 #define CARD_NAME "amlogic-dvb"
@@ -155,7 +155,7 @@ long aml_stb_get_base(int id)
 static void aml_dvb_dmx_release(struct aml_dvb *advb, struct aml_dmx *dmx)
 {
 	int i;
-	pr_dbg("[dmx_kpi] %s Enter.\n", __func__);
+	pr_inf("[dmx_kpi] %s Enter.\n", __func__);
 	dvb_net_release(&dmx->dvb_net);
 	aml_dmx_hw_deinit(dmx);
 	dmx->demux.dmx.close(&dmx->demux.dmx);
@@ -166,7 +166,7 @@ static void aml_dvb_dmx_release(struct aml_dvb *advb, struct aml_dmx *dmx)
 
 	dvb_dmxdev_release(&dmx->dmxdev);
 	dvb_dmx_release(&dmx->demux);
-	pr_dbg("[dmx_kpi] %s Exit.\n", __func__);
+	pr_inf("[dmx_kpi] %s Exit.\n", __func__);
 }
 
 static int aml_dvb_dmx_init(struct aml_dvb *advb, struct aml_dmx *dmx, int id)
@@ -193,7 +193,7 @@ static int aml_dvb_dmx_init(struct aml_dvb *advb, struct aml_dmx *dmx, int id)
 	if (res)
 		dmx->dmx_irq = res->start;
 
-	printk("%s irq num:%d \r\n", buf, dmx->dmx_irq);
+	pr_dbg("%s irq num:%d \r\n", buf, dmx->dmx_irq);
 
 	dmx->source = -1;
 	dmx->dump_ts_select = 0;
@@ -696,7 +696,7 @@ static int aml_dvb_asyncfifo_init(struct aml_dvb *advb,
 	res = platform_get_resource_byname(advb->pdev, IORESOURCE_IRQ, buf);
 	if (res)
 		asyncfifo->asyncfifo_irq = res->start;
-	pr_inf("%s irq num:%d \n", buf, asyncfifo->asyncfifo_irq);
+	pr_dbg("%s irq num:%d \n", buf, asyncfifo->asyncfifo_irq);
 	asyncfifo->dvb = advb;
 	asyncfifo->id = id;
 	asyncfifo->init = 0;
@@ -1246,6 +1246,24 @@ static ssize_t demux##i##_show_free_filters(struct class *class,  \
 	return ret;\
 }
 
+/*Show dmx dev open count*/
+#define DEMUX_DEV_USERS_FUNC_DECL(i)  \
+static ssize_t demux##i##_show_dev_users(struct class *class,  \
+				struct class_attribute *attr, char *buf)\
+{\
+	struct aml_dvb *dvb = &aml_dvb_device;\
+	struct dvb_demux *dmx = &dvb->dmx[i].demux;\
+	int count;\
+	ssize_t ret = 0;\
+	if (mutex_lock_interruptible(&dmx->mutex)) \
+		return -ERESTARTSYS; \
+	count = dvb->dmx[i].dmxdev.dvbdev->users -1;\
+	mutex_unlock(&dmx->mutex);\
+	ret = sprintf(buf, "%d\n", count);\
+	return ret;\
+}
+
+
 static ssize_t demux_state_show(struct class *class,
 				struct class_attribute *attr, char *buf)
 {
@@ -1274,12 +1292,17 @@ static ssize_t demux_state_show(struct class *class,
 			if (!dmx->filter[fid].state != DMX_STATE_FREE)
 				count++;
 			else {
-				r = sprintf(buf, "fid:%d, pid:0x%0x\n",fid,dmx->filter[fid].feed->pid);
+				r = sprintf(buf, "fid:%d, pid:0x%0x, state:%d\n", fid, dmx->filter[fid].feed->pid,
+					dmx->filter[fid].state);
 				buf += r;
 				ret += r;
 			}
 		}
 		r = sprintf(buf, "used filter:%d, free filter:%d\n", (dmx->filternum - count), count);
+		buf += r;
+		ret += r;
+
+		r = sprintf(buf, "file users:%d\n", dvb->dmx[i].dmxdev.dvbdev->users);
 		buf += r;
 		ret += r;
 
@@ -1451,6 +1474,7 @@ static ssize_t dvr##i##_store_mode(struct class *class,  \
 	DEMUX_SOURCE_FUNC_DECL(0)
 	DEMUX_FREE_FILTERS_FUNC_DECL(0)
 	DEMUX_FILTER_USERS_FUNC_DECL(0)
+	DEMUX_DEV_USERS_FUNC_DECL(0)
 	DVR_MODE_FUNC_DECL(0)
 	DEMUX_TS_HEADER_FUNC_DECL(0)
 	DEMUX_CHANNEL_ACTIVITY_FUNC_DECL(0)
@@ -1461,6 +1485,7 @@ static ssize_t dvr##i##_store_mode(struct class *class,  \
 	DEMUX_SOURCE_FUNC_DECL(1)
 	DEMUX_FREE_FILTERS_FUNC_DECL(1)
 	DEMUX_FILTER_USERS_FUNC_DECL(1)
+	DEMUX_DEV_USERS_FUNC_DECL(1)
 	DVR_MODE_FUNC_DECL(1)
 	DEMUX_TS_HEADER_FUNC_DECL(1)
 	DEMUX_CHANNEL_ACTIVITY_FUNC_DECL(1)
@@ -1471,6 +1496,7 @@ static ssize_t dvr##i##_store_mode(struct class *class,  \
 	DEMUX_SOURCE_FUNC_DECL(2)
 	DEMUX_FREE_FILTERS_FUNC_DECL(2)
 	DEMUX_FILTER_USERS_FUNC_DECL(2)
+	DEMUX_DEV_USERS_FUNC_DECL(2)
 	DVR_MODE_FUNC_DECL(2)
 	DEMUX_TS_HEADER_FUNC_DECL(2)
 	DEMUX_CHANNEL_ACTIVITY_FUNC_DECL(2)
@@ -1726,7 +1752,7 @@ static ssize_t demux_do_reset(struct class *class,
 		unsigned long flags;
 
 		spin_lock_irqsave(&dvb->slock, flags);
-		pr_dbg("Reset demux, call dmx_reset_hw\n");
+		pr_inf("Reset demux, call dmx_reset_hw\n");
 		dmx_reset_hw_ex(dvb, 0);
 		spin_unlock_irqrestore(&dvb->slock, flags);
 	}
@@ -2044,6 +2070,9 @@ static struct class_attribute aml_stb_class_attrs[] = {
 #define DEMUX_FILTER_USERS_ATTR_DECL(i)\
 	__ATTR(demux##i##_filter_users,  0644, \
 	demux##i##_show_filter_users, demux##i##_store_filter_used)
+#define DEMUX_DEV_USERS_ATTR_DECL(i)\
+	__ATTR(demux##i##_dev_users,  0644, \
+	demux##i##_show_dev_users, NULL)
 #define DVR_MODE_ATTR_DECL(i)\
 	__ATTR(dvr##i##_mode,  0644, dvr##i##_show_mode, \
 	dvr##i##_store_mode)
@@ -2062,6 +2091,7 @@ static struct class_attribute aml_stb_class_attrs[] = {
 	DEMUX_SOURCE_ATTR_DECL(0),
 	DEMUX_FREE_FILTERS_ATTR_DECL(0),
 	DEMUX_FILTER_USERS_ATTR_DECL(0),
+	DEMUX_DEV_USERS_ATTR_DECL(0),
 	DVR_MODE_ATTR_DECL(0),
 	DEMUX_TS_HEADER_ATTR_DECL(0),
 	DEMUX_CHANNEL_ACTIVITY_ATTR_DECL(0),
@@ -2072,6 +2102,7 @@ static struct class_attribute aml_stb_class_attrs[] = {
 	DEMUX_SOURCE_ATTR_DECL(1),
 	DEMUX_FREE_FILTERS_ATTR_DECL(1),
 	DEMUX_FILTER_USERS_ATTR_DECL(1),
+	DEMUX_DEV_USERS_ATTR_DECL(1),
 	DVR_MODE_ATTR_DECL(1),
 	DEMUX_TS_HEADER_ATTR_DECL(1),
 	DEMUX_CHANNEL_ACTIVITY_ATTR_DECL(1),
@@ -2082,6 +2113,7 @@ static struct class_attribute aml_stb_class_attrs[] = {
 	DEMUX_SOURCE_ATTR_DECL(2),
 	DEMUX_FREE_FILTERS_ATTR_DECL(2),
 	DEMUX_FILTER_USERS_ATTR_DECL(2),
+	DEMUX_DEV_USERS_ATTR_DECL(2),
 	DVR_MODE_ATTR_DECL(2),
 	DEMUX_TS_HEADER_ATTR_DECL(2),
 	DEMUX_CHANNEL_ACTIVITY_ATTR_DECL(2),
@@ -2193,7 +2225,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	struct devio_aml_platform_data *pd_dvb;
 
-	pr_dbg("probe amlogic dvb driver [%s]\n", DVB_VERSION);
+	pr_inf("probe amlogic dvb driver [%s]\n", DVB_VERSION);
 
 	/*switch_mod_gate_by_name("demux", 1); */
 #if 0
@@ -2314,7 +2346,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 						    &str);
 			if (!ret) {
 				if (!strcmp(str, "serial")) {
-					pr_inf("%s: serial\n", buf);
+					pr_dbg("%s: serial\n", buf);
 
 					if (s2p_id >= advb->s2p_total_count)
 						pr_error("no free s2p\n");
@@ -2330,7 +2362,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 						s2p_id++;
 					}
 				} else if (!strcmp(str, "parallel")) {
-					pr_inf("%s: parallel\n", buf);
+					pr_dbg("%s: parallel\n", buf);
 					memset(buf, 0, 32);
 					snprintf(buf, sizeof(buf), "p_ts%d", i);
 					advb->ts[i].mode = AM_TS_PARALLEL;
@@ -2351,10 +2383,10 @@ static int aml_dvb_probe(struct platform_device *pdev)
 			    of_property_read_u32(pdev->dev.of_node, buf,
 						 &value);
 			if (!ret) {
-				pr_inf("%s: 0x%x\n", buf, value);
+				pr_dbg("%s: 0x%x\n", buf, value);
 				advb->ts[i].control = value;
 			} else {
-				pr_inf("read error:%s: 0x%x\n", buf, value);
+				pr_dbg("read error:%s: 0x%x\n", buf, value);
 			}
 
 			if (advb->ts[i].s2p_id != -1) {
@@ -2364,7 +2396,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 				    of_property_read_u32(pdev->dev.of_node, buf,
 							 &value);
 				if (!ret) {
-					pr_inf("%s: 0x%x\n", buf, value);
+					pr_dbg("%s: 0x%x\n", buf, value);
 					advb->s2p[advb->ts[i].s2p_id].invert =
 					    value;
 				}
@@ -2376,7 +2408,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 			of_property_read_u32(pdev->dev.of_node, buf,
 				&value);
 		if (!ret) {
-			pr_inf("%s: 0x%x\n", buf, value);
+			pr_dbg("%s: 0x%x\n", buf, value);
 				advb->ts_out_invert = value;
 		}
 	}
@@ -2424,7 +2456,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 	aml_regist_dmx_class();
 
 	if (class_register(&aml_stb_class) < 0) {
-		pr_error("register class error\n");
+		pr_error("dvb register class error\n");
 		goto error;
 	}
 
@@ -2582,7 +2614,6 @@ error_fe:
 
 		if (advb->tuners)
 			kfree(advb->tuners);
-		pr_dbg("probe amlogic dvb driver [%s] Exit\n", DVB_VERSION);
 		return 0;
 	}
 
@@ -2611,7 +2642,7 @@ static int aml_dvb_remove(struct platform_device *pdev)
 	struct aml_dvb *advb = (struct aml_dvb *)dev_get_drvdata(&pdev->dev);
 	int i;
 
-	pr_dbg("[dmx_kpi] %s Enter.\n", __func__);
+	pr_inf("[dmx_kpi] %s Enter.\n", __func__);
 
 	for (i=0; i<FE_DEV_COUNT; i++) {
 		aml_detach_dtvdemod(s_demod_type[i]);
@@ -2692,7 +2723,7 @@ static int aml_dvb_remove(struct platform_device *pdev)
 	if (advb->tuners)
 		kfree(advb->tuners);
 
-	pr_dbg("[dmx_kpi] %s Exit.\n", __func__);
+	pr_inf("[dmx_kpi] %s Exit.\n", __func__);
 	return 0;
 }
 
@@ -2738,13 +2769,12 @@ static struct platform_driver aml_dvb_driver = {
 
 static int __init aml_dvb_init(void)
 {
-	pr_dbg("aml dvb init\n");
 	return platform_driver_register(&aml_dvb_driver);
 }
 
 static void __exit aml_dvb_exit(void)
 {
-	pr_dbg("aml dvb exit\n");
+	pr_inf("aml dvb exit\n");
 	platform_driver_unregister(&aml_dvb_driver);
 }
 
@@ -2781,7 +2811,7 @@ static int aml_tsdemux_reset(void)
 {
 	struct aml_dvb *dvb = &aml_dvb_device;
 	unsigned long flags;
-	pr_dbg("[dmx_kpi] %s Enter\n", __func__);
+	pr_inf("[dmx_kpi] %s Enter\n", __func__);
 
 	spin_lock_irqsave(&dvb->slock, flags);
 	if (dvb->reset_flag) {
@@ -2796,7 +2826,7 @@ static int aml_tsdemux_reset(void)
 		}
 	}
 	spin_unlock_irqrestore(&dvb->slock, flags);
-	pr_dbg("[dmx_kpi] %s Exit\n", __func__);
+	pr_inf("[dmx_kpi] %s Exit\n", __func__);
 	return 0;
 }
 
