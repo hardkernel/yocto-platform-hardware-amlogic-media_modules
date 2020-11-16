@@ -4013,11 +4013,11 @@ struct loopfilter {
   //LpfSuperblockInfo neighbor_sb_lpf_info;
 //#endif  // LOOP_FILTER_BITMASK
 };
-
+#ifdef DBG_LPF_DBLK_LVL
 static int32_t myclamp(int32_t value, int32_t low, int32_t high) {
   return value < low ? low : (value > high ? high : value);
 }
-
+#endif
 /*static int8_t extend_sign_7bits(uint8_t value) {
   return (((value>>6) & 0x1)<<7) | (value&0x7f);
 }*/
@@ -4088,10 +4088,13 @@ void av1_loop_filter_frame_init(AV1Decoder* pbi, struct segmentation_lf *seg,
 	struct loopfilter *lf,
 	int32_t pic_width) {
 	BuffInfo_t* buf_spec = pbi->work_space_buf;
-	int32_t i,dir;
+	int32_t i;
+#ifdef DBG_LPF_DBLK_LVL
+	int32_t dir;
 	int32_t filt_lvl[MAX_MB_PLANE], filt_lvl_r[MAX_MB_PLANE];
 	int32_t plane;
 	int32_t seg_id;
+#endif
 	// n_shift is the multiplier for lf_deltas
 	// the multiplier is 1 for when filter_lvl is between 0 and 31;
 	// 2 when filter_lvl is between 32 and 63
@@ -4108,7 +4111,7 @@ void av1_loop_filter_frame_init(AV1Decoder* pbi, struct segmentation_lf *seg,
 			| (lfi->lfthr[i*2].mblim & 0xff);
 		WRITE_VREG(HEVC_DBLK_CFG9, thr);
 	}
-
+#ifdef DBG_LPF_DBLK_LVL
 	filt_lvl[0] = lf->filter_level[0];
 	filt_lvl[1] = lf->filter_level_u;
 	filt_lvl[2] = lf->filter_level_v;
@@ -4232,6 +4235,8 @@ void av1_loop_filter_frame_init(AV1Decoder* pbi, struct segmentation_lf *seg,
 			level = 0;
 		WRITE_VREG(HEVC_DBLK_CFGA, level);
 	}
+#endif  // DBG_LPF_DBLK_LVL
+
 #ifdef DBG_LPF_DBLK_FORCED_OFF
 	if (lf->lf_pic_cnt == 2) {
 		printk("LF_PRINT: pic_cnt(%d) dblk forced off !!!\n", lf->lf_pic_cnt);
@@ -4274,6 +4279,9 @@ void av1_loop_filter_frame_init(AV1Decoder* pbi, struct segmentation_lf *seg,
 	{
 		uint32_t cdef_data32 = (READ_VREG(HEVC_DBLK_CDEF1) & 0xffffff00);
 		cdef_data32 |= 17;	// TODO ERROR :: cdef temp dma address left offset
+#ifdef DBG_LPF_CDEF_NO_PIPELINE
+		cdef_data32 |= (1<<17); // cdef test no pipeline for very small picture
+#endif
 		WRITE_VREG(HEVC_DBLK_CDEF1, cdef_data32);
 	}
 	// Picture count
@@ -6490,7 +6498,11 @@ void config_next_ref_info_hw(struct AV1HW_s *hw)
 	AV1_COMMON *const cm = &hw->common;
 
 	av1_set_next_ref_frame_map(hw->pbi);
-    WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x1000);
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SC2)
+		WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x11a0);
+	else
+		WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x1000);
+
 	for (j = 0; j < 12; j++) {
 		unsigned int info =
 			av1_get_next_used_ref_info(cm, j);
@@ -7163,6 +7175,16 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 
 		config_dblk_hw(hw);
 
+		/* store segment_feature before shared sub-module run to fix mosaic on t5d */
+		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SC2)
+			WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x11b0 + (cur_pic_config->index));
+		else
+			WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x1010 + (cur_pic_config->index));
+		if (hw->aom_param.p.segmentation_enabled & 1) // segmentation_enabled
+			WRITE_VREG(HEVC_PARSER_MEM_RW_DATA, READ_VREG(AV1_REF_SEG_INFO));
+		else
+			WRITE_VREG(HEVC_PARSER_MEM_RW_DATA, 0);
+
 		av1_print(hw, AOM_DEBUG_HW_MORE, "HEVC_DEC_STATUS_REG <= AOM_AV1_DECODE_SLICE\n");
 		WRITE_VREG(HEVC_DEC_STATUS_REG, AOM_AV1_DECODE_SLICE);
 
@@ -7176,11 +7198,6 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 				cm->cur_frame->segment_feature[i] = (0x80000000 | (i << 22));
 			}
 		}
-		WRITE_VREG(HEVC_PARSER_MEM_WR_ADDR, 0x1010 + (cur_pic_config->index));
-		if (hw->aom_param.p.segmentation_enabled & 1) // segmentation_enabled
-			WRITE_VREG(HEVC_PARSER_MEM_RW_DATA, READ_VREG(AV1_REF_SEG_INFO));
-		else
-			WRITE_VREG(HEVC_PARSER_MEM_RW_DATA, 0);
 	} else {
 		av1_print(hw, AOM_DEBUG_HW_MORE, "Sequence head, Search next start code\n");
 		cm->prev_fb_idx = INVALID_IDX;
