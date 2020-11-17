@@ -8615,6 +8615,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	 * bit 15: frame_mbs_only_flag
 	 * bit 13-14: chroma_format_idc
 	 */
+	hw->seq_info = param2;
 	frame_mbs_only_flag = (hw->seq_info >> 15) & 0x01;
 	if (hw->dpb.mSPS.profile_idc != 100 &&
 		hw->dpb.mSPS.profile_idc != 110 &&
@@ -9702,11 +9703,13 @@ static void h264_reset_bufmgr(struct vdec_s *vdec)
 
 	flush_dpb(&hw->dpb);
 
-	timeout = jiffies + HZ;
-	while (kfifo_len(&hw->display_q) > 0) {
-		if (time_after(jiffies, timeout))
-			break;
-		schedule();
+	if (!hw->is_used_v4l) {
+		timeout = jiffies + HZ;
+		while (kfifo_len(&hw->display_q) > 0) {
+			if (time_after(jiffies, timeout))
+				break;
+			schedule();
+		}
 	}
 
 	buf_spec_init(hw, true);
