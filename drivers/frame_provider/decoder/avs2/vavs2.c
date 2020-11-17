@@ -7290,6 +7290,11 @@ static int ammvdec_avs2_probe(struct platform_device *pdev)
 	struct BUF_s BUF[MAX_BUF_NUM];
 	struct AVS2Decoder_s *dec = NULL;
 	pr_info("%s\n", __func__);
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) {
+		pr_info("%s, chip id %d is not support avs2\n",
+			__func__, get_cpu_major_id());
+		return -1;
+	}
 	if (pdata == NULL) {
 		pr_info("\nammvdec_avs2 memory resource undefined.\n");
 		return -EFAULT;

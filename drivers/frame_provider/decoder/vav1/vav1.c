@@ -488,6 +488,7 @@ AV1 buffer management start
 #define MMU_COMPRESS_8K_HEADER_SIZE  (0x48000*4)
 #define MAX_SIZE_8K (8192 * 4608)
 #define MAX_SIZE_4K (4096 * 2304)
+#define MAX_SIZE_2K (1920 * 1088)
 #define IS_8K_SIZE(w, h)	(((w) * (h)) > MAX_SIZE_4K)
 #define IS_4K_SIZE(w, h)  (((w) * (h)) > (1920*1088))
 
@@ -864,6 +865,9 @@ static int is_oversize(int w, int h)
 {
 	int max = (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)?
 		MAX_SIZE_8K : MAX_SIZE_4K;
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)
+		max = MAX_SIZE_2K;
 
 	if (w <= 0 || h <= 0)
 		return true;
@@ -10642,8 +10646,10 @@ static int __init amvdec_av1_driver_init_module(void)
 		pr_err("failed to register amvdec_av1 driver\n");
 		return -ENODEV;
 	}
-
-	if (((get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2) || is_cpu_tm2_revb())
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) {
+		amvdec_av1_profile.profile =
+				"10bit, dwrite, compressed, no_head";
+	} else if (((get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2) || is_cpu_tm2_revb())
 		&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5)) {
 		amvdec_av1_profile.profile =
 				"8k, 10bit, dwrite, compressed, no_head, frame_dv";

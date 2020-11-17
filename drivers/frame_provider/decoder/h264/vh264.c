@@ -4460,7 +4460,8 @@ static int __init amvdec_h264_driver_init_module(void)
 		return -ENODEV;
 	}
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_GXTVBB
-		&& (codec_mm_get_total_size() > 80 * SZ_1M)) {
+		&& (codec_mm_get_total_size() > 80 * SZ_1M) &&
+		get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5D) {
 		amvdec_h264_profile.profile = "4k";
 	}
 	vcodec_profile_register(&amvdec_h264_profile);

@@ -973,10 +973,14 @@ static void h264_clear_dpb(struct vdec_h264_hw_s *hw);
 static u32 mem_map_mode = H265_MEM_MAP_MODE;
 
 #define MAX_SIZE_4K (4096 * 2304)
+#define MAX_SIZE_2K (1920 * 1088)
 
 static int is_oversize(int w, int h)
 {
 	int max = MAX_SIZE_4K;
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)
+		max = MAX_SIZE_2K;
 
 	if (w < 0 || h < 0)
 		return true;
@@ -10297,7 +10301,8 @@ static int __init ammvdec_h264_driver_init_module(void)
 		return -ENODEV;
 	}
 
-	if (vdec_is_support_4k()) {
+	if ((vdec_is_support_4k()) &&
+		(get_cpu_major_id()!= AM_MESON_CPU_MAJOR_ID_T5D)) {
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_TXLX) {
 			ammvdec_h264_profile.profile =
 					"4k, dwrite, compressed, frame_dv, fence";

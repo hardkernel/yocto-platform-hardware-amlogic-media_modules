@@ -132,6 +132,7 @@ to enable DV of frame mode
 
 #define MAX_SIZE_8K (8192 * 4608)
 #define MAX_SIZE_4K (4096 * 2304)
+#define MAX_SIZE_2K (1920 * 1088)
 
 #define IS_8K_SIZE(w, h)  (((w) * (h)) > MAX_SIZE_4K)
 #define IS_4K_SIZE(w, h)  (((w) * (h)) > (1920*1088))
@@ -1833,6 +1834,9 @@ static int is_oversize(int w, int h)
 {
 	int max = (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)?
 		MAX_SIZE_8K : MAX_SIZE_4K;
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)
+		max = MAX_SIZE_2K;
 
 	if (w < 0 || h < 0)
 		return true;
@@ -14233,7 +14237,8 @@ static int __init amvdec_h265_driver_init_module(void)
 		/* not support hevc */
 		amvdec_h265_profile.name = "hevc_unsupport";
 	}
-	if (vdec_is_support_4k()) {
+	if ((vdec_is_support_4k()) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5D)) {
 		if (is_meson_m8m2_cpu()) {
 			/* m8m2 support 4k */
 			amvdec_h265_profile.profile = "4k";

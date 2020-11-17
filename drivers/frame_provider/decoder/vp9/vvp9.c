@@ -435,6 +435,7 @@ VP9 buffer management start
 #define MMU_COMPRESS_8K_HEADER_SIZE  (0x48000*4)
 #define MAX_SIZE_8K (8192 * 4608)
 #define MAX_SIZE_4K (4096 * 2304)
+#define MAX_SIZE_2K (1920 * 1088)
 #define IS_8K_SIZE(w, h)	(((w) * (h)) > MAX_SIZE_4K)
 
 #define INVALID_IDX -1  /* Invalid buffer index.*/
@@ -1254,6 +1255,9 @@ static int is_oversize(int w, int h)
 	int max = (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)?
 		MAX_SIZE_8K : MAX_SIZE_4K;
 
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)
+		max = MAX_SIZE_2K;
+
 	if (w <= 0 || h <= 0)
 		return true;
 
@@ -1261,6 +1265,25 @@ static int is_oversize(int w, int h)
 		return true;
 
 	return false;
+}
+
+static int vvp9_mmu_compress_header_size(int w, int h)
+{
+	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
+		IS_8K_SIZE(w, h))
+		return (MMU_COMPRESS_8K_HEADER_SIZE);
+
+	return (MMU_COMPRESS_HEADER_SIZE);
+}
+
+/*#define FRAME_MMU_MAP_SIZE  (MAX_FRAME_4K_NUM * 4)*/
+static int vvp9_frame_mmu_map_size(struct VP9Decoder_s *pbi)
+{
+	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
+		IS_8K_SIZE(pbi->max_pic_w, pbi->max_pic_h))
+		return (MAX_FRAME_8K_NUM << 2);
+
+	return (MAX_FRAME_4K_NUM << 2);
 }
 
 static int v4l_alloc_and_config_pic(struct VP9Decoder_s *pbi,
@@ -1712,10 +1735,7 @@ static int vp9_mmu_page_num(struct VP9Decoder_s *pbi,
 	picture_size = compute_losless_comp_body_size(w, h, save_mode);
 	cur_mmu_4k_number = ((picture_size + (PAGE_SIZE - 1)) >> PAGE_SHIFT);
 
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)
-		max_frame_num = MAX_FRAME_8K_NUM;
-	else
-		max_frame_num = MAX_FRAME_4K_NUM;
+	max_frame_num = (vvp9_frame_mmu_map_size(pbi) >> 2);
 
 	if (cur_mmu_4k_number > max_frame_num) {
 		pr_err("over max !! cur_mmu_4k_number 0x%x width %d height %d\n",
@@ -4845,15 +4865,6 @@ static int vp9_max_mmu_buf_size(int max_w, int max_h)
 	return buf_size;
 }
 
-static int vp9_get_header_size(int w, int h)
-{
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-		IS_8K_SIZE(w, h))
-		return MMU_COMPRESS_8K_HEADER_SIZE;
-
-	return MMU_COMPRESS_HEADER_SIZE;
-}
-
 static int v4l_alloc_and_config_pic(struct VP9Decoder_s *pbi,
 	struct PIC_BUFFER_CONFIG_s *pic)
 {
@@ -5111,24 +5122,6 @@ static int config_pic(struct VP9Decoder_s *pbi,
 	return ret;
 }
 
-static int vvp9_mmu_compress_header_size(struct VP9Decoder_s *pbi)
-{
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-		IS_8K_SIZE(pbi->max_pic_w, pbi->max_pic_h))
-		return (MMU_COMPRESS_8K_HEADER_SIZE);
-
-	return (MMU_COMPRESS_HEADER_SIZE);
-}
-
-/*#define FRAME_MMU_MAP_SIZE  (MAX_FRAME_4K_NUM * 4)*/
-static int vvp9_frame_mmu_map_size(struct VP9Decoder_s *pbi)
-{
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-		IS_8K_SIZE(pbi->max_pic_w, pbi->max_pic_h))
-		return (MAX_FRAME_8K_NUM * 4);
-
-	return (MAX_FRAME_4K_NUM * 4);
-}
 
 static void init_pic_list(struct VP9Decoder_s *pbi)
 {
@@ -5139,7 +5132,7 @@ static void init_pic_list(struct VP9Decoder_s *pbi)
 	struct vdec_s *vdec = hw_to_vdec(pbi);
 
 	if (pbi->mmu_enable && ((pbi->double_write_mode & 0x10) == 0)) {
-		header_size = vvp9_mmu_compress_header_size(pbi);
+		header_size = vvp9_mmu_compress_header_size(pbi->max_pic_w, pbi->max_pic_h);
 		/*alloc VP9 compress header first*/
 		for (i = 0; i < pbi->used_buf_num; i++) {
 			unsigned long buf_addr;
@@ -8400,7 +8393,7 @@ static void vvp9_get_comp_buf_info(struct VP9Decoder_s *pbi,
 	info->max_size = vp9_max_mmu_buf_size(
 			pbi->max_pic_w,
 			pbi->max_pic_h);
-	info->header_size = vp9_get_header_size(
+	info->header_size = vvp9_mmu_compress_header_size(
 			pbi->frame_width,
 			pbi->frame_height);
 	info->frame_buffer_size = vp9_mmu_page_num(
@@ -11333,11 +11326,13 @@ static int __init amvdec_vp9_driver_init_module(void)
 		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXL ||
 		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) {
 		amvdec_vp9_profile.name = "vp9_unsupport";
-	} else if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
+	} else if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5D)) {
 		amvdec_vp9_profile.profile =
 			"8k, 10bit, dwrite, compressed, fence";
 	} else {
-		if (vdec_is_support_4k())
+		if ((vdec_is_support_4k()) &&
+			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T5D))
 			amvdec_vp9_profile.profile =
 				"4k, 10bit, dwrite, compressed, fence";
 		else
