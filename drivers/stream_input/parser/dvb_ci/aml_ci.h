@@ -31,7 +31,25 @@ enum aml_dvb_io_type_e {
 	AML_DVB_IO_TYPE_SPI,
 	AML_DVB_IO_TYPE_CIMAX,
 	AML_DVB_IO_TYPE_SPI_T312,
+	AML_DVB_IO_TYPE_CIBUS,
 	AML_DVB_IO_TYPE_MAX,
+};
+
+enum aml_gpio_level_e {
+		AML_GPIO_LOW = 0,
+		AML_GPIO_HIGH
+};
+enum AM_CI_CMD {
+		AM_CI_CMD_IOR = 0,
+		AM_CI_CMD_IOW,
+		AM_CI_CMD_MEMR,
+		AM_CI_CMD_MEMW,
+		AM_CI_CMD_FULLTEST,
+		AM_CI_CMD_CISTEST,
+		AM_CI_CMD_GETCD12,
+		AM_CI_CMD_POWER,
+		AM_CI_CMD_RESET,
+		AM_CI_CMD_CONGPIO,
 };
 
 struct aml_ci {
