@@ -5363,25 +5363,14 @@ static int av1_local_init(struct AV1HW_s *hw)
 		buf_alloc_width = 8192;
 		buf_alloc_height = 4608;
 	}
-#if 0
-	hw->init_pic_w = hw->max_pic_w ? hw->max_pic_w :
-		(buf_alloc_width ? buf_alloc_width :
-		(hw->vav1_amstream_dec_info.width ?
-		hw->vav1_amstream_dec_info.width :
-		hw->work_space_buf->max_width));
-	hw->init_pic_h = hw->max_pic_h ? hw->max_pic_h :
-		(buf_alloc_height ? buf_alloc_height :
-		(hw->vav1_amstream_dec_info.height ?
-		hw->vav1_amstream_dec_info.height :
-		hw->work_space_buf->max_height));
-#else
+
 	hw->init_pic_w = hw->max_pic_w ? hw->max_pic_w :
 		(hw->vav1_amstream_dec_info.width ? hw->vav1_amstream_dec_info.width :
 		(buf_alloc_width ? buf_alloc_width : hw->work_space_buf->max_width));
 	hw->init_pic_h = hw->max_pic_h ? hw->max_pic_h :
 		(hw->vav1_amstream_dec_info.height ? hw->vav1_amstream_dec_info.height :
 		(buf_alloc_height ? buf_alloc_height : hw->work_space_buf->max_height));
-#endif
+
     hw->pbi->frame_width = hw->init_pic_w;
     hw->pbi->frame_height = hw->init_pic_h;
 
@@ -10399,18 +10388,23 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 		}
 		hw->vf_dp = vf_dp;
 	} else {
-		/*hw->vav1_amstream_dec_info.width = 0;
-		hw->vav1_amstream_dec_info.height = 0;
-		hw->vav1_amstream_dec_info.rate = 30;*/
+		u32 force_w, force_h;
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) {
+			force_w = 1920;
+			force_h = 1088;
+		} else {
+			force_w = 8192;
+			force_h = 4608;
+		}
 		if (hw->vav1_amstream_dec_info.width)
 			hw->max_pic_w = hw->vav1_amstream_dec_info.width;
 		else
-			hw->max_pic_w = 8192;
+			hw->max_pic_w = force_w;
 
 		if (hw->vav1_amstream_dec_info.height)
 			hw->max_pic_h = hw->vav1_amstream_dec_info.height;
 		else
-			hw->max_pic_h = 4608;
+			hw->max_pic_h = force_h;
 		hw->double_write_mode = double_write_mode;
 	}
 

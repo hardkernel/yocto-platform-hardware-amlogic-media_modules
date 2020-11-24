@@ -3013,18 +3013,10 @@ static u32 dbg_nal_skip_count;
 static u32 decode_pic_begin;
 static uint slice_parse_begin;
 static u32 step;
-#ifdef MIX_STREAM_SUPPORT
-static u32 buf_alloc_width = 4096;
-static u32 buf_alloc_height = 2304;
-static u32 vp9_max_pic_w = 4096;
-static u32 vp9_max_pic_h = 2304;
-
+static u32 vp9_max_pic_w;
+static u32 vp9_max_pic_h;
 static u32 dynamic_buf_num_margin;
-#else
-static u32 buf_alloc_width;
-static u32 buf_alloc_height;
-static u32 dynamic_buf_num_margin = 7;
-#endif
+
 static u32 buf_alloc_depth = 10;
 static u32 buf_alloc_size;
 /*
@@ -6599,44 +6591,16 @@ static int vp9_local_init(struct VP9Decoder_s *pbi)
 	cur_buf_info->start_adr = pbi->buf_start;
 	if (!pbi->mmu_enable)
 		pbi->mc_buf_spec.buf_end = pbi->buf_start + pbi->buf_size;
-
-#else
-/*! MULTI_INSTANCE_SUPPORT*/
-	if (vdec_is_support_4k()) {
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1)
-			cur_buf_info = &amvvp9_workbuff_spec[2];/* 8k work space */
-		else
-			cur_buf_info = &amvvp9_workbuff_spec[1];/* 4k2k work space */
-	} else
-		cur_buf_info = &amvvp9_workbuff_spec[0];/* 1080p work space */
-
 #endif
 
 	init_buff_spec(pbi, cur_buf_info);
 	vp9_bufmgr_init(pbi, cur_buf_info, NULL);
 
-	if (!vdec_is_support_4k()
-		&& (buf_alloc_width > 1920 &&  buf_alloc_height > 1088)) {
-		buf_alloc_width = 1920;
-		buf_alloc_height = 1088;
-		if (pbi->max_pic_w > 1920 && pbi->max_pic_h > 1088) {
-			pbi->max_pic_w = 1920;
-			pbi->max_pic_h = 1088;
-		}
-	} else if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
-		buf_alloc_width = 8192;
-		buf_alloc_height = 4608;
-	}
-	pbi->init_pic_w = pbi->max_pic_w ? pbi->max_pic_w :
-		(buf_alloc_width ? buf_alloc_width :
-		(pbi->vvp9_amstream_dec_info.width ?
-		pbi->vvp9_amstream_dec_info.width :
-		pbi->work_space_buf->max_width));
-	pbi->init_pic_h = pbi->max_pic_h ? pbi->max_pic_h :
-		(buf_alloc_height ? buf_alloc_height :
-		(pbi->vvp9_amstream_dec_info.height ?
-		pbi->vvp9_amstream_dec_info.height :
-		pbi->work_space_buf->max_height));
+	/* vp9_max_pic_w/h for debug */
+	pbi->init_pic_w = (vp9_max_pic_w) ? vp9_max_pic_w:
+		((pbi->max_pic_w) ? pbi->max_pic_w : pbi->work_space_buf->max_width);
+	pbi->init_pic_h = (vp9_max_pic_h) ? vp9_max_pic_h:
+		((pbi->max_pic_h) ? pbi->max_pic_h : pbi->work_space_buf->max_height);
 
 	/* video is not support unaligned with 64 in tl1
 	** vdec canvas mode will be linear when dump yuv is set
@@ -9648,12 +9612,30 @@ static int amvdec_vp9_probe(struct platform_device *pdev)
 
 	pbi->init_flag = 0;
 	pbi->first_sc_checked= 0;
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
-		vp9_max_pic_w = 8192;
-		vp9_max_pic_h = 4608;
+
+	if (!vdec_is_support_4k() ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)) {
+		pbi->max_pic_w = 1920;
+		pbi->max_pic_h = 1088;
+	} else if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_SM1) {
+		pbi->max_pic_w = 4096;
+		pbi->max_pic_h = 2304;
+	} else {
+		pbi->max_pic_w = 8192;
+		pbi->max_pic_h = 4608;
 	}
-	pbi->max_pic_w = vp9_max_pic_w;
-	pbi->max_pic_h = vp9_max_pic_h;
+	if (pdata->sys_info) {
+		pbi->vvp9_amstream_dec_info = *pdata->sys_info;
+		if ((pbi->vvp9_amstream_dec_info.width != 0) &&
+			(pbi->vvp9_amstream_dec_info.height != 0)) {
+			pbi->max_pic_w = pbi->vvp9_amstream_dec_info.width;
+			pbi->max_pic_h = pbi->vvp9_amstream_dec_info.height;
+		}
+	} else {
+		pbi->vvp9_amstream_dec_info.width = 0;
+		pbi->vvp9_amstream_dec_info.height = 0;
+		pbi->vvp9_amstream_dec_info.rate = 30;
+	}
 
 #ifdef MULTI_INSTANCE_SUPPORT
 	pbi->eos = 0;
@@ -9706,14 +9688,6 @@ static int amvdec_vp9_probe(struct platform_device *pdev)
 	if (debug) {
 		pr_info("===VP9 decoder mem resource 0x%lx size 0x%x\n",
 			   pdata->mem_start, pbi->buf_size);
-	}
-
-	if (pdata->sys_info)
-		pbi->vvp9_amstream_dec_info = *pdata->sys_info;
-	else {
-		pbi->vvp9_amstream_dec_info.width = 0;
-		pbi->vvp9_amstream_dec_info.height = 0;
-		pbi->vvp9_amstream_dec_info.rate = 30;
 	}
 	pbi->no_head = no_head;
 #ifdef MULTI_INSTANCE_SUPPORT
@@ -10902,17 +10876,18 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 	pbi->platform_dev = pdev;
 	pbi->video_signal_type = 0;
 	pbi->m_ins_flag = 1;
-	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_TXLX)
-		pbi->stat |= VP9_TRIGGER_FRAME_ENABLE;
-
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) {
-		pbi->max_pic_w = 8192;
-		pbi->max_pic_h = 4608;
-	} else {
+	if (!vdec_is_support_4k() ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D)) {
+		pbi->max_pic_w = 1920;
+		pbi->max_pic_h = 1088;
+	} else if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_SM1) {
 		pbi->max_pic_w = 4096;
 		pbi->max_pic_h = 2304;
+	} else {
+		pbi->max_pic_w = 8192;
+		pbi->max_pic_h = 4608;
 	}
-#if 1
+
 	if ((debug & IGNORE_PARAM_FROM_CONFIG) == 0 &&
 			pdata->config_len) {
 #ifdef MULTI_INSTANCE_SUPPORT
@@ -11042,9 +11017,7 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 					| (9 << 0);	/* 2020 */
 		}
 		pbi->vf_dp = vf_dp;
-	} else
-#endif
-	{
+	} else {
 		if (pdata->sys_info) {
 			pbi->vvp9_amstream_dec_info = *pdata->sys_info;
 			if ((pbi->vvp9_amstream_dec_info.width != 0) &&
@@ -11259,8 +11232,6 @@ static struct mconfig vp9_configs[] = {
 	MC_PU32("slice_parse_begin", &slice_parse_begin),
 	MC_PU32("i_only_flag", &i_only_flag),
 	MC_PU32("error_handle_policy", &error_handle_policy),
-	MC_PU32("buf_alloc_width", &buf_alloc_width),
-	MC_PU32("buf_alloc_height", &buf_alloc_height),
 	MC_PU32("buf_alloc_depth", &buf_alloc_depth),
 	MC_PU32("buf_alloc_size", &buf_alloc_size),
 	MC_PU32("buffer_mode", &buffer_mode),
@@ -11417,12 +11388,6 @@ MODULE_PARM_DESC(no_head, "\n amvdec_vp9 no_head\n");
 
 module_param(error_handle_policy, uint, 0664);
 MODULE_PARM_DESC(error_handle_policy, "\n amvdec_vp9 error_handle_policy\n");
-
-module_param(buf_alloc_width, uint, 0664);
-MODULE_PARM_DESC(buf_alloc_width, "\n buf_alloc_width\n");
-
-module_param(buf_alloc_height, uint, 0664);
-MODULE_PARM_DESC(buf_alloc_height, "\n buf_alloc_height\n");
 
 module_param(buf_alloc_depth, uint, 0664);
 MODULE_PARM_DESC(buf_alloc_depth, "\n buf_alloc_depth\n");
