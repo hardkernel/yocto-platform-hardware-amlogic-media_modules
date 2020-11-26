@@ -20,6 +20,7 @@
 
 #include <linux/amlogic/aml_dtvdemod.h>
 #include <linux/amlogic/aml_tuner.h>
+#include <linux/amlogic/aml_dvb_extern.h>
 
 #include "dvb_frontend.h"
 
