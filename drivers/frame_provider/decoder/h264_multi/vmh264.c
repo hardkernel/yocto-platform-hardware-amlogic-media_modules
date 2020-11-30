@@ -554,6 +554,7 @@ static const struct vframe_operations_s vf_provider_ops = {
 #define DEC_RESULT_EOS              7
 #define DEC_RESULT_FORCE_EXIT       8
 #define DEC_RESULT_TIMEOUT			9
+#define DEC_RESULT_DISCARD_DATA      10
 
 
 /*
@@ -3086,6 +3087,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				hw->buffer_spec[buffer_index].aux_data_buf,
 				hw->buffer_spec[buffer_index].aux_data_size,
 				false, vdec->vf_provider_name, NULL);
+
 		if (without_display_mode == 0) {
 			if (hw->is_used_v4l && v4l2_ctx->is_stream_off)
 				vh264_vf_put(vh264_vf_get(vdec), vdec);
@@ -6143,6 +6145,60 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 		return 0;
 }
 
+#ifdef VDEC_FCC_SUPPORT
+static void fcc_discard_mode_process(struct vdec_s *vdec)
+{
+	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)(vdec->private);
+	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
+
+	if (vdec->fcc_status == AGAIN_STATUS) {
+		vdec->stream_offset = (p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_LO] |
+			p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_HI] << 16);
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_FCC_STATUS,
+			"[%d][FCC]: Notify stream_offset: %d\n",
+			vdec->id, vdec->stream_offset);
+		vdec_wakeup_fcc_poll(vdec);
+		amvdec_stop();
+		vdec->mc_loaded = 0;
+		hw->init_flag = 0;
+		vdec->fcc_status = WAIT_MSG_STATUS;
+		hw->dec_result = DEC_RESULT_AGAIN;
+		vdec_schedule_work(&hw->work);
+	} else if (vdec->fcc_status == DISCARD_STATUS) {
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_FCC_STATUS,
+			"[%d][FCC]: Discard current gop and to find next gop!\n",
+			vdec->id);
+		amvdec_stop();
+		vdec->mc_loaded = 0;
+		hw->init_flag = 0;
+		vdec->fcc_status = AGAIN_STATUS;
+		hw->dec_result = DEC_RESULT_DISCARD_DATA;
+		vdec_schedule_work(&hw->work);
+	}
+}
+
+static int vh264_fcc_process(struct vdec_s *vdec)
+{
+	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)(vdec->private);
+
+	if (input_stream_based(vdec)) {
+		switch (vdec->fcc_mode) {
+		case FCC_DISCARD_MODE:
+			fcc_discard_mode_process(vdec);
+			return 1;
+		case FCC_DEC_MODE:
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_FCC_STATUS,
+					"[%d][FCC]: Current is Dec mode.\n", vdec->id);
+			break;
+		case FCC_BUTT:
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+#endif
 
 static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 {
@@ -6203,13 +6259,18 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		p_H264_Dpb->frame_crop_top_offset = p_H264_Dpb->dpb_param.dpb.frame_crop_top_offset;
 		p_H264_Dpb->frame_crop_bottom_offset = p_H264_Dpb->dpb_param.dpb.frame_crop_bottom_offset;
 
-		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_DPB_DETAIL,
 		"%s chroma_format_idc %d crop offset: left %d right %d top %d bottom %d\n",
 		__func__, p_H264_Dpb->chroma_format_idc,
 		p_H264_Dpb->frame_crop_left_offset,
 		p_H264_Dpb->frame_crop_right_offset,
 		p_H264_Dpb->frame_crop_top_offset,
 		p_H264_Dpb->frame_crop_bottom_offset);
+#endif
+
+#ifdef VDEC_FCC_SUPPORT
+		if (vh264_fcc_process(vdec) > 0)
+			return IRQ_HANDLED;
 #endif
 
 		WRITE_VREG(DPB_STATUS_REG, H264_ACTION_CONFIG_DONE);
@@ -6615,10 +6676,11 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			}
 		}
 
-		if (slice_header_process_status == 1)
+		if (slice_header_process_status == 1) {
 			WRITE_VREG(DPB_STATUS_REG, H264_ACTION_DECODE_NEWPIC);
-		else
+		} else {
 			WRITE_VREG(DPB_STATUS_REG, H264_ACTION_DECODE_SLICE);
+		}
 		hw->last_mby_mbx = 0;
 		hw->last_vld_level = 0;
 		start_process_time(hw);
@@ -7490,8 +7552,9 @@ static int vh264_hw_ctx_restore(struct vdec_h264_hw_s *hw)
 
 	if (hw->init_flag == 0)
 		WRITE_VREG(DPB_STATUS_REG, 0);
-	else
+	else {
 		WRITE_VREG(DPB_STATUS_REG, H264_ACTION_DECODE_START);
+	}
 
 	WRITE_VREG(FRAME_COUNTER_REG, hw->decode_pic_count);
 	WRITE_VREG(AV_SCRATCH_8, hw->buf_offset);
@@ -8931,6 +8994,7 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 		return;
 	} else if (hw->dec_result == DEC_RESULT_DONE ||
 					hw->dec_result == DEC_RESULT_TIMEOUT) {
+
 		/* if (!hw->ctx_valid)
 			hw->ctx_valid = 1; */
 		if ((hw->dec_result == DEC_RESULT_TIMEOUT) &&
@@ -9045,6 +9109,11 @@ result_done:
 			vdec_free_irq(VDEC_IRQ_1, (void *)hw);
 			hw->stat &= ~STAT_ISR_REG;
 		}
+	} else if (hw->dec_result == DEC_RESULT_DISCARD_DATA) {
+		mutex_lock(&hw->chunks_mutex);
+		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
+		hw->chunk = NULL;
+		mutex_unlock(&hw->chunks_mutex);
 	}
 	WRITE_VREG(ASSIST_MBOX1_MASK, 0);
 	del_timer_sync(&hw->check_timer);
@@ -9126,6 +9195,13 @@ static void vh264_timeout_work(struct work_struct *work)
 
 }
 
+#ifdef VDEC_FCC_SUPPORT
+static void vmh264_wakeup_fcc_poll(struct vdec_s *vdec)
+{
+	amstream_wakeup_fcc_poll(vdec);
+}
+#endif
+
 static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 {
 	bool ret = 0;
@@ -9133,6 +9209,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		(struct vdec_h264_hw_s *)vdec->private;
 	int tvp = vdec_secure(hw_to_vdec(hw)) ?
 		CODEC_MM_FLAGS_TVP : 0;
+#ifdef VDEC_FCC_SUPPORT
+	int get_msg = 1;
+#endif
 
 	if (hw->timeout_processing &&
 	    (work_pending(&hw->work) || work_busy(&hw->work) ||
@@ -9253,10 +9332,16 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 	}
 
+#ifdef VDEC_FCC_SUPPORT
+	get_msg = vdec_has_get_fcc_new_msg(vdec);
+	ret &= get_msg;
+#endif
+
 	if (ret)
 		not_run_ready[DECODE_ID(hw)] = 0;
 	else
 		not_run_ready[DECODE_ID(hw)]++;
+
 	if (vdec->parallel_dec == 1) {
 		if (hw->mmu_enable == 0)
 			return ret ? (CORE_MASK_VDEC_1) : 0;
@@ -10013,6 +10098,11 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 	pdata->user_data_read = NULL;
 	pdata->reset_userdata_fifo = NULL;
 #endif
+
+#ifdef VDEC_FCC_SUPPORT
+	pdata->wakeup_fcc_poll = vmh264_wakeup_fcc_poll;
+#endif
+
 	if (pdata->use_vfm_path) {
 		snprintf(pdata->vf_provider_name, VDEC_PROVIDER_NAME_SIZE,
 			VFM_DEC_PROVIDER_NAME);

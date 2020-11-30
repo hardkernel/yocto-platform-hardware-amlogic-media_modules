@@ -126,13 +126,50 @@ void stream_buffer_set_ext_buf(struct stream_buf_s *stbuf,
 }
 EXPORT_SYMBOL(stream_buffer_set_ext_buf);
 
+#ifdef VDEC_FCC_SUPPORT
+void fcc_wakeup_jump_back(struct vdec_s *vdec,
+	struct stream_buffer_metainfo *meta)
+{
+	u32 first_ptr;
+	u32 round_down_size = 0;
+	if (fcc_debug_enable())
+		pr_info("[%d][FCC]: jump_back_done = %d jump_back_flag = %d stbuf_pktaddr = 0x%x size = 0x%x\n",
+			vdec->id, vdec->jump_back_done, meta->jump_back_flag,
+			meta->stbuf_pktaddr, meta->stbuf_size);
+	if (vdec->fcc_mode == FCC_DEC_MODE && vdec->fcc_status != SWITCH_DONE_STATUS) {
+		mutex_lock(&vdec->jump_back_mutex);
+		if (meta->jump_back_flag && !vdec->jump_back_done) {
+			if (vdec->input.target == VDEC_INPUT_TARGET_HEVC)
+				round_down_size = 0x80;
+			else if (vdec->input.target == VDEC_INPUT_TARGET_VLD)
+				round_down_size = 0x100;
+
+			if (vdec->vbuf.ext_buf_addr > (meta->stbuf_pktaddr - round_down_size))
+				first_ptr = vdec->vbuf.ext_buf_addr;
+			else {
+				first_ptr = round_down(meta->stbuf_pktaddr, round_down_size);
+			}
+			vdec->jump_back_done = 1;
+			vdec->jump_back_rp = first_ptr;
+			wake_up_interruptible(&vdec->jump_back_wq);
+		} else if (!vdec->jump_back_done && !vdec->jump_back_error) {
+			vdec->jump_back_error = 1;
+			wake_up_interruptible(&vdec->jump_back_wq);
+		}
+		mutex_unlock(&vdec->jump_back_mutex);
+	}
+
+	return;
+}
+#endif
+
 void stream_buffer_meta_write(struct stream_buf_s *stbuf,
 	struct stream_buffer_metainfo *meta)
 {
 	u32 wp = stbuf->ops->get_wp(stbuf);
 
 	if ((stbuf->stream_offset == 0) &&
-		(wp == stbuf->ext_buf_addr) &&
+		/*(wp == stbuf->ext_buf_addr) &&*/ /*For fcc, when switching to dec mode it doesn't meet*/
 		(meta->stbuf_pktaddr > stbuf->ext_buf_addr)) {
 		struct stream_buffer_metainfo self_meta;
 
@@ -150,6 +187,10 @@ void stream_buffer_meta_write(struct stream_buf_s *stbuf,
 		wp = meta->stbuf_pktaddr + meta->stbuf_pktsize - stbuf->buf_size;
 
 	stbuf->ops->set_wp(stbuf, wp);
+
+#ifdef VDEC_FCC_SUPPORT
+	fcc_wakeup_jump_back(container_of(stbuf, struct vdec_s, vbuf), meta);
+#endif
 	/*
 	pr_debug("%s, update wp 0x%x + sz 0x%x --> 0x%x\n",
 		__func__, meta->stbuf_pktaddr, meta->stbuf_pktsize, wp);
