@@ -44,7 +44,7 @@
 //
 static struct aml_ci_bus ci_bus;
 static int aml_ci_bus_debug = 1;
-
+static int aml_ci_bus_time = 500;
 static int aml_ci_bus_set_delay = 0;
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
@@ -55,6 +55,9 @@ MODULE_PARM_DESC(ci_bus_debug, "enable verbose debug messages");
 
 module_param_named(ci_bus_set_delay, aml_ci_bus_set_delay, int, 0644);
 MODULE_PARM_DESC(ci_bus_set_delay, "enable ci bus delay set");
+
+module_param_named(ci_bus_time, aml_ci_bus_time, int, 0644);
+MODULE_PARM_DESC(ci_bus_time, "set ci bus time");
 
 #define pr_dbg(args...)\
 	do {\
@@ -241,6 +244,12 @@ static int aml_ci_bus_io(struct aml_ci_bus *ci_bus_dev,
 	u32 ctrl = 0;
 	int enable = 0;
 
+	int count = 0;
+	while (1) {
+		count++;
+		if (count < aml_ci_bus_time)
+			break;
+	}
 	//only used hi addr. we to change tsout to addr
 	if (addr >= 4) {
 		enable = 1;
