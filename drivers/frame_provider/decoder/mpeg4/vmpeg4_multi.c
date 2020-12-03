@@ -769,6 +769,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 			vf->mem_handle =
 				decoder_bmmu_box_get_mem_handle(
 					hw->mm_blk_handle, index);
+			decoder_do_frame_check(vdec, vf);
 			vdec_vframe_ready(vdec, vf);
 			kfifo_put(&hw->display_q,
 				(const struct vframe_s *)vf);
@@ -836,6 +837,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 			vf->mem_handle =
 				decoder_bmmu_box_get_mem_handle(
 					hw->mm_blk_handle, index);
+			decoder_do_frame_check(vdec, vf);
 			vdec_vframe_ready(vdec, vf);
 			kfifo_put(&hw->display_q,
 				(const struct vframe_s *)vf);
@@ -1436,6 +1438,7 @@ static int notify_v4l_eos(struct vdec_s *vdec)
 							hw->pic[index].v4l_ref_buf_addr;;
 		vf->flag = VFRAME_FLAG_EMPTY_FRAME_V4L;
 
+		vdec_vframe_ready(vdec, vf);
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 		vf_notify_receiver(vdec->vf_provider_name,
 			VFRAME_EVENT_PROVIDER_VFRAME_READY, NULL);
