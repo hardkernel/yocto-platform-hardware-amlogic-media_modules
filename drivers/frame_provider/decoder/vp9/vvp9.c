@@ -1133,6 +1133,7 @@ struct VP9Decoder_s {
 	int last_pts;
 	u64 last_lookup_pts_us64;
 	u64 last_pts_us64;
+	u64 last_timestamp;
 	u64 shift_byte_count;
 
 	u32 pts_unstable;
@@ -1263,6 +1264,8 @@ struct VP9Decoder_s {
 	int fence_usage;
 	u32 frame_mode_pts_save[FRAME_BUFFERS];
 	u64 frame_mode_pts64_save[FRAME_BUFFERS];
+	u64 frame_mode_timestamp_save[FRAME_BUFFERS];
+	int dur_ts;
 	int run_ready_min_buf_num;
 	int one_package_frame_cnt;
 };
@@ -3050,6 +3053,7 @@ int vp9_bufmgr_init(struct VP9Decoder_s *pbi, struct BuffInfo_s *buf_spec_i,
 	pbi->last_pts = 0;
 	pbi->last_lookup_pts = 0;
 	pbi->last_pts_us64 = 0;
+	pbi->last_timestamp = 0;
 	pbi->last_lookup_pts_us64 = 0;
 	pbi->shift_byte_count = 0;
 	pbi->shift_byte_count_lo = 0;
@@ -7240,11 +7244,12 @@ static struct vframe_s *vvp9_vf_get(void *op_arg)
 			vf->index_disp = pbi->vf_get_count;
 			pbi->vf_get_count++;
 			if (debug & VP9_DEBUG_BUFMGR)
-				pr_info("%s type 0x%x w/h %d/%d, pts %d, %lld\n",
-					__func__, vf->type,
+				pr_info("%s idx: %d, type 0x%x w/h %d/%d, pts %d, %lld, ts: %lld\n",
+					__func__, index, vf->type,
 					vf->width, vf->height,
 					vf->pts,
-					vf->pts_us64);
+					vf->pts_us64,
+					vf->timestamp);
 
 			if (kfifo_peek(&pbi->display_q, &next_vf)) {
 				vf->next_vf_pts_valid = true;
@@ -7279,6 +7284,15 @@ static void vvp9_vf_put(struct vframe_s *vf, void *op_arg)
 
 	kfifo_put(&pbi->newframe_q, (const struct vframe_s *)vf);
 	pbi->vf_put_count++;
+
+	if (debug & VP9_DEBUG_BUFMGR)
+		pr_info("%s idx: %d, type 0x%x w/h %d/%d, pts %d, %lld, ts: %lld\n",
+			__func__, index, vf->type,
+			vf->width, vf->height,
+			vf->pts,
+			vf->pts_us64,
+			vf->timestamp);
+
 	if (index < pbi->used_buf_num) {
 		struct VP9_Common_s *cm = &pbi->common;
 		struct BufferPool_s *pool = cm->buffer_pool;
@@ -7495,6 +7509,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 	u32 pts_valid = 0, pts_us64_valid = 0;
 	u32 pts_save;
 	u64 pts_us64_save;
+	u64 timestamp_save;
 	u32 frame_size = 0;
 	int i = 0;
 
@@ -7520,21 +7535,52 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 	display_frame_count[pbi->index]++;
 	if (vf) {
 		if (!force_pts_unstable) {
-			if ((pic_config->pts == 0) || (pic_config->pts <= pbi->last_pts)) {
+			if (pbi->is_used_v4l) {
+				if (pic_config->timestamp <= pbi->last_timestamp) {
+					for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
+						if (pbi->last_timestamp == pbi->frame_mode_timestamp_save[i]) {
+							pic_config->timestamp = pbi->frame_mode_timestamp_save[i - 1];
+							break;
+						}
+					}
+
+					if ((i == 0) || (pic_config->timestamp <= pbi->last_timestamp)) {
+						vp9_print(pbi, VP9_DEBUG_OUT_PTS,
+							"no found ts: %lld, pred (ts + dur): %lld.\n",
+							pic_config->timestamp,
+							pbi->last_timestamp + pbi->dur_ts);
+
+						pic_config->timestamp = pbi->last_timestamp + pbi->dur_ts;
+					}
+				}
+
+				vp9_print(pbi, VP9_DEBUG_OUT_PTS,
+					"cur ts: %lld, pre ts: %lld, dur ts: %d\n",
+					pic_config->timestamp, pbi->last_timestamp, pbi->dur_ts);
+
+				if (pbi->vp9_first_pts_ready &&  /* there is a pack of multi-frames. */
+					(pic_config->timestamp > (pbi->last_timestamp + pbi->dur_ts)))
+					pic_config->timestamp = pbi->last_timestamp + pbi->dur_ts;
+
+				if (!pbi->vp9_first_pts_ready)
+					pbi->dur_ts = pic_config->timestamp - pbi->last_timestamp;
+			} else {
+				if ((pic_config->pts == 0) || (pic_config->pts <= pbi->last_pts)) {
 					for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
 						if ((pbi->last_pts == pbi->frame_mode_pts_save[i]) ||
-								(pbi->last_pts_us64 == pbi->frame_mode_pts64_save[i])) {
-								pic_config->pts = pbi->frame_mode_pts_save[i - 1];
-								pic_config->pts64 = pbi->frame_mode_pts64_save[i - 1];
-								break;
+							(pbi->last_pts_us64 == pbi->frame_mode_pts64_save[i])) {
+							pic_config->pts = pbi->frame_mode_pts_save[i - 1];
+							pic_config->pts64 = pbi->frame_mode_pts64_save[i - 1];
+							break;
 						}
-				}
-				if ((i == 0) || (pic_config->pts <= pbi->last_pts)) {
+					}
+					if ((i == 0) || (pic_config->pts <= pbi->last_pts)) {
 						vp9_print(pbi, VP9_DEBUG_OUT_PTS,
 							"no found pts %d, set 0. %d, %d\n",
-								i, pic_config->pts, pbi->last_pts);
+							i, pic_config->pts, pbi->last_pts);
 						pic_config->pts = 0;
 						pic_config->pts64 = 0;
+					}
 				}
 			}
 		}
@@ -7596,7 +7642,8 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 
 		pts_save = vf->pts;
 		pts_us64_save = vf->pts_us64;
-		if (pbi->pts_unstable) {
+		timestamp_save = vf->timestamp;
+		if (pbi->is_used_v4l || pbi->pts_unstable) {
 			frame_duration_adapt(pbi, vf, pts_valid);
 			if (pbi->duration_from_pts_done) {
 				pbi->pts_mode = PTS_NONE_REF_USE_DURATION;
@@ -7651,11 +7698,13 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 				(DUR2PTS(pbi->frame_dur) * 100 / 9);
 		}
 		pbi->last_pts_us64 = vf->pts_us64;
+		pbi->last_timestamp = vf->timestamp;
 		if ((debug & VP9_DEBUG_OUT_PTS) != 0) {
 			pr_info
-			("VP9 dec out pts: pts_mode=%d,dur=%d,pts(%d,%lld)(%d,%lld)\n",
+			("VP9 dec out pts: pts_mode=%d,dur=%d,pts(%d,%lld,%lld)(%d,%lld,%lld)\n",
 			pbi->pts_mode, pbi->frame_dur, vf->pts,
-			vf->pts_us64, pts_save, pts_us64_save);
+			vf->pts_us64, vf->timestamp, pts_save,
+			pts_us64_save, timestamp_save);
 		}
 
 		if (pbi->pts_mode == PTS_NONE_REF_USE_DURATION) {
@@ -7663,6 +7712,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 			vf->disp_pts_us64 = vf->pts_us64;
 			vf->pts = pts_save;
 			vf->pts_us64 = pts_us64_save;
+			/* vf->timestamp = timestamp_save; */
 		} else {
 			vf->disp_pts = 0;
 			vf->disp_pts_us64 = 0;
@@ -9674,6 +9724,10 @@ static int vvp9_local_init(struct VP9Decoder_s *pbi)
 		 0) ? 3200 : pbi->vvp9_amstream_dec_info.rate;
 	if (width && height)
 		pbi->frame_ar = height * 0x100 / width;
+
+	memset(pbi->frame_mode_timestamp_save, -1,
+		sizeof(pbi->frame_mode_timestamp_save));
+	pbi->dur_ts = 0;
 /*
  *TODO:FOR VERSION
  */
@@ -10248,6 +10302,9 @@ static unsigned char get_data_check_sum
 	int sum = 0;
 	u8 *data = NULL;
 
+	if (vdec_secure(hw_to_vdec(pbi)))
+		return 0;
+
 	if (!pbi->chunk->block->is_mapped)
 		data = codec_mm_vmap(pbi->chunk->block->start +
 			pbi->chunk->offset, size);
@@ -10685,13 +10742,15 @@ static void vp9_frame_mode_pts_save(struct VP9Decoder_s *pbi)
 	if (pbi->chunk == NULL)
 	       return;
 	vp9_print(pbi, VP9_DEBUG_OUT_PTS,
-	       "run front: pts %d, pts64 %lld\n", pbi->chunk->pts, pbi->chunk->pts64);
+	       "run front: pts %d, pts64 %lld, ts: %lld\n", pbi->chunk->pts, pbi->chunk->pts64, pbi->chunk->timestamp);
 	for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
-	       pbi->frame_mode_pts_save[i] = pbi->frame_mode_pts_save[i - 1];
-	       pbi->frame_mode_pts64_save[i] = pbi->frame_mode_pts64_save[i - 1];
+		pbi->frame_mode_pts_save[i] = pbi->frame_mode_pts_save[i - 1];
+		pbi->frame_mode_pts64_save[i] = pbi->frame_mode_pts64_save[i - 1];
+		pbi->frame_mode_timestamp_save[i] = pbi->frame_mode_timestamp_save[i - 1];
 	}
 	pbi->frame_mode_pts_save[0] = pbi->chunk->pts;
 	pbi->frame_mode_pts64_save[0] = pbi->chunk->pts64;
+	pbi->frame_mode_timestamp_save[0] = pbi->chunk->timestamp;
 }
 
 static void run_front(struct vdec_s *vdec)
@@ -10749,7 +10808,9 @@ static void run_front(struct vdec_s *vdec)
 		READ_VREG(HEVC_STREAM_WR_PTR),
 		READ_VREG(HEVC_STREAM_RD_PTR),
 		pbi->start_shift_bytes);
-		if (vdec_frame_based(vdec) && pbi->chunk) {
+
+		if (!vdec_secure(hw_to_vdec(pbi)) &&
+			vdec_frame_based(vdec) && pbi->chunk) {
 			u8 *data = NULL;
 
 			if (!pbi->chunk->block->is_mapped)
