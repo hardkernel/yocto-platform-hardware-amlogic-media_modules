@@ -107,7 +107,7 @@ to enable DV of frame mode
 
 #define SEND_LMEM_WITH_RPM
 #define SUPPORT_10BIT
-#define H265_10B_MMU_DW
+/* #define H265_10B_MMU_DW */
 /* #define ERROR_HANDLE_DEBUG */
 
 
@@ -2991,8 +2991,8 @@ bmmu_box_failed:
 	if (hevc->mmu_box_dw)
 		decoder_mmu_box_free(hevc->mmu_box_dw);
 	hevc->mmu_box_dw = NULL;
-#endif
 dw_mmu_box_failed:
+#endif
 	if (hevc->mmu_box) {
 		decoder_mmu_box_free(hevc->mmu_box);
 	}
@@ -3791,7 +3791,7 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 {
 
 	struct BuffInfo_s *buf_spec = hevc->work_space_buf;
-	unsigned int data32, data_tmp;
+	unsigned int data32;
 
 	int losless_comp_header_size =
 		compute_losless_comp_header_size(hevc->pic_w,
@@ -3838,6 +3838,7 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 #ifdef H265_10B_MMU_DW
 	data32 = READ_VREG(HEVC_SAO_CTRL5);
 	if (hevc->dw_mmu_enable) {
+		u32 data_tmp;
 		data_tmp = READ_VREG(HEVC_SAO_CTRL9);
 		data_tmp |= (1 << 10);
 		WRITE_VREG(HEVC_SAO_CTRL9, data_tmp);
@@ -5537,7 +5538,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 	if ((dw_mode & 0x10) == 0) {
 		data32 = READ_VREG(HEVC_SAO_CTRL5);
 		data32 &= (~(0xff << 16));
-		if ((READ_VREG(HEVC_SAO_CTRL9) & (1<<10)) == 0) {
+		/* if ((READ_VREG(HEVC_SAO_CTRL9) & (1<<10)) == 0) { */
 			if ((dw_mode & 0xf) == 2 ||
 				(dw_mode & 0xf) == 3)
 				data32 |= (0xff<<16);
@@ -5551,7 +5552,7 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 				data32 &= ~(1 << 9);
 			if (workaround_enable & 1)
 				data32 |= (1 << 7);
-		}
+		/* } */
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 	}
 	data32 = cur_pic->mc_y_adr;
