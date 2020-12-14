@@ -261,7 +261,7 @@ static int vdec_vp9_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 	struct vdec_vp9_inst *inst = NULL;
 	int ret = -1;
 
-	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
+	inst = vzalloc(sizeof(*inst));
 	if (!inst)
 		return -ENOMEM;
 
@@ -291,14 +291,14 @@ static int vdec_vp9_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	ctx->vfm = &inst->vfm;
 	/* probe info from the stream */
-	inst->vsi = kzalloc(sizeof(struct vdec_vp9_vsi), GFP_KERNEL);
+	inst->vsi = vzalloc(sizeof(struct vdec_vp9_vsi));
 	if (!inst->vsi) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	/* alloc the header buffer to be used cache sps or spp etc.*/
-	inst->vsi->header_buf = kzalloc(HEADER_BUFFER_SIZE, GFP_KERNEL);
+	inst->vsi->header_buf = vzalloc(HEADER_BUFFER_SIZE);
 	if (!inst->vsi->header_buf) {
 		ret = -ENOMEM;
 		goto err;
@@ -327,11 +327,11 @@ err:
 	if (inst)
 		vcodec_vfm_release(&inst->vfm);
 	if (inst && inst->vsi && inst->vsi->header_buf)
-		kfree(inst->vsi->header_buf);
+		vfree(inst->vsi->header_buf);
 	if (inst && inst->vsi)
-		kfree(inst->vsi);
+		vfree(inst->vsi);
 	if (inst)
-		kfree(inst);
+		vfree(inst);
 	*h_vdec = 0;
 
 	return ret;
@@ -565,12 +565,12 @@ static void vdec_vp9_deinit(unsigned long h_vdec)
 
 	spin_lock_irqsave(&ctx->slock, flags);
 	if (inst->vsi && inst->vsi->header_buf)
-		kfree(inst->vsi->header_buf);
+		vfree(inst->vsi->header_buf);
 
 	if (inst->vsi)
-		kfree(inst->vsi);
+		vfree(inst->vsi);
 
-	kfree(inst);
+	vfree(inst);
 
 	ctx->drv_handle = 0;
 	spin_unlock_irqrestore(&ctx->slock, flags);

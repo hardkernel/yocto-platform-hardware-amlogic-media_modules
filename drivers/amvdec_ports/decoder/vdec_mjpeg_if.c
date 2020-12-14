@@ -195,7 +195,7 @@ static int vdec_mjpeg_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 	int ret = -1;
 	bool dec_init = false;
 
-	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
+	inst = vzalloc(sizeof(*inst));
 	if (!inst)
 		return -ENOMEM;
 
@@ -233,14 +233,14 @@ static int vdec_mjpeg_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 	dec_init = true;
 
 	/* probe info from the stream */
-	inst->vsi = kzalloc(sizeof(struct vdec_mjpeg_vsi), GFP_KERNEL);
+	inst->vsi = vzalloc(sizeof(struct vdec_mjpeg_vsi));
 	if (!inst->vsi) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	/* alloc the header buffer to be used cache sps or spp etc.*/
-	inst->vsi->header_buf = kzalloc(HEADER_BUFFER_SIZE, GFP_KERNEL);
+	inst->vsi->header_buf = vzalloc(HEADER_BUFFER_SIZE);
 	if (!inst->vsi->header_buf) {
 		ret = -ENOMEM;
 		goto err;
@@ -263,11 +263,11 @@ err:
 	if (inst)
 		vcodec_vfm_release(&inst->vfm);
 	if (inst && inst->vsi && inst->vsi->header_buf)
-		kfree(inst->vsi->header_buf);
+		vfree(inst->vsi->header_buf);
 	if (inst && inst->vsi)
-		kfree(inst->vsi);
+		vfree(inst->vsi);
 	if (inst)
-		kfree(inst);
+		vfree(inst);
 	*h_vdec = 0;
 
 	return ret;
@@ -360,7 +360,7 @@ static int parse_stream_cpu(struct vdec_mjpeg_inst *inst, u8 *buf, u32 size)
 	int ret = 0;
 	struct mjpeg_param_sets *ps = NULL;
 
-	ps = kzalloc(sizeof(struct mjpeg_param_sets), GFP_KERNEL);
+	ps = vzalloc(sizeof(struct mjpeg_param_sets));
 	if (ps == NULL)
 		return -ENOMEM;
 
@@ -376,7 +376,7 @@ static int parse_stream_cpu(struct vdec_mjpeg_inst *inst, u8 *buf, u32 size)
 
 	ret = ps->head_parsed ? 0 : -1;
 out:
-	kfree(ps);
+	vfree(ps);
 
 	return ret;
 }
@@ -437,12 +437,12 @@ static void vdec_mjpeg_deinit(unsigned long h_vdec)
 	//dump_deinit();
 
 	if (inst->vsi && inst->vsi->header_buf)
-		kfree(inst->vsi->header_buf);
+		vfree(inst->vsi->header_buf);
 
 	if (inst->vsi)
-		kfree(inst->vsi);
+		vfree(inst->vsi);
 
-	kfree(inst);
+	vfree(inst);
 }
 
 static int vdec_mjpeg_get_fb(struct vdec_mjpeg_inst *inst, struct vdec_v4l2_buffer **out)

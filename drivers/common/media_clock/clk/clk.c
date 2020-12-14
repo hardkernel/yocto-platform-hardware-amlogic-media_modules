@@ -374,7 +374,7 @@ static int register_vdec_clk_mgr_per_cpu(int cputype,
 		 */
 		return 0;	/* ignore don't needed firmare. */
 	}
-	mgr = kmalloc(sizeof(struct chip_vdec_clk_s), GFP_KERNEL);
+	mgr = vzalloc(sizeof(struct chip_vdec_clk_s));
 	if (!mgr)
 		return -ENOMEM;
 	*mgr = *t_mgr;
@@ -383,7 +383,7 @@ static int register_vdec_clk_mgr_per_cpu(int cputype,
 	 */
 	if (mgr->clock_init) {
 		if (mgr->clock_init()) {
-			kfree(mgr);
+			vfree(mgr);
 			return -ENOMEM;
 		}
 	}
@@ -406,7 +406,7 @@ EXPORT_SYMBOL(register_vdec_clk_mgr);
 
 int unregister_vdec_clk_mgr(enum vdec_type_e vdec_type)
 {
-	kfree(get_current_vdec_chip()->clk_mgr[vdec_type]);
+	vfree(get_current_vdec_chip()->clk_mgr[vdec_type]);
 
 	return 0;
 }
@@ -425,7 +425,7 @@ static int register_vdec_clk_setting_per_cpu(int cputype,
 		 */
 		return 0;	/* ignore don't needed this setting . */
 	}
-	p_setting = kmalloc(size, GFP_KERNEL);
+	p_setting = vzalloc(size);
 	if (!p_setting)
 		return -ENOMEM;
 	memcpy(p_setting, setting, size);
@@ -451,7 +451,7 @@ EXPORT_SYMBOL(register_vdec_clk_setting);
 
 int unregister_vdec_clk_setting(void)
 {
-	kfree(get_current_vdec_chip()->clk_setting_array);
+	vfree(get_current_vdec_chip()->clk_setting_array);
 
 	return 0;
 }

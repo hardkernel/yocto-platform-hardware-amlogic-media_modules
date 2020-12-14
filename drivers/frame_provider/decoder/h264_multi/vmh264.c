@@ -7770,13 +7770,13 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 			return -1;
 		}
 
-		hw->sei_data_buf = kmalloc(SEI_DATA_SIZE, GFP_KERNEL);
+		hw->sei_data_buf = vzalloc(SEI_DATA_SIZE);
 		if (hw->sei_data_buf == NULL) {
 			pr_err("%s: failed to alloc sei itu data buffer\n",
 				__func__);
 			return -1;
 		}
-		hw->sei_itu_data_buf = kmalloc(SEI_ITU_DATA_SIZE, GFP_KERNEL);
+		hw->sei_itu_data_buf = vzalloc(SEI_ITU_DATA_SIZE);
 		if (hw->sei_itu_data_buf == NULL) {
 			pr_err("%s: failed to alloc sei itu data buffer\n",
 				__func__);
@@ -7784,15 +7784,14 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 				hw->prefix_aux_size + hw->suffix_aux_size, hw->aux_addr,
 				hw->aux_phy_addr);
 			hw->aux_addr = NULL;
-			kfree(hw->sei_data_buf);
+			vfree(hw->sei_data_buf);
 			hw->sei_data_buf = NULL;
 
 			return -1;
 		}
 
 		if (NULL == hw->sei_user_data_buffer) {
-			hw->sei_user_data_buffer = kmalloc(USER_DATA_SIZE,
-								GFP_KERNEL);
+			hw->sei_user_data_buffer = vzalloc(USER_DATA_SIZE);
 			if (!hw->sei_user_data_buffer) {
 				pr_info("%s: Can not allocate sei_data_buffer\n",
 					   __func__);
@@ -7800,9 +7799,9 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 					hw->prefix_aux_size + hw->suffix_aux_size, hw->aux_addr,
 					hw->aux_phy_addr);
 				hw->aux_addr = NULL;
-				kfree(hw->sei_data_buf);
+				vfree(hw->sei_data_buf);
 				hw->sei_data_buf = NULL;
-				kfree(hw->sei_itu_data_buf);
+				vfree(hw->sei_itu_data_buf);
 				hw->sei_itu_data_buf = NULL;
 
 				return -1;
@@ -7870,15 +7869,15 @@ static int vh264_stop(struct vdec_h264_hw_s *hw)
 		hw->aux_addr = NULL;
 	}
 	if (hw->sei_data_buf != NULL) {
-		kfree(hw->sei_data_buf);
+		vfree(hw->sei_data_buf);
 		hw->sei_data_buf = NULL;
 	}
 	if (hw->sei_itu_data_buf != NULL) {
-		kfree(hw->sei_itu_data_buf);
+		vfree(hw->sei_itu_data_buf);
 		hw->sei_itu_data_buf = NULL;
 	}
 	if (hw->sei_user_data_buffer != NULL) {
-		kfree(hw->sei_user_data_buffer);
+		vfree(hw->sei_user_data_buffer);
 		hw->sei_user_data_buffer = NULL;
 	}
 	/* amvdec_disable(); */
@@ -8215,7 +8214,7 @@ static void show_user_data_buf(void)
 
 static int vmh264_init_userdata_dump(void)
 {
-	user_data_buf = kmalloc(MAX_USER_DATA_SIZE, GFP_KERNEL);
+	user_data_buf = vzalloc(MAX_USER_DATA_SIZE);
 	if (user_data_buf)
 		return 1;
 	else
@@ -8226,7 +8225,7 @@ static void vmh264_dump_userdata(void)
 {
 	if (user_data_buf) {
 		show_user_data_buf();
-		kfree(user_data_buf);
+		vfree(user_data_buf);
 		user_data_buf = NULL;
 	}
 }
