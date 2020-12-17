@@ -2659,6 +2659,33 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 				"amlvideo amvideo");
 			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
 				"vdec-map-%d", vdec->id);
+		} else if (p->frame_base_video_path ==
+				FRAME_BASE_PATH_DI_AMVIDEO) {
+			if (vdec_secure(vdec)) {
+				snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+						"%s %s", vdec->vf_provider_name,
+						"amlvideo deinterlace amvideo");
+			} else {
+				if (debug_vdetect)
+					snprintf(vdec->vfm_map_chain,
+							VDEC_MAP_NAME_SIZE,
+							"%s vdetect.0 %s",
+							vdec->vf_provider_name,
+							"amlvideo ppmgr deinterlace amvideo");
+				else
+					snprintf(vdec->vfm_map_chain,
+							VDEC_MAP_NAME_SIZE, "%s %s",
+							vdec->vf_provider_name,
+							"amlvideo ppmgr deinterlace amvideo");
+			}
+			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
+					"vdec-map-%d", vdec->id);
+		} else if (p->frame_base_video_path == FRAME_BASE_PATH_TUNNEL_DI_MODE) {
+			snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+					"%s %s", vdec->vf_provider_name,
+					"deinterlace amvideo");
+			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
+					"vdec-map-%d", vdec->id);
 		}
 
 		if (vfm_map_add(vdec->vfm_map_id,
