@@ -1706,7 +1706,8 @@ static void buf_spec_init(struct vdec_h264_hw_s *hw, bool buffer_reset_flag)
 			vf->index = -1;
 		}
 	}
-	if (!hw->is_used_v4l && buffer_reset_flag) {
+	/* buffers are alloced when error reset, v4l must find buffer by buffer_wrap[] */
+	if (hw->reset_bufmgr_flag && buffer_reset_flag) {
 		for (i = 0; i < BUFSPEC_POOL_SIZE; i++) {
 			if (hw->buffer_spec[i].used == 1 || hw->buffer_spec[i].used == 2)
 				hw->buffer_spec[i].used = 0;
@@ -2226,7 +2227,7 @@ static int v4l_get_free_buf_idx(struct vdec_s *vdec)
 	spin_unlock_irqrestore(&hw->bufspec_lock, flags);
 
 	if (idx < 0) {
-		dpb_print(DECODE_ID(hw), 0, "%s fail\n", __func__);
+		dpb_print(DECODE_ID(hw), 0, "%s fail, state %d\n", __func__, state);
 		for (i = 0; i < BUFSPEC_POOL_SIZE; i++) {
 			dpb_print(DECODE_ID(hw), 0, "%s, %d\n",
 				__func__, hw->buffer_wrap[i]);
@@ -9414,6 +9415,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		((error_proc_policy & 0x40) &&
 		p_H264_Dpb->buf_alloc_fail)) {
 		h264_reset_bufmgr(vdec);
+		//flag must clear after reset for v4l buf_spec_init use
 		hw->reset_bufmgr_flag = 0;
 	}
 
