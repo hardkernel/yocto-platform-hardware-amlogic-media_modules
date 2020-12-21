@@ -921,6 +921,7 @@ struct vdec_h264_hw_s {
 	bool enable_fence;
 	int fence_usage;
 	bool discard_dv_data;
+	int vdec_pg_enable_flag;
 };
 
 static u32 again_threshold;
@@ -7651,12 +7652,12 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 	INIT_WORK(&hw->user_data_ready_work, user_data_ready_notify_work);
 #endif
 
-	if (!amvdec_enable_flag) {
+	/*if (!amvdec_enable_flag) {
 		amvdec_enable_flag = true;
 		amvdec_enable();
 		if (hw->mmu_enable)
 			amhevc_enable();
-	}
+	}*/
 	if (hw->mmu_enable) {
 
 		hw->frame_mmu_map_addr =
@@ -7707,6 +7708,7 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 		if (!hw->mc_cpu_addr) {
 			amvdec_enable_flag = false;
 			amvdec_disable();
+			hw->vdec_pg_enable_flag = 0;
 			if (hw->mmu_enable)
 				amhevc_disable();
 			pr_info("vh264_init: Can not allocate mc memory.\n");
@@ -9276,7 +9278,12 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		(struct vdec_h264_hw_s *)vdec->private;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 	int size, ret = -1;
-
+	if (!hw->vdec_pg_enable_flag) {
+		hw->vdec_pg_enable_flag = 1;
+		amvdec_enable();
+		if (hw->mmu_enable)
+			amhevc_enable();
+	}
 	run_count[DECODE_ID(hw)]++;
 	vdec_reset_core(vdec);
 	if (hw->mmu_enable)
@@ -9409,7 +9416,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		if (ret < 0) {
 			amvdec_enable_flag = false;
 			amvdec_disable();
-
+			hw->vdec_pg_enable_flag = 0;
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_ERROR,
 				"MH264 the %s fw loading failed, err: %x\n",
 				tee_enabled() ? "TEE" : "local", ret);
@@ -9425,7 +9432,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			if (ret < 0) {
 				amvdec_enable_flag = false;
 				amhevc_disable();
-
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_ERROR,
 					"MH264_MMU the %s fw loading failed, err: %x\n",
 					tee_enabled() ? "TEE" : "local", ret);
