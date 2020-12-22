@@ -1774,8 +1774,12 @@ static u32 seg_map_size = 0xd8000;
 static u32 seg_map_size = 0x36000;
 #endif
 
+#define VBH_BUF_SIZE (((2 * 16 * 2304) + 0xffff) & (~0xffff))
+#define VBH_BUF_COUNT 4
+
 #define WORK_BUF_SPEC_NUM 2
-static struct BuffInfo_s  aom_workbuff_spec[WORK_BUF_SPEC_NUM]={
+
+static struct BuffInfo_s  aom_workbuff_spec[WORK_BUF_SPEC_NUM] = {
 	{ //8M bytes
 		.max_width = 1920,
 		.max_height = 1088,
@@ -1814,11 +1818,11 @@ static struct BuffInfo_s  aom_workbuff_spec[WORK_BUF_SPEC_NUM]={
 			.buf_size = 0x800,
 		},
 		.cdf_buf = {
-		// for context store/load 1024x256 x16 = 512K bytes 16*0x8000
+			// for context store/load 1024x256 x16 = 512K bytes 16*0x8000
 			.buf_size = 0x80000,
 		},
 		.gmc_buf = {
-		// for gmc_parameter store/load 128 x 16 = 2K bytes 0x800
+			// for gmc_parameter store/load 128 x 16 = 2K bytes 0x800
 			.buf_size = 0x800,
 		},
 		.scalelut = {
@@ -1839,28 +1843,30 @@ static struct BuffInfo_s  aom_workbuff_spec[WORK_BUF_SPEC_NUM]={
 			.buf_size = 0x60000,
 		},
 		.fgs_table = {
-		  .buf_size = FGS_TABLE_SIZE * FRAME_BUFFERS, // 512x128bits
+			.buf_size = FGS_TABLE_SIZE * FRAME_BUFFERS, // 512x128bits
 		},
 #ifdef AOM_AV1_MMU
-#define VBH_BUF_SIZE (2 * 16 * 2304)
-#define VBH_BUF_COUNT 4
 		.mmu_vbh = {
-		  .buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT,
-		  //.buf_size = 0x5000, //2*16*(more than 2304)/4, 4K
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*(more than 2304)/4, 4K
 		},
 		.cm_header = {
-		  //.buf_size = MMU_COMPRESS_HEADER_SIZE*8, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
-		  .buf_size = MMU_COMPRESS_HEADER_SIZE*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#ifdef USE_SPEC_BUF_FOR_MMU_HEAD
+			.buf_size = MMU_COMPRESS_HEADER_SIZE * FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#else
+			.buf_size = 0,
+	#endif
 		},
 #endif
 #ifdef AOM_AV1_MMU_DW
 		.mmu_vbh_dw = {
-		  .buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT,
-		  //.buf_size = 0x5000, //2*16*(more than 2304)/4, 4K
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*(more than 2304)/4, 4K
 		},
 		.cm_header_dw = {
-		  //.buf_size = MMU_COMPRESS_HEADER_SIZE*8, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
-		  .buf_size = MMU_COMPRESS_HEADER_SIZE_DW*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#ifdef USE_SPEC_BUF_FOR_MMU_HEAD
+			.buf_size = MMU_COMPRESS_HEADER_SIZE_DW*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#else
+			.buf_size = 0,
+	#endif
 		},
 #endif
 		.mpred_above = {
@@ -1946,26 +1952,30 @@ static struct BuffInfo_s  aom_workbuff_spec[WORK_BUF_SPEC_NUM]={
 			.buf_size = 0x60000,
 		},
 		.fgs_table = {
-		  .buf_size = FGS_TABLE_SIZE * FRAME_BUFFERS, // 512x128bits
+			.buf_size = FGS_TABLE_SIZE * FRAME_BUFFERS, // 512x128bits
 		},
 #ifdef AOM_AV1_MMU
 		.mmu_vbh = {
-		  .buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT,
-		  //.buf_size = 0x5000, //2*16*(more than 2304)/4, 4K
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*(more than 2304)/4, 4K
 		},
 		.cm_header = {
-		  //.buf_size = MMU_COMPRESS_HEADER_SIZE*8, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
-		  .buf_size = MMU_COMPRESS_HEADER_SIZE*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#ifdef USE_SPEC_BUF_FOR_MMU_HEAD
+			.buf_size = MMU_COMPRESS_HEADER_SIZE*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#else
+			.buf_size = 0,
+	#endif
 		},
 #endif
 #ifdef AOM_AV1_MMU_DW
 		.mmu_vbh_dw = {
-		  .buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT,
-		  //.buf_size = 0x5000, //2*16*(more than 2304)/4, 4K
+			.buf_size = VBH_BUF_SIZE * VBH_BUF_COUNT, //2*16*(more than 2304)/4, 4K
 		},
 		.cm_header_dw = {
-		  //.buf_size = MMU_COMPRESS_HEADER_SIZE*8, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
-		  .buf_size = MMU_COMPRESS_HEADER_SIZE_DW*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#ifdef USE_SPEC_BUF_FOR_MMU_HEAD
+			.buf_size = MMU_COMPRESS_HEADER_SIZE_DW*FRAME_BUFFERS, // 0x44000 = ((1088*2*1024*4)/32/4)*(32/8)
+	#else
+			.buf_size = 0,
+	#endif
 		},
 #endif
 		.mpred_above = {
@@ -4762,7 +4772,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 static void aom_config_work_space_hw(struct AV1HW_s *hw, u32 mask)
 {
 	struct BuffInfo_s *buf_spec = hw->work_space_buf;
-	unsigned int data32, data_tmp;
+	unsigned int data32;
 	av1_print(hw, AOM_DEBUG_HW_MORE, "%s %d\n", __func__, __LINE__);
 	if (debug && hw->init_flag == 0)
 		av1_print(hw, AOM_DEBUG_HW_MORE, "%s %x %x %x %x %x %x %x %x\n",
@@ -4891,6 +4901,7 @@ static void aom_config_work_space_hw(struct AV1HW_s *hw, u32 mask)
 #ifdef AOM_AV1_MMU_DW
     data32 = READ_VREG(HEVC_SAO_CTRL5);
 	if (hw->dw_mmu_enable) {
+		u32 data_tmp;
 		data_tmp = READ_VREG(HEVC_SAO_CTRL9);
 		data_tmp |= (1<<10);
 		WRITE_VREG(HEVC_SAO_CTRL9, data_tmp);
