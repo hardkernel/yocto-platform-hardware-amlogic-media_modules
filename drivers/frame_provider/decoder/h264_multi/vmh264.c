@@ -1938,7 +1938,7 @@ static int alloc_one_buf_spec_from_queue(struct vdec_h264_hw_s *hw, int idx)
 
 	bs->cma_alloc_addr = (unsigned long)fb;
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_V4L_DETAIL,
-		"[%d] %s(), cma alloc addr: 0x%x, out %d dec %d\n",
+		"[%d] %s(), cma alloc addr: 0x%lx, out %d dec %d\n",
 		ctx->id, __func__, bs->cma_alloc_addr,
 		ctx->cap_pool.out, ctx->cap_pool.dec);
 
@@ -2653,7 +2653,7 @@ static int check_force_interlace(struct vdec_h264_hw_s *hw,
 			 && (hw->frame_dur == 3840)) {
 		bForceInterlace = 1;
 	}
-	if (hw->is_used_v4l && (bForceInterlace == 0)) {
+	if ((frame->frame) && (hw->is_used_v4l) && (bForceInterlace == 0)) {
 		bForceInterlace = (frame->frame->mb_aff_frame_flag)?1:0;
 	}
 	return bForceInterlace;
@@ -4112,11 +4112,13 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)vdec->private;
-	struct aml_vcodec_ctx * v4l2_ctx = hw->v4l2_ctx;
+	struct aml_vcodec_ctx * v4l2_ctx;
 	ulong nv_order = VIDTYPE_VIU_NV21;
 
 	if (!hw)
 		return NULL;
+
+	v4l2_ctx = hw->v4l2_ctx;
 
 	/* swap uv */
 	if (hw->is_used_v4l) {
@@ -4339,7 +4341,7 @@ static void vh264_vf_put(struct vframe_s *vf, void *op_arg)
 	spin_unlock_irqrestore(&hw->bufspec_lock, flags);
 
 	hw->vf_put_count++;
-	if (vf && (vf_valid_check(vf, hw) == true))
+	if (vf_valid_check(vf, hw) == true)
 		kfifo_put(&hw->newframe_q, (const struct vframe_s *)vf);
 
 #define ASSIST_MBOX1_IRQ_REG    VDEC_ASSIST_MBOX1_IRQ_REG
@@ -4999,7 +5001,7 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 	if (mb_width <= 0 || mb_height <= 0 ||
 		is_oversize(mb_width << 4, mb_height << 4)) {
 		dpb_print(DECODE_ID(hw), 0,
-			"!!!wrong seq_info2 0x%x mb_width/mb_height (0x%x/0x%x) %x\r\n",
+			"!!!wrong seq_info2 0x%x mb_width/mb_height (0x%x/0x%x)\r\n",
 			seq_info2,
 			mb_width,
 			mb_height);
@@ -5144,8 +5146,7 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 		}
 
 		if (p_H264_Dpb->bitstream_restriction_flag &&
-			p_H264_Dpb->num_reorder_frames <= p_H264_Dpb->max_dec_frame_buffering &&
-			p_H264_Dpb->num_reorder_frames >= 0) {
+			p_H264_Dpb->num_reorder_frames <= p_H264_Dpb->max_dec_frame_buffering) {
 			hw->dpb.reorder_output = hw->num_reorder_frames + 1;
 		}
 
@@ -6862,7 +6863,7 @@ empty_proc:
 						 (p_H264_Dpb->mSlice.slice_type != B_SLICE))) {
 						 dpb_print(DECODE_ID(hw),
 							PRINT_FLAG_ERROR, "%s last dpb status 0x%x need bugmgr reset \n",
-							p_H264_Dpb->last_dpb_status, __func__);
+							__func__, p_H264_Dpb->last_dpb_status);
 							hw->reset_bufmgr_flag = 1;
 					}
 				}
@@ -8670,7 +8671,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	if (mb_width <= 0 || mb_height <= 0 ||
 		is_oversize(mb_width << 4, mb_height << 4)) {
 		dpb_print(DECODE_ID(hw), 0,
-			"!!!wrong param1 0x%x mb_width/mb_height (0x%x/0x%x) %x\r\n",
+			"!!!wrong param1 0x%x mb_width/mb_height (0x%x/0x%x)\r\n",
 			param1,
 			mb_width,
 			mb_height);

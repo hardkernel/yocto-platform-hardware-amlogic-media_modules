@@ -635,7 +635,7 @@ int uleb_encode(u64 value, size_t available,
 	int i;
 	const size_t leb_size = uleb_size_in_bytes(value);
 
-	if (value > kMaximumLeb128Value || leb_size > kMaximumLeb128Size ||
+	if (leb_size > kMaximumLeb128Size ||
 		leb_size > available || !coded_value || !coded_size) {
 		return -1;
 	}
@@ -703,11 +703,12 @@ static int read_obu_size(const u8 *data,
 static int read_obu_header(struct read_bit_buffer *rb,
 	int is_annexb, struct ObuHeader *header)
 {
-	const int bit_buffer_byte_length =
-		rb->bit_buffer_end - rb->bit_buffer;
+	int bit_buffer_byte_length;
 
 	if (!rb || !header)
 		return -1;
+
+	bit_buffer_byte_length = rb->bit_buffer_end - rb->bit_buffer;
 
 	if (bit_buffer_byte_length < 1)
 		return -1;
@@ -1086,12 +1087,15 @@ static int vdec_av1_decode(unsigned long h_vdec,
 {
 	struct vdec_av1_inst *inst = (struct vdec_av1_inst *)h_vdec;
 	struct aml_vdec_adapt *vdec = &inst->vdec;
-	u8 *buf = (u8 *) bs->vaddr;
-	u32 size = bs->size;
+	u8 *buf;
+	u32 size;
 	int ret = -1;
 
 	if (bs == NULL)
 		return -1;
+
+	buf = (u8 *) bs->vaddr;
+	size = bs->size;
 
 	if (vdec_input_full(vdec)) {
 		ATRACE_COUNTER("vdec_input_full", 0);
@@ -1168,7 +1172,7 @@ static int vdec_av1_get_param(unsigned long h_vdec,
 	struct vdec_av1_inst *inst = (struct vdec_av1_inst *)h_vdec;
 
 	if (!inst) {
-		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
+		v4l_dbg(0, V4L_DEBUG_CODEC_ERROR,
 			"the av1 inst of dec is invalid.\n");
 		return -1;
 	}
@@ -1298,7 +1302,7 @@ static int vdec_av1_set_param(unsigned long h_vdec,
 	struct vdec_av1_inst *inst = (struct vdec_av1_inst *)h_vdec;
 
 	if (!inst) {
-		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
+		v4l_dbg(0, V4L_DEBUG_CODEC_ERROR,
 			"the av1 inst of dec is invalid.\n");
 		return -1;
 	}

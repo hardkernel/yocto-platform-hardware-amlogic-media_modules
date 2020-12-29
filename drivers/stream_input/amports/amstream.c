@@ -649,6 +649,11 @@ static int video_port_init(struct port_priv_s *priv,
 	struct stream_port_s *port = priv->port;
 	struct vdec_s *vdec = priv->vdec;
 
+	if (vdec == NULL) {
+		pr_err("vdec is null\n");
+		return -EPERM;
+	}
+
 	if ((vdec->port_flag & PORT_FLAG_VFORMAT) == 0) {
 		pr_err("vformat not set\n");
 		return -EPERM;
@@ -735,8 +740,9 @@ static int video_port_init(struct port_priv_s *priv,
 err:
 	if (vdec->slave)
 		vdec_release(vdec->slave);
-	if (vdec)
-		vdec_release(vdec);
+
+	vdec_release(vdec);
+
 	priv->vdec = NULL;
 
 	return r;
@@ -2924,7 +2930,7 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 	case AMSTREAM_IOC_GET_AVINFO:
 		{
 			struct av_param_info_t  __user *uarg = (void *)arg;
-			struct av_info_t  av_info;
+			struct av_info_t  av_info = {0};
 			int delay;
 			u32 avgbps;
 			if (this->type & PORT_TYPE_VIDEO) {
@@ -3760,7 +3766,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		break;
 	}
 	case AMSTREAM_IOC_GET_STBUF_STATUS: {
-		struct stream_buffer_status st;
+		struct stream_buffer_status st = {0};
 		struct stream_buf_s *pbuf = NULL;
 
 		if (priv->vdec == NULL) {
