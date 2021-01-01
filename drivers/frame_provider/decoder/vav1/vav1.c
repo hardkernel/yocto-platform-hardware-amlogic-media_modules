@@ -361,6 +361,8 @@ static u32 frame_height;
 static u32 video_signal_type;
 static u32 on_no_keyframe_skiped;
 static u32 without_display_mode;
+static u32 v4l_bitstream_id_enable = 1;
+
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
 static u32 force_dv_enable;
 #endif
@@ -708,12 +710,9 @@ struct AV1HW_s {
 	u8  first_pts_index;
 	u32 frame_mode_pts_save[FRAME_BUFFERS];
 	u64 frame_mode_pts64_save[FRAME_BUFFERS];
-	u64 frame_mode_timestamp_save[FRAME_BUFFERS];
-	u64 timestamp_duration;
 
 	int last_pts;
 	u64 last_pts_us64;
-	u64 last_timestamp;
 	u64 shift_byte_count;
 
 	u32 shift_byte_count_lo;
@@ -1366,6 +1365,24 @@ static void	put_un_used_mv_bufs(struct AV1HW_s *hw)
 
 static void init_pic_list_hw(struct AV1HW_s *pbi);
 
+static void update_hide_frame_timestamp(struct AV1HW_s *hw)
+{
+	RefCntBuffer *const frame_bufs = hw->common.buffer_pool->frame_bufs;
+	int i;
+
+	for (i = 0; i < hw->used_buf_num; ++i) {
+		if ((!frame_bufs[i].show_frame) &&
+			(frame_bufs[i].showable_frame) &&
+			(!frame_bufs[i].buf.vf_ref) &&
+			(frame_bufs[i].buf.BUF_index != -1)) {
+			frame_bufs[i].buf.timestamp = hw->chunk->timestamp;
+			av1_print(hw, AV1_DEBUG_OUT_PTS,
+				"%s, update %d hide frame ts: %lld\n",
+				__func__, i, frame_bufs[i].buf.timestamp);
+		}
+	}
+}
+
 static int get_free_fb_idx(AV1_COMMON *cm)
 {
 	int i;
@@ -1442,7 +1459,21 @@ static int v4l_get_free_fb(struct AV1HW_s *hw)
 		}
 	}
 
+	if (free_pic && hw->chunk) {
+		free_pic->timestamp = hw->chunk->timestamp;
+		update_hide_frame_timestamp(hw);
+	}
+
 	unlock_buffer_pool(cm->buffer_pool, flags);
+
+	if (debug & AV1_DEBUG_OUT_PTS) {
+		if (free_pic) {
+			pr_debug("%s, idx: %d, ts: %lld\n",
+				__func__, free_pic->index, free_pic->timestamp);
+		} else {
+			pr_debug("%s, av1 get free pic null\n", __func__);
+		}
+	}
 
 	return free_pic ? free_pic->index : INVALID_IDX;
 }
@@ -1553,7 +1584,6 @@ int aom_bufmgr_init(struct AV1HW_s *hw, struct BuffInfo_s *buf_spec_i,
 
 	hw->last_pts = 0;
 	hw->last_pts_us64 = 0;
-	hw->last_timestamp = 0;
 	hw->shift_byte_count = 0;
 	hw->shift_byte_count_lo = 0;
 	hw->shift_byte_count_hi = 0;
@@ -5973,41 +6003,23 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 
 	display_frame_count[hw->index]++;
 	if (vf) {
-		if (!force_pts_unstable && (hw->av1_first_pts_ready)) {
-			if (hw->is_used_v4l) {
-				if ((pic_config->timestamp == 0) || (pic_config->timestamp <= hw->last_timestamp)) {
-					for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
-						if (hw->last_timestamp == hw->frame_mode_timestamp_save[i]) {
-							pic_config->timestamp = hw->frame_mode_timestamp_save[i - 1];
-							break;
-						}
-					}
-
-					if ((i == 0) || (pic_config->timestamp <= hw->last_timestamp)) {
-						av1_print(hw, AV1_DEBUG_OUT_PTS,
-							"no found timestamp %d, set 0. %d, %d\n",
-							i, pic_config->timestamp, hw->last_timestamp);
-						pic_config->timestamp = 0;
+		if (!force_pts_unstable && hw->av1_first_pts_ready) {
+			if ((pic_config->pts == 0) || (pic_config->pts <= hw->last_pts)) {
+				for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
+					if ((hw->last_pts == hw->frame_mode_pts_save[i]) ||
+						(hw->last_pts_us64 == hw->frame_mode_pts64_save[i])) {
+						pic_config->pts = hw->frame_mode_pts_save[i - 1];
+						pic_config->pts64 = hw->frame_mode_pts64_save[i - 1];
+						break;
 					}
 				}
-			} else {
-				if ((pic_config->pts == 0) || (pic_config->pts <= hw->last_pts)) {
-					for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
-						if ((hw->last_pts == hw->frame_mode_pts_save[i]) ||
-							(hw->last_pts_us64 == hw->frame_mode_pts64_save[i])) {
-							pic_config->pts = hw->frame_mode_pts_save[i - 1];
-							pic_config->pts64 = hw->frame_mode_pts64_save[i - 1];
-							break;
-						}
-					}
 
-					if ((i == 0) || (pic_config->pts <= hw->last_pts)) {
-						av1_print(hw, AV1_DEBUG_OUT_PTS,
-							"no found pts %d, set 0. %d, %d\n",
-							i, pic_config->pts, hw->last_pts);
-						pic_config->pts = 0;
-						pic_config->pts64 = 0;
-					}
+				if ((i == 0) || (pic_config->pts <= hw->last_pts)) {
+					av1_print(hw, AV1_DEBUG_OUT_PTS,
+						"no found pts %d, set 0. %d, %d\n",
+						i, pic_config->pts, hw->last_pts);
+					pic_config->pts = 0;
+					pic_config->pts64 = 0;
 				}
 			}
 		}
@@ -6027,7 +6039,12 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		if (vdec_frame_based(hw_to_vdec(hw))) {
 			vf->pts = pic_config->pts;
 			vf->pts_us64 = pic_config->pts64;
-			vf->timestamp = pic_config->timestamp;
+
+			if (hw->is_used_v4l && v4l_bitstream_id_enable)
+				vf->timestamp = pic_config->timestamp;
+			else
+				vf->timestamp = pic_config->pts64;
+
 			if (vf->pts != 0 || vf->pts_us64 != 0) {
 				pts_valid = 1;
 				pts_us64_valid = 1;
@@ -6057,31 +6074,18 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		}
 
 		if (hw->av1_first_pts_ready) {
-			if (hw->is_used_v4l) {
-				if (hw->frame_dur && (vf->timestamp == 0)) {
-					vf->timestamp = hw->last_timestamp +
-						hw->timestamp_duration;
-				}
+			if (hw->frame_dur && ((vf->pts == 0) || (vf->pts_us64 == 0))) {
+				vf->pts = hw->last_pts + DUR2PTS(hw->frame_dur);
+				vf->pts_us64 = hw->last_pts_us64 +
+					(DUR2PTS(hw->frame_dur) * 100 / 9);
+				reclac_flag = 1;
+			}
 
-				if (!close_to(vf->timestamp, (hw->last_timestamp +
-					hw->timestamp_duration), 100)) {
-					vf->timestamp = hw->last_timestamp +
-						hw->timestamp_duration;
-				}
-			} else {
-				if (hw->frame_dur && ((vf->pts == 0) || (vf->pts_us64 == 0))) {
-					vf->pts = hw->last_pts + DUR2PTS(hw->frame_dur);
-					vf->pts_us64 = hw->last_pts_us64 +
-						(DUR2PTS(hw->frame_dur) * 100 / 9);
-					reclac_flag = 1;
-				}
-
-				if (!close_to(vf->pts, (hw->last_pts + DUR2PTS(hw->frame_dur)), 100)) {
-					vf->pts = hw->last_pts + DUR2PTS(hw->frame_dur);
-					vf->pts_us64 = hw->last_pts_us64 +
-						(DUR2PTS(hw->frame_dur) * 100 / 9);
-					reclac_flag = 2;
-				}
+			if (!close_to(vf->pts, (hw->last_pts + DUR2PTS(hw->frame_dur)), 100)) {
+				vf->pts = hw->last_pts + DUR2PTS(hw->frame_dur);
+				vf->pts_us64 = hw->last_pts_us64 +
+					(DUR2PTS(hw->frame_dur) * 100 / 9);
+				reclac_flag = 2;
 			}
 
 			if (hw->is_used_v4l)
@@ -6108,17 +6112,14 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 			}
 		} else {
 			av1_print(hw, AV1_DEBUG_OUT_PTS,
-				"first pts %d change to save[%d] %d, ts: %llu\n",
+				"first pts %d change to save[%d] %d\n",
 				vf->pts, hw->first_pts_index - 1,
-				hw->frame_mode_pts_save[hw->first_pts_index - 1],
-				hw->frame_mode_timestamp_save[hw->first_pts_index - 1]);
+				hw->frame_mode_pts_save[hw->first_pts_index - 1]);
 			vf->pts = hw->frame_mode_pts_save[hw->first_pts_index - 1];
 			vf->pts_us64 = hw->frame_mode_pts64_save[hw->first_pts_index - 1];
-			vf->timestamp  = hw->frame_mode_timestamp_save[hw->first_pts_index - 1];
 		}
 		hw->last_pts = vf->pts;
 		hw->last_pts_us64 = vf->pts_us64;
-		hw->last_timestamp = vf->timestamp;
 		hw->av1_first_pts_ready = true;
 		av1_print(hw, AV1_DEBUG_OUT_PTS,
 			"av1 output slice type %d, dur %d, pts %d, pts64 %lld, ts: %llu\n",
@@ -7109,14 +7110,18 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 		cur_pic_config->slice_type = cm->cur_frame->frame_type;
 		if (hw->chunk) {
 			av1_print(hw, AV1_DEBUG_OUT_PTS,
-				"%s, config pic pts %d, pts64 %lld\n",
-				__func__, hw->chunk->pts, hw->chunk->pts64);
+				"%s, config pic pts %d, pts64 %lld, ts: %lld\n",
+				__func__, hw->chunk->pts, hw->chunk->pts64, hw->chunk->timestamp);
 			cur_pic_config->pts = hw->chunk->pts;
 			cur_pic_config->pts64 = hw->chunk->pts64;
-			cur_pic_config->timestamp =  hw->chunk->timestamp;
+
+			if (hw->is_used_v4l && !v4l_bitstream_id_enable) {
+				cur_pic_config->pts64 = hw->chunk->timestamp;
+				hw->chunk->timestamp = 0;
+			}
+
 			hw->chunk->pts = 0;
 			hw->chunk->pts64 = 0;
-			hw->chunk->timestamp = 0;
 		}
 #ifdef DUAL_DECODE
 #else
@@ -8831,8 +8836,6 @@ static int vav1_local_init(struct AV1HW_s *hw)
 	if (width && height)
 		hw->frame_ar = height * 0x100 / width;
 
-	memset(hw->frame_mode_timestamp_save, -1,
-		sizeof(hw->frame_mode_timestamp_save));
 /*
  *TODO:FOR VERSION
  */
@@ -9695,23 +9698,16 @@ static void av1_frame_mode_pts_save(struct AV1HW_s *hw)
 	if (hw->chunk == NULL)
 		return;
 	/* no return when first pts is 0 */
-	if (hw->first_pts_index) {
+	if (!hw->is_used_v4l && hw->first_pts_index) {
 		/* filtration pts 0 and continuous same pts */
-		if (hw->is_used_v4l) {
-			if (hw->frame_mode_timestamp_save[0] == hw->chunk->timestamp) {
-				return;
-			}
-		} else {
-			if((hw->chunk->pts == 0) ||
-				(hw->frame_mode_pts_save[0] == hw->chunk->pts))
-				return;
-		}
+		if ((hw->chunk->pts == 0) ||
+			(hw->frame_mode_pts_save[0] == hw->chunk->pts))
+			return;
+
 		/* fps change, frame dur change to lower or higher,
 		 * can't find closed pts in saved pool */
-		if (hw->is_used_v4l ?
-			((hw->last_timestamp > hw->chunk->timestamp)) :
-			((hw->dur_recalc_flag) ||
-			(hw->last_pts >  hw->chunk->pts))) {
+		if (hw->dur_recalc_flag ||
+			(hw->last_pts >  hw->chunk->pts)) {
 			hw->av1_first_pts_ready = 0;
 			hw->first_pts_index = 0;
 			hw->get_frame_dur = 0;
@@ -9720,47 +9716,39 @@ static void av1_frame_mode_pts_save(struct AV1HW_s *hw)
 			        sizeof(hw->frame_mode_pts_save));
 			memset(hw->frame_mode_pts64_save, 0,
 			        sizeof(hw->frame_mode_pts64_save));
-			memset(hw->frame_mode_timestamp_save, -1,
-				sizeof(hw->frame_mode_timestamp_save));
 		}
 	}
-
 	av1_print(hw, AV1_DEBUG_OUT_PTS,
-		"run_front: pts %d, pts64 %lld, ts: %llu\n",
+		"run_front: pts %d, pts64 %lld, ts: %lld\n",
 		hw->chunk->pts, hw->chunk->pts64, hw->chunk->timestamp);
 
 	for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
 		hw->frame_mode_pts_save[i] = hw->frame_mode_pts_save[i - 1];
 		hw->frame_mode_pts64_save[i] = hw->frame_mode_pts64_save[i - 1];
-		hw->frame_mode_timestamp_save[i] = hw->frame_mode_timestamp_save[i - 1];
 	}
 	hw->frame_mode_pts_save[0] = hw->chunk->pts;
 	hw->frame_mode_pts64_save[0] = hw->chunk->pts64;
-	hw->frame_mode_timestamp_save[0] = hw->chunk->timestamp;
+
+	if (hw->is_used_v4l && !v4l_bitstream_id_enable)
+		hw->frame_mode_pts64_save[0] = hw->chunk->timestamp;
+
 	if (hw->first_pts_index < ARRAY_SIZE(hw->frame_mode_pts_save))
 		hw->first_pts_index++;
 	/* frame duration check, vdec_secure return for nts problem */
-	if ((!hw->first_pts_index) || hw->get_frame_dur || vdec_secure(hw_to_vdec(hw)))
+	if ((!hw->first_pts_index) ||
+		hw->get_frame_dur ||
+		vdec_secure(hw_to_vdec(hw)))
 		return;
 	valid_pts_diff_cnt = 0;
 	pts_diff_sum = 0;
 
 	for (i = 0; i < FRAME_BUFFERS - 1; i++) {
-		if (hw->is_used_v4l) {
-			if ((hw->frame_mode_timestamp_save[i] > hw->frame_mode_timestamp_save[i + 1]) &&
-				(hw->frame_mode_timestamp_save[i + 1] != 0))
-				in_pts_diff = hw->frame_mode_timestamp_save[i]
-					- hw->frame_mode_timestamp_save[i + 1];
-			else
-				in_pts_diff = 0;
-		} else {
-			if ((hw->frame_mode_pts_save[i] > hw->frame_mode_pts_save[i + 1]) &&
-				(hw->frame_mode_pts_save[i + 1] != 0))
-				in_pts_diff = hw->frame_mode_pts_save[i]
-					- hw->frame_mode_pts_save[i + 1];
-			else
-				in_pts_diff = 0;
-		}
+		if ((hw->frame_mode_pts_save[i] > hw->frame_mode_pts_save[i + 1]) &&
+			(hw->frame_mode_pts_save[i + 1] != 0))
+			in_pts_diff = hw->frame_mode_pts_save[i]
+				- hw->frame_mode_pts_save[i + 1];
+		else
+			in_pts_diff = 0;
 
 		if (in_pts_diff < 100 ||
 			(valid_pts_diff_cnt && (!close_to(in_pts_diff, last_valid_pts_diff, 100))))
@@ -9774,7 +9762,7 @@ static void av1_frame_mode_pts_save(struct AV1HW_s *hw)
 	}
 
 	if (!valid_pts_diff_cnt) {
-		av1_print(hw, 0, "checked no avaliable pts\n");
+		av1_print(hw, AV1_DEBUG_OUT_PTS, "checked no avaliable pts\n");
 		return;
 	}
 
@@ -9788,11 +9776,6 @@ static void av1_frame_mode_pts_save(struct AV1HW_s *hw)
 	} else {
 		if (hw->frame_count > FRAME_BUFFERS)
 			hw->get_frame_dur = true;
-	}
-
-	if (hw->is_used_v4l) {
-		hw->timestamp_duration =
-			div_u64(pts_diff_sum, valid_pts_diff_cnt);
 	}
 }
 
@@ -10905,6 +10888,9 @@ MODULE_PARM_DESC(force_pts_unstable, "\n force_pts_unstable\n");
 
 module_param(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
+
+module_param(v4l_bitstream_id_enable, uint, 0664);
+MODULE_PARM_DESC(v4l_bitstream_id_enable, "\n v4l_bitstream_id_enable\n");
 
 module_init(amvdec_av1_driver_init_module);
 module_exit(amvdec_av1_driver_remove_module);
