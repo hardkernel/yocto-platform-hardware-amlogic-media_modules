@@ -1309,17 +1309,6 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	switch (cmd->cmd) {
 	case V4L2_DEC_CMD_STOP:
 		ATRACE_COUNTER("v4l2_stop", 0);
-		if (ctx->state != AML_STATE_ACTIVE) {
-			if (ctx->state >= AML_STATE_IDLE &&
-				ctx->state < AML_STATE_PROBE) {
-				ctx->state = AML_STATE_ABORT;
-				ATRACE_COUNTER("v4l2_state", ctx->state);
-				aml_vdec_dispatch_event(ctx, V4L2_EVENT_REQUEST_EXIT);
-				v4l_dbg(ctx, V4L_DEBUG_CODEC_STATE,
-					"vcodec state (AML_STATE_ABORT)\n");
-				return 0;
-			}
-		}
 
 		src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
