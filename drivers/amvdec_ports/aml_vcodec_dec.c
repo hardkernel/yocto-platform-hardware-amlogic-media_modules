@@ -2578,11 +2578,11 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 				if (!vf)
 					return;
+				if (!ctx_dma_vf_mapped_check(ctx, dbuf, vf))
+					return;
 
 				if ((dbuf != buf->frame_buffer.m.mem[0].dbuf) ||
 					(vf != (struct vframe_s *)buf->frame_buffer.vf_handle)) {
-					if (!ctx_dma_vf_mapped_check(ctx, dbuf, vf))
-						return;
 					buf->frame_buffer.m.mem[0].dbuf = dbuf;
 					buf->frame_buffer.vf_handle = (ulong) vf;
 					v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
