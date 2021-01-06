@@ -2183,7 +2183,7 @@ static int v4l_get_free_buf_idx(struct vdec_s *vdec)
 	struct buffer_spec_s *pic = NULL;
 	int i, rt, idx = INVALID_IDX;
 	ulong flags;
-	u32 state, index;
+	u32 state = 0, index;
 
 	spin_lock_irqsave(&hw->bufspec_lock, flags);
 	for (i = 0; i < pool->in; ++i) {
