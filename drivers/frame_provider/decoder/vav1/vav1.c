@@ -6005,21 +6005,14 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 
 	display_frame_count[hw->index]++;
 	if (vf) {
-		if (!force_pts_unstable && (hw->av1_first_pts_ready)) {
-			if (hw->is_used_v4l) {
-				if ((pic_config->timestamp == 0) || (pic_config->timestamp <= hw->last_timestamp)) {
-					for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
-						if (hw->last_timestamp == hw->frame_mode_timestamp_save[i]) {
-							pic_config->timestamp = hw->frame_mode_timestamp_save[i - 1];
-							break;
-						}
-					}
-
-					if ((i == 0) || (pic_config->timestamp <= hw->last_timestamp)) {
-						av1_print(hw, AV1_DEBUG_OUT_PTS,
-							"no found timestamp %d, set 0. %lld, %lld\n",
-							i, pic_config->timestamp, hw->last_timestamp);
-						pic_config->timestamp = 0;
+		if (!force_pts_unstable && hw->av1_first_pts_ready) {
+			if ((pic_config->pts == 0) || (pic_config->pts <= hw->last_pts)) {
+				for (i = (FRAME_BUFFERS - 1); i > 0; i--) {
+					if ((hw->last_pts == hw->frame_mode_pts_save[i]) ||
+						(hw->last_pts_us64 == hw->frame_mode_pts64_save[i])) {
+						pic_config->pts = hw->frame_mode_pts_save[i - 1];
+						pic_config->pts64 = hw->frame_mode_pts64_save[i - 1];
+						break;
 					}
 				}
 
