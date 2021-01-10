@@ -32,7 +32,9 @@
 #include <linux/amlogic/media/vfm/vframe.h>
 #include <linux/amlogic/media/vfm/vframe_provider.h>
 #include <linux/amlogic/media/vfm/vframe_receiver.h>
+#ifdef CONFIG_AMLOGIC_IONVIDEO
 #include <linux/amlogic/media/video_sink/ionvideo_ext.h>
+#endif
 #ifdef CONFIG_AMLOGIC_V4L_VIDEO3
 #include <linux/amlogic/media/video_sink/v4lvideo_ext.h>
 #endif
@@ -2498,7 +2500,9 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 				"%s %s", vdec->vf_provider_name, vfm_path);
 			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
 				"vdec-map-%d", vdec->id);
-		} else if (p->frame_base_video_path == FRAME_BASE_PATH_IONVIDEO) {
+		}
+#ifdef CONFIG_AMLOGIC_IONVIDEO
+		else if (p->frame_base_video_path == FRAME_BASE_PATH_IONVIDEO) {
 #if 1
 			r = ionvideo_assign_map(&vdec->vf_receiver_name,
 					&vdec->vf_receiver_inst);
@@ -2529,7 +2533,9 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 				vdec->vf_receiver_name);
 			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
 				"vdec-map-%d", vdec->id);
-		} else if (p->frame_base_video_path ==
+		}
+#endif
+		else if (p->frame_base_video_path ==
 				FRAME_BASE_PATH_AMLVIDEO_AMVIDEO) {
 			if (vdec_secure(vdec)) {
 				snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
