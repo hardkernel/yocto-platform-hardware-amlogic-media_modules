@@ -2872,10 +2872,12 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 			struct vframe_counter_s tmpbuf[QOS_FRAME_NUM] = {0};
 			struct av_param_mvdec_t  __user *uarg = (void *)arg;
 
+			mutex_lock(&amstream_mutex);
 			if (AMSTREAM_IOC_GET_MVDECINFO == cmd) {
 				if (get_user(vdec_id, &uarg->vdec_id) < 0
 				   || get_user(struct_size, &uarg->struct_size) < 0) {
 						r = -EFAULT;
+						mutex_unlock(&amstream_mutex);
 						break;
 					}
 				if (struct_size != sizeof(struct av_param_mvdec_t)) {
@@ -2885,12 +2887,14 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 					//Here will add the compatibility for old structure when
 					//current struecture be substituded by newer structure.
 					//msleep(1000); let app handle it.
+					mutex_unlock(&amstream_mutex);
 					break;
 				}
 			}
 			vdec = vdec_get_vdec_by_id(vdec_id);
 			if (!vdec) {
 				r = 0;
+				mutex_unlock(&amstream_mutex);
 				break;
 			}
 
@@ -2903,6 +2907,7 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 								&vdec->mvfrm->comm,
 								sizeof(struct vframe_comm_s))) {
 						r = -EFAULT;
+						mutex_unlock(&amstream_mutex);
 						break;
 					}
 					if (copy_to_user((void *)&uarg->minfo[0],
@@ -2910,6 +2915,7 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 								slots*sizeof(struct vframe_counter_s))) {
 						r = -EFAULT;
 						kfree(tmpbuf);
+						mutex_unlock(&amstream_mutex);
 						break;
 					}
 				}else { //For compatibility, only copy the qos
@@ -2920,6 +2926,7 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 									&tmpbuf[i].qos,
 									sizeof(struct vframe_qos_s))) {
 							r = -EFAULT;
+							mutex_unlock(&amstream_mutex);
 							break;
 						}
 				}
@@ -2929,6 +2936,7 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 				//msleep(10); let user app handle it.
 			}
 		}
+		mutex_unlock(&amstream_mutex);
 		break;
 	case AMSTREAM_IOC_GET_AVINFO:
 		{
