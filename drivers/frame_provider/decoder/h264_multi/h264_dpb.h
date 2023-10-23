@@ -111,6 +111,10 @@
 
 #define H264_ACTION_DECODE_START    0xff
 
+#define OVERSCAN_APPROPRIATE	0x1
+#define OVERSCAN_INFO_PRESENT	0x2
+#define OVERSCAN_INFO_ENABLE	0x4
+
 #define RPM_BEGIN			0x0
 #define RPM_END				0x400
 #define RPM_VALUE_END		0x3d2
@@ -128,6 +132,13 @@ union param {
 #define PTS_ZERO_1		0X19
 #endif
 #define FIXED_FRAME_RATE_FLAG                   0X21
+
+ /*
+ * bit 0 : overscan_appropriate_flag
+ * bit 1 : overscan_info_present_flag
+ * bit 2 ：1. flag can use
+ */
+#define OVERSCAN_INFO_PRESENT_APPROPRIATE_FLAG	0x22
 
 #define OFFSET_DELIMITER_LO                     0x2f
 #define OFFSET_DELIMITER_HI                     0x30

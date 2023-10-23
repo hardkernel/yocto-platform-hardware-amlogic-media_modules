@@ -907,6 +907,10 @@ enum NalUnitType {
 #define SLICE_SAO_CHROMA_FLAG_BIT           9
 #define SLICE_LOOP_FILTER_ACROSS_SLICES_ENABLED_FLAG_BIT 10
 
+#define OVERSCAN_APPROPRIATE	0x1
+#define OVERSCAN_INFO_PRESENT	0x2
+#define OVERSCAN_INFO_ENABLE	0x4
+
 union param_u {
 	struct {
 		unsigned short data[RPM_END - RPM_BEGIN];
@@ -969,6 +973,13 @@ union param_u {
 		unsigned short sar_width;
 		unsigned short sar_height;
 		unsigned short sps_max_dec_pic_buffering_minus1_0;
+
+		/*
+		* bit 0 : overscan_appropriate_flag
+		* bit 1 : overscan_info_present_flag
+		* bit 2 ：1. flag can use
+		*/
+		unsigned short overscan_info_present_appropriate_flag;
 	} p;
 };
 
@@ -2031,6 +2042,8 @@ struct hevc_state_s {
 	enum  FenceModeBufStatus fence_mode_buf_status;
 	bool check_dv_flag;
 	bool is_dv_flag;
+	int overscan_info_present_flag;
+	int overscan_appropriate_flag;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -12294,6 +12307,7 @@ force_output:
 			u32 vui_time_scale;
 			u32 vui_num_units_in_tick;
 			unsigned char reconfig_flag = 0;
+			int overscan_info_present_appropriate_flag = 0;
 
 			if (get_dbg_flag(hevc) & H265_DEBUG_SEND_PARAM_WITH_REG)
 				get_rpm_param(&hevc->param);
@@ -12387,6 +12401,12 @@ force_output:
 							(pic->pic_struct << 3);
 					}
 				}
+			}
+
+			overscan_info_present_appropriate_flag = hevc->param.p.overscan_info_present_appropriate_flag;
+			if (overscan_info_present_appropriate_flag & OVERSCAN_INFO_ENABLE) {
+				hevc->overscan_info_present_flag = (overscan_info_present_appropriate_flag & OVERSCAN_INFO_PRESENT) >> 1;
+				hevc->overscan_appropriate_flag = overscan_info_present_appropriate_flag & OVERSCAN_APPROPRIATE;
 			}
 
 			if (

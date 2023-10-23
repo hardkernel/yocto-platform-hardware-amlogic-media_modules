@@ -1049,6 +1049,8 @@ struct vdec_h264_hw_s {
 	u32 csd_info_count;
 	u32 field;
 	u32 bForceInterlace;
+	int overscan_info_present_flag;
+	int overscan_appropriate_flag;
 };
 
 #define TIMEOUT_INIT 0
@@ -8863,6 +8865,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		int I_flag;
 		int frame_num_gap = 0;
 		union param dpb_param_bak;
+		int overscan_info_present_appropriate_flag = 0;
 		unsigned short *p = (unsigned short *)hw->lmem_addr;
 		unsigned mb_width = hw->seq_info2 & 0xff;
 		unsigned short first_mb_in_slice;
@@ -9039,6 +9042,13 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 					((video_signal & 0xffff) << 8) |
 					((video_signal & 0xff0000) >> 16) |
 					((video_signal & 0x3f000000));
+
+		overscan_info_present_appropriate_flag = p_H264_Dpb->dpb_param.l.data[OVERSCAN_INFO_PRESENT_APPROPRIATE_FLAG];
+		if (overscan_info_present_appropriate_flag & OVERSCAN_INFO_ENABLE) {
+			hw->overscan_info_present_flag = (overscan_info_present_appropriate_flag & OVERSCAN_INFO_PRESENT) >> 1;
+			hw->overscan_appropriate_flag = overscan_info_present_appropriate_flag & OVERSCAN_APPROPRIATE;
+		}
+
 		/* When the matrix_coefficients, transfer_characteristics and colour_primaries
 		 * syntax elements are absent, their values shall be presumed to be equal to 2
 		 */
