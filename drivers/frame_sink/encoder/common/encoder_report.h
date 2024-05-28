@@ -28,9 +28,14 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define DEBUG_AMVENC_VERS    "amvenc_vers"
 #define DEBUG_AMVENC_JPEG    "amvenc_jpeg"
 
+extern bool hcodec_on;
+
 typedef void (*enc_set_debug_level_func)(const char *module, int level);
 
 int enc_register_set_debug_level_func(const char *module, enc_set_debug_level_func func);
+bool get_hcodec_flag(void);
+void set_hcodec_flag(bool flag);
+
 
 #endif
 

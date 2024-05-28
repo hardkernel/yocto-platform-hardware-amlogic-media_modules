@@ -59,6 +59,7 @@ struct module_debug_node {
 
 static struct list_head debug_head;
 static struct mutex debug_lock;
+bool hcodec_on = false;
 
 static struct module_debug_node *get_debug_module(const char *module)
 {
@@ -329,6 +330,19 @@ void enc_set_debug_configs(const char *module, const char *debug, int len)
 	kfree(dec_str);
 }
 EXPORT_SYMBOL(enc_set_debug_configs);
+
+bool get_hcodec_flag(void)
+{
+	return hcodec_on;
+}
+EXPORT_SYMBOL(get_hcodec_flag);
+
+void set_hcodec_flag(bool flag)
+{
+	hcodec_on = flag;
+}
+EXPORT_SYMBOL(set_hcodec_flag);
+
 
 int enc_report_init(void)
 {

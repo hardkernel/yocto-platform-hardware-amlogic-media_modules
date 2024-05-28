@@ -21,6 +21,8 @@
 #define __JPEG_ENC_H_
 
 #include <linux/dma-buf.h>
+
+
 #define JPEGENC_DEVINFO_M8 "AML-M8"
 #define JPEGENC_DEVINFO_G9 "AML-G9"
 #define JPEGENC_DEVINFO_GXBB "AML-GXBB"

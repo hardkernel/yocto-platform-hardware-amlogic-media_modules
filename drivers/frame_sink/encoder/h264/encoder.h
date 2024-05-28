@@ -33,6 +33,7 @@
 #include <linux/amlogic/media/ge2d/ge2d.h>
 #endif
 
+
 #include <linux/dma-buf.h>
 
 #define AMVENC_DEVINFO_M8 "AML-M8"
@@ -516,6 +517,4 @@ extern s32 destroy_encode_work_queue(struct encode_wq_s *encode_work_queue);
 #define HENC_MB_CBP_AUTO                         0xff
 #define HENC_SKIP_RUN_AUTO                     0xffff
 
-
-extern bool amvenc_avc_on(void);
 #endif

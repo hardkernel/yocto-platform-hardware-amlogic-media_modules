@@ -75,9 +75,6 @@
 #include <linux/sched/signal.h>
 #endif
 
-#ifdef CONFIG_AM_JPEG_ENCODER
-#include "jpegenc.h"
-#endif
 
 #define MHz (1000000)
 
@@ -3070,21 +3067,39 @@ const u32 fix_mc[] __aligned(8) = {
 
 	spin_unlock_irqrestore(&lock, flags);
 }
+*/
 
-bool amvenc_avc_on(void)
+#ifdef CONFIG_AM_JPEG_ENCODER
+void amvenc_avc_on(void)
 {
-	bool hcodec_on;
 	ulong flags;
 
 	spin_lock_irqsave(&lock, flags);
 
-	hcodec_on = vdec_on(VDEC_HCODEC);
-	hcodec_on &= (encode_manager.wq_count > 0);
+	if (encode_manager.wq_count > 0) {
+		set_hcodec_flag(true);
+	}
 
 	spin_unlock_irqrestore(&lock, flags);
-	return hcodec_on;
+	enc_pr(LOG_INFO,"avc enc count:%d,hcodec_on:%d",encode_manager.wq_count,get_hcodec_flag());
 }
-*/
+
+void amvenc_avc_off(void)
+{
+	ulong flags;
+
+	spin_lock_irqsave(&lock, flags);
+
+	if (encode_manager.wq_count <= 0) {
+		set_hcodec_flag(false);
+	}
+
+	spin_unlock_irqrestore(&lock, flags);
+	enc_pr(LOG_INFO,"avc enc count:%d,hcodec_on:%d",encode_manager.wq_count,get_hcodec_flag());
+}
+#endif
+
+
 
 static s32 avc_poweron(u32 clock)
 {
@@ -3808,14 +3823,6 @@ static s32 amvenc_avc_open(struct inode *inode, struct file *file)
 	file->private_data = NULL;
 	enc_pr(LOG_DEBUG, "avc open\n");
 
-#ifdef CONFIG_AM_JPEG_ENCODER
-	if (jpegenc_on() == true) {
-		enc_pr(LOG_ERROR,
-			"hcodec in use for JPEG Encode now.\n");
-		return -EBUSY;
-	}
-#endif
-
 #ifdef CONFIG_CMA
 	if ((encode_manager.use_reserve == false) &&
 	    (encode_manager.check_cma == false)) {
@@ -3878,6 +3885,10 @@ static s32 amvenc_avc_open(struct inode *inode, struct file *file)
 		wq->mem.buf_start, wq->mem.buf_size, (void *)wq);
 
 	file->private_data = (void *) wq;
+
+#ifdef CONFIG_AM_JPEG_ENCODER
+		amvenc_avc_on();
+#endif
 	return r;
 }
 
@@ -3890,6 +3901,9 @@ static s32 amvenc_avc_release(struct inode *inode, struct file *file)
 		enc_free_buffers(file);
 		destroy_encode_work_queue(wq);
 	}
+#ifdef CONFIG_AM_JPEG_ENCODER
+		amvenc_avc_off();
+#endif
 	return 0;
 }
 

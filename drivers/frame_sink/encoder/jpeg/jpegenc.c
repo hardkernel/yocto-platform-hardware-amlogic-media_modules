@@ -70,10 +70,6 @@
 #define HCODEC_MFDIN_REG18                       0x1020
 #define HCODEC_MFDIN_REG19                       0x1021
 
-#ifdef CONFIG_AM_ENCODER
-#include "encoder.h"
-#endif
-
 #define JPEGENC_CANVAS_INDEX 0xE4
 #define JPEGENC_CANVAS_MAX_INDEX 0xE7
 
@@ -127,6 +123,8 @@ static u32 jpeg_in_full_hcodec;
 static u32 mfdin_ambus_canv_conv;
 static u32 dump_input;
 static unsigned int enc_canvas_offset;
+bool hcodec_on = false;
+
 
 #define MHz (1000000)
 
@@ -3866,7 +3864,6 @@ static s32 jpegenc_poweroff(void)
 {
     //ulong flags;
     //spin_lock_irqsave(&lock, flags);
-
     if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_C1)
         || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2)) {
         if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2) {
@@ -3893,7 +3890,6 @@ static s32 jpegenc_poweroff(void)
                   get_cpu_type() >= MESON_CPU_MAJOR_ID_TM2)
                 ? 0x1 : 0x3));
         }
-
         /* release DOS clk81 clock gating */
         amports_switch_gate("vdec", 0);
     } else {
@@ -3985,6 +3981,7 @@ static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info, struct file *filp
     unsigned long paddr = 0;
     struct enc_dma_cfg *cfg = NULL;
     struct encdrv_dma_buf_pool_t *vbp;
+
     s32 ret = 0;
     if (!wq) {
         jenc_pr(LOG_ERROR, "jpegenc convert_cmd error\n");
@@ -4165,12 +4162,12 @@ static s32 jpegenc_open(struct inode *inode, struct file *file)
     struct jpegenc_wq_s *wq;
     s32 r;
     jenc_pr(LOG_INFO, "jpegenc open, filp=%lu\n", (unsigned long)file);
-#ifdef CONFIG_AM_ENCODER
-    if (amvenc_avc_on() == true) {
+
+    if (get_hcodec_flag()) {
         jenc_pr(LOG_ERROR, "hcodec in use for AVC Encode now.\n");
         return -EBUSY;
     }
-#endif
+
     file->private_data = NULL;
 
     spin_lock(&gJpegenc.sem_lock);
@@ -4232,7 +4229,6 @@ static s32 jpegenc_open(struct inode *inode, struct file *file)
 static s32 jpegenc_release(struct inode *inode, struct file *file)
 {
     struct jpegenc_wq_s *wq = (struct jpegenc_wq_s *)file->private_data;
-
     if (wq != &gJpegenc.wq) {
         jenc_pr(LOG_ERROR, "jpegenc release error\n");
         return -1;

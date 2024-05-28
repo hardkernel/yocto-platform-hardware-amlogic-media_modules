@@ -1,4 +1,9 @@
 MODULE_NAME = encoder
+
+ifeq ($(CONFIG_AMLOGIC_MEDIA_VENC_JPEG),m)
+    ccflags-y += -DCONFIG_AM_JPEG_ENCODER
+endif
+
 obj-$(CONFIG_AMLOGIC_MEDIA_VENC_H264) = $(MODULE_NAME).o
 
 PR_FMT = $(subst amlogic-,,$(MODULE_NAME))

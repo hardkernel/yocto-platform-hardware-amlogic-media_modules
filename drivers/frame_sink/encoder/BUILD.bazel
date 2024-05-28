@@ -69,6 +69,7 @@ ddk_module(
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
     local_defines = [
+        "CONFIG_AM_JPEG_ENCODER",
     ],
     out = "encoder.ko",
     kernel_build = kernel_select(),
