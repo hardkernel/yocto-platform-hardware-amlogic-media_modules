@@ -9235,6 +9235,10 @@ empty_proc:
 #endif
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 				"%s DEC_RESULT_AGAIN\n", __func__);
+			if ((dec_dpb_status == H264_SEARCH_BUFEMPTY) ||
+				(dec_dpb_status == H264_DECODE_BUFEMPTY))
+				hw->next_again_flag = 1;
+
 send_again:
 			hw->dec_result = DEC_RESULT_AGAIN;
 			vdec_schedule_work(&hw->work);
@@ -11730,7 +11734,6 @@ result_done:
 			return;
 		}
 		hw->no_decoder_buffer_flag = 0;
-		hw->next_again_flag = 1;
 	} else if (hw->dec_result == DEC_RESULT_EOS) {
 		struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 		hw->stat |= STAT_EOS;
@@ -12049,6 +12052,13 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
 					"%s buf level:%x\n",  __func__, r);
 			return 0;
+		}
+
+		if ((is_support_no_parser()) && (hw->pre_parser_wr_ptr != 0) &&
+			(parser_wr_ptr == hw->pre_parser_wr_ptr)) {
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
+					"%s no stream data!\n",  __func__);
+				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 

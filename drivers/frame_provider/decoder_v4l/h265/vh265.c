@@ -12391,6 +12391,9 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 					vdec->slave ||
 #endif
 					(data_resend_policy & 0x1)) {
+#ifdef AGAIN_HAS_THRESHOLD
+					hevc->next_again_flag = 1;
+#endif
 					hevc->dec_result = DEC_RESULT_AGAIN;
 					amhevc_stop();
 					restore_decode_state(hevc);
@@ -12426,6 +12429,9 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 					vdec_v4l_post_error_frame_event(ctx);
 				goto pic_done;
 			} else {
+#ifdef AGAIN_HAS_THRESHOLD
+				hevc->next_again_flag = 1;
+#endif
 				hevc->dec_result = DEC_RESULT_AGAIN;
 				amhevc_stop();
 				vh265_buf_ref_process_for_exception(hevc);
@@ -15609,9 +15615,6 @@ done_end:
 				"AGAIN, set unfinsh\n");
 		}
 
-#ifdef AGAIN_HAS_THRESHOLD
-		hevc->next_again_flag = 1;
-#endif
 		if (input_stream_based(vdec)) {
 			u32 rp, wp, level;
 			struct vdec_input_s *input = &vdec->input;
@@ -16087,6 +16090,12 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			hevc_print(hevc,
 				PRINT_FLAG_VDEC_DETAIL, "%s buf level:%x\n",  __func__, r);
 			return 0;
+		}
+
+		if ((is_support_no_parser()) && (hevc->pre_parser_wr_ptr != 0) &&
+			(parser_wr_ptr == hevc->pre_parser_wr_ptr)) {
+				hevc_print(hevc, 0, "no stream data!\n");
+				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 #endif

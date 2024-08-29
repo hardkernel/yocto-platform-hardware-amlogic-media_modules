@@ -2705,6 +2705,9 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			hw->dec_result = DEC_RESULT_DONE;
 			vdec_schedule_work(&hw->work);
 		} else {
+#ifdef AGAIN_HAS_THRESHOLD
+			hw->next_again_flag = 1;
+#endif
 			hw->dec_result = DEC_RESULT_AGAIN;
 			vdec_schedule_work(&hw->work);
 			userdata_pushed_drop(hw);
@@ -3177,9 +3180,6 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 			vdec_schedule_work(&hw->work);
 			return;
 		}
-#ifdef AGAIN_HAS_THRESHOLD
-		hw->next_again_flag = 1;
-#endif
 	} else if (hw->dec_result == DEC_RESULT_GET_DATA &&
 		vdec->next_status != VDEC_STATUS_DISCONNECTED) {
 		if (!vdec_has_more_input(vdec)) {
@@ -4341,6 +4341,12 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			"%s buf level%x\n",
 			__func__, r);
 			return 0;
+		}
+
+		if ((is_support_no_parser()) && (hw->pre_parser_wr_ptr != 0) &&
+			(parser_wr_ptr == hw->pre_parser_wr_ptr)) {
+				debug_print(DECODE_ID(hw), 0, "no stream data!\n");
+				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 #endif

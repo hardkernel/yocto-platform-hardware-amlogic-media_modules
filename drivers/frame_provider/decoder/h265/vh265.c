@@ -11654,6 +11654,9 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 					vdec->slave ||
 #endif
 					(data_resend_policy & 0x1)) {
+#ifdef AGAIN_HAS_THRESHOLD
+					hevc->next_again_flag = 1;
+#endif
 					hevc->dec_result = DEC_RESULT_AGAIN;
 					amhevc_stop();
 					restore_decode_state(hevc);
@@ -11686,6 +11689,9 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 				else
 					goto pic_done;
 			} else {
+#ifdef AGAIN_HAS_THRESHOLD
+				hevc->next_again_flag = 1;
+#endif
 				hevc->dec_result = DEC_RESULT_AGAIN;
 				amhevc_stop();
 				restore_decode_state(hevc);
@@ -14822,10 +14828,6 @@ done_end:
 			hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
 				"%s: set input underrun status to true\n", __func__);
 		}
-
-#ifdef AGAIN_HAS_THRESHOLD
-		hevc->next_again_flag = 1;
-#endif
 		hevc->mmu_clear_flag = false;
 		if (input_stream_based(vdec)) {
 			if (!(error_handle_policy & 0x400) && check_data_size(vdec)) {
@@ -15277,6 +15279,13 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			hevc_print(hevc,
 				PRINT_FLAG_VDEC_DETAIL, "%s buf level:%x\n",  __func__, r);
 			return 0;
+		}
+
+		if ((is_support_no_parser()) && (hevc->pre_parser_wr_ptr != 0) &&
+			(parser_wr_ptr == hevc->pre_parser_wr_ptr)) {
+				hevc_print(hevc,
+					0, "no stream data!\n");
+				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 #endif
