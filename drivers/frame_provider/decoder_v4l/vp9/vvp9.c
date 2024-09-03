@@ -9306,6 +9306,11 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 		(struct aml_vcodec_ctx *)(pbi->v4l2_ctx);
 	int ret = 0;
 
+	if (pbi->vp9_param.p.frame_type != KEY_FRAME ||
+		(pbi->vp9_param.p.display_size_present &&
+		(pbi->last_width * pbi->last_height >
+		pbi->vp9_param.p.height * pbi->vp9_param.p.width)))
+		return 0;
 	if (ctx->param_sets_from_ucode &&
 		pbi->res_ch_flag == 0) {
 		struct aml_vdec_ps_infos ps;
@@ -9758,14 +9763,25 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 	ctx->height_aspect_ratio = 1;
 	ctx->width_aspect_ratio = 1;
 
-	pbi->frame_width = pbi->vp9_param.p.width;
-	pbi->frame_height = pbi->vp9_param.p.height;
+	if (!pbi->pic_list_init_done && pbi->vp9_param.p.display_size_present &&
+		(pbi->vp9_param.p.display_width * pbi->vp9_param.p.display_height >
+		pbi->vp9_param.p.width * pbi->vp9_param.p.display_height)) {
+		pbi->frame_width = pbi->vp9_param.p.display_width;
+		pbi->frame_height = pbi->vp9_param.p.display_height;
+	} else {
+		pbi->frame_width = pbi->vp9_param.p.width;
+		pbi->frame_height = pbi->vp9_param.p.height;
+	}
 
-	if (is_oversize(pbi->frame_width, pbi->frame_height)) {
+	if (is_oversize(pbi->frame_width, pbi->frame_height) ||
+		(pbi->vp9_param.p.frame_type != KEY_FRAME &&
+		(pbi->vp9_param.p.width * pbi->vp9_param.p.height >
+		pbi->last_height * pbi->last_width) &&
+		pbi->pic_list_init_done)) {
 		continue_decoding(pbi);
 		pbi->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
-		vp9_print(pbi, 0, "pic size(%d x %d) is oversize\n",
-			pbi->frame_width, pbi->frame_height);
+		vp9_print(pbi, 0, "pic size(%d x %d) frame_type:%d is oversize\n",
+			pbi->frame_width, pbi->frame_height, pbi->vp9_param.p.frame_type);
 		pbi->postproc_done = 0;
 		pbi->process_busy = 0;
 		return IRQ_HANDLED;
