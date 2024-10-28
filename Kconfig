@@ -1,0 +1,155 @@
+menu "Amlogic Multimedia Modules"
+
+config AMLOGIC_MEDIA_VDEC_AV1
+	tristate
+config AMLOGIC_MEDIA_VDEC_AV1_FB
+	tristate
+config AMLOGIC_MEDIA_VDEC_AV1_T5D
+	tristate
+config AMLOGIC_MEDIA_VDEC_AVS_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_AVS2
+	tristate
+config AMLOGIC_MEDIA_VDEC_AVS2_FB
+	tristate
+config AMLOGIC_MEDIA_VDEC_AVS3
+	tristate
+config AMLOGIC_MEDIA_VDEC_H264_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_H264_MVC
+	tristate
+config AMLOGIC_MEDIA_VDEC_H265
+	tristate
+config AMLOGIC_MEDIA_VDEC_H265_FB
+	tristate
+config AMLOGIC_MEDIA_VDEC_MJPEG_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_MPEG2_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_MPEG4_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_VC1
+	tristate
+config AMLOGIC_MEDIA_VDEC_VC1_MULTI
+	tristate
+config AMLOGIC_MEDIA_VDEC_VP9
+	tristate
+config AMLOGIC_MEDIA_VDEC_VP9_FB
+	tristate
+
+config AMLOGIC_MEDIA_AV1
+	tristate "AV1"
+	select AMLOGIC_MEDIA_VDEC_AV1
+	select AMLOGIC_MEDIA_VDEC_AV1_FB
+	select AMLOGIC_MEDIA_VDEC_AV1_T5D
+	default m
+
+config AMLOGIC_MEDIA_AVS
+	tristate "AVS"
+	select AMLOGIC_MEDIA_VDEC_AVS_MULTI
+	default m
+
+config AMLOGIC_MEDIA_AVS2
+	tristate "AVS2"
+	select AMLOGIC_MEDIA_VDEC_AVS2
+	select AMLOGIC_MEDIA_VDEC_AVS2_FB
+	default m
+
+config AMLOGIC_MEDIA_AVS3
+	tristate "AVS3"
+	select AMLOGIC_MEDIA_VDEC_AVS3
+	default m
+
+config AMLOGIC_MEDIA_H264
+	tristate "H.264"
+	select AMLOGIC_MEDIA_VDEC_H264_MULTI
+	select AMLOGIC_MEDIA_VDEC_H264_MVC
+	default m
+
+config AMLOGIC_MEDIA_H265
+	tristate "H.265"
+	select AMLOGIC_MEDIA_VDEC_H265
+	select AMLOGIC_MEDIA_VDEC_H265_FB
+	default m
+
+config AMLOGIC_MEDIA_MJPEG
+	tristate "MJPEG"
+	select AMLOGIC_MEDIA_VDEC_MJPEG_MULTI
+	default m
+
+config AMLOGIC_MEDIA_MPEG2
+	tristate "MPEG2"
+	select AMLOGIC_MEDIA_VDEC_MPEG2_MULTI
+	default m
+
+config AMLOGIC_MEDIA_MPEG4
+	tristate "MPEG4"
+	select AMLOGIC_MEDIA_VDEC_MPEG4_MULTI
+	default m
+
+config AMLOGIC_MEDIA_VC1
+	tristate "VC1"
+	select AMLOGIC_MEDIA_VDEC_VC1
+	select AMLOGIC_MEDIA_VDEC_VC1_MULTI
+	default m
+
+config AMLOGIC_MEDIA_VP9
+	tristate "VP9"
+	select AMLOGIC_MEDIA_VDEC_VP9
+	select AMLOGIC_MEDIA_VDEC_VP9_FB
+	default m
+
+
+config AMLOGIC_HW_DEMUX
+	tristate
+config AMLOGIC_MEDIA_DHP
+	tristate
+config AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
+	tristate
+config AMLOGIC_MEDIA_GE2D
+	tristate
+config AMLOGIC_MEDIA_VDEC_AVBCD
+	tristate
+config AMLOGIC_MEDIA_VENC_COMMON
+	tristate
+config AMLOGIC_MEDIA_VENC_H264
+	tristate
+config AMLOGIC_MEDIA_VENC_H265
+	tristate
+config AMLOGIC_MEDIA_VENC_JPEG
+	tristate
+config AMLOGIC_MEDIA_VENC_MEMALLOC
+	tristate
+config AMLOGIC_MEDIA_VENC_MULTI
+	tristate
+config AMLOGIC_MEDIA_VENC_VCENC
+	tristate
+
+config AMLOGIC_MEDIA_V4L_DEC
+	tristate "Amlogic V4L Decoder"
+	select AMLOGIC_MEDIA_AV1
+	select AMLOGIC_MEDIA_AVS
+	select AMLOGIC_MEDIA_AVS2
+	select AMLOGIC_MEDIA_AVS3
+	select AMLOGIC_MEDIA_H264
+	select AMLOGIC_MEDIA_H265
+	select AMLOGIC_MEDIA_MJPEG
+	select AMLOGIC_MEDIA_MPEG2
+	select AMLOGIC_MEDIA_MPEG4
+	select AMLOGIC_MEDIA_VC1
+	select AMLOGIC_MEDIA_VP9
+	select AMLOGIC_HW_DEMUX
+	select AMLOGIC_MEDIA_DHP
+	select AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
+	select AMLOGIC_MEDIA_GE2D
+	select AMLOGIC_MEDIA_VDEC_AVBCD
+	select AMLOGIC_MEDIA_VENC_COMMON
+	select AMLOGIC_MEDIA_VENC_H264
+	select AMLOGIC_MEDIA_VENC_H265
+	select AMLOGIC_MEDIA_VENC_JPEG
+	select AMLOGIC_MEDIA_VENC_MEMALLOC
+	select AMLOGIC_MEDIA_VENC_MULTI
+	select AMLOGIC_MEDIA_VENC_VCENC
+	default m
+
+endmenu
