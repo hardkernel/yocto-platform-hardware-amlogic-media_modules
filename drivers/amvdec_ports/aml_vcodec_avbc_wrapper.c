@@ -907,7 +907,7 @@ int aml_avbc_wrapper_init(void **pwrapper)
 	*pwrapper = wrapper;
 
 	if (wrapper->hard_mode)
-		ret = vdec_write_vframe(wrapper->vdec, (const char *)trigger_i_1080, 623, NULL, NULL);
+		ret = vdec_write_vframe(wrapper->vdec, (const char *)trigger_i_1080, 623, NULL, NULL, NULL);
 	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s success! size %d\n", __func__, ret);
 
 	mutex_unlock(&avbc_mutex);
@@ -978,7 +978,7 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 
 	kfifo_put(&wrapper->out, out);
 
-	ret = vdec_write_vframe(wrapper->vdec, (const char *)in, sizeof(*in), NULL, NULL);
+	ret = vdec_write_vframe(wrapper->vdec, (const char *)in, sizeof(*in), NULL, NULL, NULL);
 	if (ret < 0) {
 		v4l_dbg_avbcd(0, V4L_DEBUG_CODEC_ERROR, "[ERR] %s fail!\n", __func__);
 		goto out;
