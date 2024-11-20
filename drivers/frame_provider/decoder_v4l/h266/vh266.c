@@ -167,8 +167,6 @@ to enable DV of frame mode
 #define MAX_FRAME_4K_NUM 0x1200
 #define MAX_FRAME_8K_NUM ((MAX_FRAME_4K_NUM) * 4)
 
-#define H266_MMU_MAP_BUFFER       HEVC_ASSIST_SCRATCH_7
-
 #define SWAP_HEVC_OFFSET (3 * 0x1000)
 
 #define MEM_NAME "codec_266"
@@ -578,23 +576,23 @@ static u32 mv_buf_dynamic_alloc;
 /* HEVC_DEC_STATUS define */
 /* --------------------------------------------------- */
 /*VVC NEW*/
-#define VVC_DEC_IDLE                           0
-#define VVC_SEQUENCE                           1
-#define VVC_PICTURE                            2
-#define VVC_PREFIX_APS                         3
-#define VVC_DISCARD_NAL                        4
-#define VVC_SEQUENCE_END                       5
-#define VVC_SLICE_DECODING                     6
+#define VVC_DEC_IDLE                        0
+#define VVC_SEQUENCE                        1
+#define VVC_PICTURE                         2
+#define VVC_PREFIX_APS                      3
+#define VVC_DISCARD_NAL                     4
+#define VVC_SEQUENCE_END                    5
+#define VVC_SLICE_DECODING                  6
 
-#define HEVC_SEI_DAT                         0xc
-#define HEVC_SEI_DAT_DONE                    0xd
+#define HEVC_SEI_DAT                        0xc
+#define HEVC_SEI_DAT_DONE                   0xd
 #define HEVC_OVER_DECODE                    0xf
 
-#define SWAP_IN_CMD                          0x10
-#define SWAP_OUT_CMD                         0x11
-#define SWAP_OUTIN_CMD                       0x12
-#define SWAP_DONE                            0x13
-#define SWAP_POST_INIT                       0x14
+#define SWAP_IN_CMD                         0x10
+#define SWAP_OUT_CMD                        0x11
+#define SWAP_OUTIN_CMD                      0x12
+#define SWAP_DONE                           0x13
+#define SWAP_POST_INIT                      0x14
 
 /*head*/
 #define VVC_HEAD_SEQ_READY                  0x21
@@ -603,28 +601,28 @@ static u32 mv_buf_dynamic_alloc;
 #define VVC_HEAD_SEQ_END_READY              0x24
 #define VVC_STARTCODE_SEARCH_DONE           0x25
 /*pic done*/
-#define HEVC_DECPIC_DATA_DONE       0x30
-#define HEVC_DECPIC_DATA_ERROR      0x31
-#define HEVC_NAL_DECODE_DONE        0x32
-#define VVC_DECODE_BUFEMPTY        0x33
-#define VVC_DECODE_TIMEOUT         0x34
-#define VVC_DECODE_OVER_SIZE       0x35
+#define HEVC_DECPIC_DATA_DONE               0x30
+#define HEVC_DECPIC_DATA_ERROR              0x31
+#define HEVC_NAL_DECODE_DONE                0x32
+#define VVC_DECODE_BUFEMPTY                 0x33
+#define VVC_DECODE_TIMEOUT                  0x34
+#define VVC_DECODE_OVER_SIZE                0x35
 
-#define VVC_DECODE_BUFEMPTY2        0x37
-#define HEVC_SEARCH_BUFEMPTY        0x38
-#define HEVC_DECODE_OVER_SIZE       0x39
-#define HEVC_DECODE_PARAMS_ERR      0x3a
+#define VVC_DECODE_BUFEMPTY2                0x37
+#define HEVC_SEARCH_BUFEMPTY                0x38
+#define HEVC_DECODE_OVER_SIZE               0x39
+#define HEVC_DECODE_PARAMS_ERR              0x3a
 
 /*cmd*/
-#define VVC_DECODE_SLICE                0xf0
+#define VVC_DECODE_SLICE                    0xf0
 #define VVC_SEND_DUMP_INFO                  0xf1
 #define VVC_SEND_DUMP_INFO_DONE             0xf2
-#define VVC_SKIP_DECODING          0xf3
-#define HEVC_ACTION_DEC_CONT           0xfd
+#define VVC_SKIP_DECODING                   0xf3
+#define HEVC_ACTION_DEC_CONT                0xfd
 #define VVC_ACTION_ERROR                    0xfe
-#define HEVC_ACTION_ERROR                    0xfe
+#define HEVC_ACTION_ERROR                   0xfe
 #define VVC_ACTION_DONE                     0xff
-#define HEVC_ACTION_DONE                     0xff
+#define HEVC_ACTION_DONE                    0xff
 /*VVC_DEC_STATUS end*/
 /**/
 
@@ -640,7 +638,6 @@ static u32 mv_buf_dynamic_alloc;
 
 #define PARSER_CMD_NUMBER 37
 
-#define   MCRCC_ENABLE
 #define INVALID_POC 0x80000000
 #define HEVC_DEC_STATUS_REG       HEVC_ASSIST_SCRATCH_0
 #define HEVC_RPM_BUFFER           HEVC_ASSIST_SCRATCH_1
@@ -652,7 +649,7 @@ static u32 mv_buf_dynamic_alloc;
 #define H266_MMU_MAP_BUFFER       HEVC_ASSIST_SCRATCH_7
 #define HEVC_STREAM_SWAP_BUFFER   HEVC_ASSIST_SCRATCH_7
 #define HEVC_STREAM_SWAP_BUFFER2  HEVC_ASSIST_SCRATCH_8
-#define HEVC_REF_LIST_BUFFER	HEVC_ASSIST_SCRATCH_9
+#define HEVC_REF_LIST_BUFFER      HEVC_ASSIST_SCRATCH_9
 //#define HEVC_sao_mem_unit         P_HEVC_ASSIST_SCRATCH_9
 //#define HEVC_SAO_ABV              P_HEVC_ASSIST_SCRATCH_A
 //#define HEVC_sao_vb_size          P_HEVC_ASSIST_SCRATCH_B
@@ -679,18 +676,18 @@ bit [3:2]: valid when bit1 == 0;
 1, auto skip nal before first rcs/sps/pps
 2, auto skip nal before fist  rcs/sps/pps, and not decode until the first I slice (with slice address of 0)
 */
-#define NAL_SEARCH_CTL        HEVC_ASSIST_SCRATCH_I
-#define CUR_NAL_UNIT_TYPE       HEVC_ASSIST_SCRATCH_J
+#define NAL_SEARCH_CTL            HEVC_ASSIST_SCRATCH_I
+#define CUR_NAL_UNIT_TYPE         HEVC_ASSIST_SCRATCH_J
 #define DECODE_STOP_POS           HEVC_ASSIST_SCRATCH_K
 
-#define DECODE_MODE              HEVC_ASSIST_SCRATCH_J
+#define DECODE_MODE               HEVC_ASSIST_SCRATCH_J
 
     /*do not define ENABLE_SWAP_TEST*/
-#define HEVC_AUX_ADR            HEVC_ASSIST_SCRATCH_L
-#define HEVC_AUX_DATA_SIZE      HEVC_ASSIST_SCRATCH_M
+#define HEVC_AUX_ADR              HEVC_ASSIST_SCRATCH_L
+#define HEVC_AUX_DATA_SIZE        HEVC_ASSIST_SCRATCH_M
 
 #define HEVC_SHORT_TERM_RPS       HEVC_ASSIST_SCRATCH_2
-#define LMEM_DUMP_ADR                 HEVC_ASSIST_SCRATCH_F
+#define LMEM_DUMP_ADR             HEVC_ASSIST_SCRATCH_F
 
 
 
@@ -723,16 +720,16 @@ bit [3:2]: valid when bit1 == 0;
  */
 #define NAL_SEARCH_CTL            HEVC_ASSIST_SCRATCH_I
 	/*read only*/
-#define CUR_NAL_UNIT_TYPE       HEVC_ASSIST_SCRATCH_J
+#define CUR_NAL_UNIT_TYPE         HEVC_ASSIST_SCRATCH_J
 	/*
 	[15 : 8] rps_set_id
 	[7 : 0] start_decoding_flag
 	*/
-#define HEVC_DECODE_INFO       HEVC_ASSIST_SCRATCH_1
+#define HEVC_DECODE_INFO          HEVC_ASSIST_SCRATCH_1
 	/*set before start decoder*/
-#define HEVC_DECODE_MODE		HEVC_ASSIST_SCRATCH_J
-#define HEVC_DECODE_MODE2		HEVC_ASSIST_SCRATCH_H
-#define DECODE_STOP_POS         HEVC_ASSIST_SCRATCH_K
+#define HEVC_DECODE_MODE          HEVC_ASSIST_SCRATCH_J
+#define HEVC_DECODE_MODE2         HEVC_ASSIST_SCRATCH_H
+#define DECODE_STOP_POS           HEVC_ASSIST_SCRATCH_K
 
 #define DECODE_MODE_SINGLE					0x0
 #define DECODE_MODE_MULTI_FRAMEBASE			0x1
@@ -744,7 +741,7 @@ bit [3:2]: valid when bit1 == 0;
 
 #define RPM_BUF_SIZE ((RPM_END - RPM_BEGIN)*2)
 /* non mmu mode lmem size : 0x400, mmu mode : 0x500*/
-#define LMEM_BUF_SIZE (0x500 * 2)
+#define LMEM_BUF_SIZE (0x600 * 2)
 
 typedef struct buff_s {
 	dos_addr_t buf_start;
@@ -1827,20 +1824,10 @@ static int get_frame_mmu_map_size(void)
 
 static int is_oversize(int w, int h)
 {
-	int max = MAX_SIZE_8K;
-
-	if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_SM1) ||
-		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M))
-		max = MAX_SIZE_4K;
-	else if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D) ||
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S1A) ||
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2))
-		max = MAX_SIZE_2K;
-
 	if (w < 64 || h < 64)
 		return true;
 
-	if (h != 0 && (w > max / h))
+	if (format_resolution_fatal_error(VFORMAT_H266, w, h))
 		return true;
 
 	return false;
@@ -2736,7 +2723,7 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, (0x1 << 4));
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL2, 0x0);
 	} else {
-        WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, (0<<3)); // bit[3] smem mode
+		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, (0<<3)); // bit[3] smem mode
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL2, (losless_comp_body_size >> 5));
 	}
 	WRITE_VREG(HEVC_CM_BODY_LENGTH, losless_comp_body_size);
@@ -3516,6 +3503,10 @@ static void config_sao_hw(struct hevc_state_s *hevc)
 		/*set them all 0 for H265_NV21 (no down-scale)*/
 		data32 &= ~(0xff << 16);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
+
+		data32 = READ_VREG(HEVC_SAO_CTRL26);
+		data32 &= ~(0xf);
+		WRITE_VREG(HEVC_SAO_CTRL26, data32);
 	}
 	/**/
 	data32 = READ_VREG(HEVC_SAO_CTRL3);
@@ -3655,10 +3646,15 @@ static void config_sao_hw(struct hevc_state_s *hevc)
 	}
 
 	if (dw_mode & 0x10) {
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
-			data32 &= ~(0x3ff << 13);
-			data32 |= ((hevc->endian & 0x1f) << 13) | ((hevc->endian & 0x1f) << 18);
-		}
+		data32 &= ~(0x3ff << 13);
+		data32 |= ((hevc->endian & 0x1f) << 13) | ((hevc->endian & 0x1f) << 18);
+
+		/* swap uv */
+		if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV21) ||
+			(v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV21M))
+			data32 |= (1 << 12); /* NV21 */
+		else
+			data32 &= ~(1 << 12); /* NV12 */
 	}
 
 	/*
@@ -4325,6 +4321,12 @@ static void hevc_init_decoder_hw(struct hevc_state_s *hevc)
 			(0 << 3) |  // startcode_found_int_amrisc_enable
 			(1 << 0)    // parser_int_enable
 			;
+	if (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_S6) {
+		data32 = data32 |
+				(3 << 29) |  // stream_buffer_empty_int_ctl ( 0x200 interrupt)
+				(3 << 26)    // stream_fifo_empty_int_ctl ( 4 interrupt)
+				;
+	}
 	WRITE_VREG(HEVC_PARSER_INT_CONTROL, data32);
 
 	hevc_print(hevc, H266_DEBUG_REG_CFG, "Enable HEVC Parser Shift\n");
@@ -5597,7 +5599,7 @@ static void hevc_local_uninit(struct hevc_state_s *hevc)
 	}
 	if (hevc->lmem_addr) {
 		decoder_dma_free_coherent(hevc->lmem_phy_handle,
-				RPM_BUF_SIZE, hevc->lmem_addr,
+				LMEM_BUF_SIZE, hevc->lmem_addr,
 					hevc->lmem_phy_addr);
 		hevc->lmem_addr = NULL;
 	}
@@ -9447,7 +9449,6 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 		size = get_firmware_data(VIDEO_DEC_H266_MMU, fw->data);
 		pr_info("get_firmware_data size %d\n", size);
 	}
-
 	if (size < 0) {
 		pr_err("get firmware fail.\n");
 		vfree(fw);
@@ -9508,19 +9509,14 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 #endif
 	amhevc_enable();
 
-	if (hevc->mmu_enable) {
-		if (hevc->enable_ucode_swap) {
-			//ret = amhevc_loadmc_ex(VFORMAT_H266, "hevc_mmu_swap", fw->data);
-			if (ret < 0)
-				ret = amhevc_loadmc_ex(VFORMAT_H266, "h266_mmu", fw->data);
-			else
-				hevc->is_swap = true;
-		} else {
+	if (hevc->enable_ucode_swap) {
+		//ret = amhevc_loadmc_ex(VFORMAT_H266, "hevc_mmu_swap", fw->data);
+		if (ret < 0)
 			ret = amhevc_loadmc_ex(VFORMAT_H266, "h266_mmu", fw->data);
-		}
+		else
+			hevc->is_swap = true;
 	} else {
-		ret = amhevc_loadmc_ex(VFORMAT_H266, NULL, fw->data);
-		hevc->is_swap = true;
+		ret = amhevc_loadmc_ex(VFORMAT_H266, "h266_mmu", fw->data);
 	}
 	if (ret < 0) {
 		amhevc_disable();
@@ -10613,6 +10609,9 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	ATRACE_COUNTER(hevc->trace.decode_time_name, DECODER_RUN_START);
 	hevc_reset_core(vdec);
 
+	if (is_vdec_hevc_combine())
+		WRITE_VREG(HEVC_CORE_ENABLE, 1);
+
 #ifdef AGAIN_HAS_THRESHOLD
 	if (vdec_stream_based(vdec)) {
 		hevc->pre_parser_wr_ptr =
@@ -11648,15 +11647,10 @@ static int ammvdec_h266_probe(struct platform_device *pdev)
 	if (endian)
 		hevc->endian = endian;
 
-	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) &&
-			(hevc->double_write_mode == 3))
-		hevc->double_write_mode = 0x1000;
-
 	if (mmu_enable_force) {
 		hevc->mmu_enable = 1;
 	} else {
-		if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXL) ||
-			(hevc->double_write_mode & 0x10))
+		if (hevc->double_write_mode & 0x10)
 			hevc->mmu_enable = 0;
 		else
 			hevc->mmu_enable = 1;

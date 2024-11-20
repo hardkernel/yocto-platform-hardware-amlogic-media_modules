@@ -420,7 +420,10 @@ static s32 aml_loadmc_vdec(const u32 *p, int id)
 
 	WRITE_VREG(IMEM_DMA_ADR, mc_addr_map);
 
-	WRITE_VREG(IMEM_DMA_COUNT, 0x1000);
+	if (is_vdec_hevc_combine() && is_amrisc_imem_size_6k())
+		WRITE_VREG(IMEM_DMA_COUNT, 0x1800);
+	else
+		WRITE_VREG(IMEM_DMA_COUNT, 0x1000);
 
 	if (is_vdec_hevc_combine()) {
 		/* t6d */
@@ -483,7 +486,10 @@ static s32 amvdec_loadmc(const u32 *p)
 
 	WRITE_VREG(IMEM_DMA_ADR, mc_addr_map);
 
-	WRITE_VREG(IMEM_DMA_COUNT, 0x1000);
+	if (is_vdec_hevc_combine() && is_amrisc_imem_size_6k())
+		WRITE_VREG(IMEM_DMA_COUNT, 0x1800);
+	else
+		WRITE_VREG(IMEM_DMA_COUNT, 0x1000);
 
 	if (is_vdec_hevc_combine()) {
 		WRITE_VREG(IMEM_DMA_CTRL, (0x8000 | (0xf << 16)));
@@ -889,8 +895,7 @@ static s32 amhevc_loadmc(const u32 *p)
 
 		WRITE_VREG(HEVC_IMEM_DMA_ADR, mc_addr_map);
 
-		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5) ||
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6))
+		if (is_amrisc_imem_size_6k())
 			WRITE_VREG(HEVC_IMEM_DMA_COUNT, 0x1800);
 		else
 			WRITE_VREG(HEVC_IMEM_DMA_COUNT, 0x1000);

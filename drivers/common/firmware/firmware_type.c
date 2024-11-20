@@ -106,6 +106,7 @@ static const struct cpu_type_s cpu_type[] = {
 	{AM_MESON_CPU_MAJOR_ID_GXLX3,	"gxlx3"},
 	{AM_MESON_CPU_MAJOR_ID_T5M,	"t5m"},
 	{AM_MESON_CPU_MAJOR_ID_T3X,	"t3x"},
+	{AM_MESON_CPU_MAJOR_ID_T6W,	"t6w"},
 	{AM_MESON_CPU_MAJOR_ID_TXHD2,	"txhd2"},
 	{AM_MESON_CPU_MAJOR_ID_S1A,	"s1a"},
 	{AM_MESON_CPU_MAJOR_ID_S7,	"s7"},

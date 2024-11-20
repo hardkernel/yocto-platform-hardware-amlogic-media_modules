@@ -5976,6 +5976,7 @@ void hevc_reset_core(struct vdec_s *vdec)
 				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<5)));
 		break;
 	case AM_MESON_CPU_MAJOR_ID_GXLX4:
+	case AM_MESON_CPU_MAJOR_ID_T6W:
 		reset_control_assert(vdec_core->hevc_reset);
 		reset_control_deassert(vdec_core->hevc_reset);
 		break;
@@ -8002,7 +8003,6 @@ static int vdec_probe(struct platform_device *pdev)
 		vdec_core->hevc_reset = devm_reset_control_get(&pdev->dev, "hevcf_dmc_pipel");
 		if (IS_ERR_OR_NULL(vdec_core->hevc_reset)) {
 			pr_err("get reset control hevcf_dmc_pipel failed\n");
-			return -ENXIO;
 		}
 	}
 

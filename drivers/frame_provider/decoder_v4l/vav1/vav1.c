@@ -4132,6 +4132,14 @@ static void config_sao_hw(struct AV1HW_s *hw, union param_u *params)
 		/*set them all 0 for H265_NV21 (no down-scale)*/
 		data32 &= ~(0xff << 16);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
+
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) {
+			/* bit 5: dw_fgs_byass=1(Film Grain module bypass) */
+			SET_VREG_MASK(HEVC_SAO_CTRL5, (0x1 << 5));
+
+			/* bit 28: wresp_sel=1(wresp outputs select dw nv21) */
+			SET_VREG_MASK(HEVC_SAO_CTRL12, (0x1 << 28));
+		}
 	} else {
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7)
 			WRITE_VREG(HEVC_SAO_CTRL26, 0);
@@ -4163,6 +4171,14 @@ static void config_sao_hw(struct AV1HW_s *hw, union param_u *params)
 
 	data32 &= (~(3 << 8));
 	data32 |= (2 << 8);
+
+	if (dw_mode & 0x10) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
+			data32 &= ~(0x3ff << 13);
+			data32 |= ((hw->endian & 0x1f) << 13) | ((hw->endian & 0x1f) << 18);
+		}
+	}
 	/*
 	* [3:0]   little_endian
 	* [5:4]   address_format 00:linear 01:32x32 10:64x32
@@ -4324,6 +4340,7 @@ void av1_loop_filter_init(loop_filter_info_n *lfi, struct loopfilter *lf) {
 		"[DBLK DEBUG] CFGB : 0x%x\n", data32);
 	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5) ||
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
 		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 		// if Single CORE, uses line buffer store mode 1 (tile based)
 		uint32_t lpf_data32 = READ_VREG(HEVC_DBLK_CFG0);
@@ -9484,7 +9501,8 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			if (hw->low_latency_flag)
 				av1_postproc(hw);
 
-			if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+			if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+				(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 				u32 i;
 				hw->av1_dec_info[0] = READ_VREG(AV1_DEC_INFO);
 				hw->av1_dec_info[1] = READ_VREG(AV1_DEC_INFO_2);
@@ -11094,7 +11112,8 @@ static int av1_hw_ctx_restore(struct AV1HW_s *hw)
 
 	vav1_prot_init(hw, HW_MASK_FRONT | HW_MASK_BACK);
 
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 		WRITE_VREG(VP9_CONTROL, READ_VREG(VP9_CONTROL) | (1 << 16));
 		WRITE_VREG(AV1_DEC_INFO, hw->av1_dec_info[0]);
 		WRITE_VREG(AV1_DEC_INFO_2, hw->av1_dec_info[1]);
@@ -12288,7 +12307,8 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 		hw->buffer_spec_index = force_bufspec & 0xf;
 		pr_info("force buffer spec %d\n", force_bufspec & 0xf);
 	} else if (hevc_is_support_4k()) {
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 			if (IS_4K_SIZE(hw->max_pic_w, hw->max_pic_h))
 				hw->buffer_spec_index = 4;
 			else

@@ -3114,7 +3114,8 @@ static void config_dblk_hw(struct AVS2Decoder_s *dec)
 		? 0 : (rpm_param->p.lcu_size == 5)
 		? 1 : 2) << 0);/*[ 0 +: 2]: lcu_size*/
 #ifdef LPF_SPCC_ENABLE
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6))
 		data32 |= (0x3 << 20); // SPCC_ENABLE
 #endif
 	WRITE_VREG(HEVC_DBLK_CFG1, data32);
@@ -4057,7 +4058,8 @@ static void avs2_init_decoder_hw(struct AVS2Decoder_s *dec)
 	}
 
 #ifdef MULTI_INSTANCE_SUPPORT
-	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXLX4) {
+	if ((get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_GXLX4) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T6W)) {
 		WRITE_VREG(HEVC_MPRED_INT_STATUS, (1<<31));
 
 		WRITE_VREG(HEVC_PARSER_RESULT_3, 0xffffffff);

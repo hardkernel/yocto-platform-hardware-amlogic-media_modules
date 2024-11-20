@@ -5439,6 +5439,7 @@ static void clear_mpred_hw(struct VP9Decoder_s *pbi)
 
 	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) ||
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
 		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 		WRITE_VREG(HEVC_MPRED_CTRL3,0x24122412);
 	}
@@ -5755,7 +5756,8 @@ static void config_sao_hw(struct VP9Decoder_s *pbi, union param_u *params)
 		data32 |= (2 << 8); /* line align with 64 for dw only */
 	}
 	if (dw_mode & 0x10) {
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 			data32 &= ~(0x3ff << 13);
 			data32 |= ((pbi->endian & 0x1f) << 13) | ((pbi->endian & 0x1f) << 18);
 		}
@@ -9491,7 +9493,8 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 					vp9_bufmgr_postproc(pbi);
 
 				pbi->dec_result = DEC_RESULT_DONE;
-				if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+				if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+					(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 					for (i = 0; i < 8; i++) {
 						//pbi->vp9_segment_data[i] = READ_VREG(P_VP9_QUANT_WR) & 0xfff;
 						pbi->vp9_segment_data[i] = READ_VREG(VP9_QUANT_WR);
@@ -10158,7 +10161,8 @@ static void vvp9_prot_init(struct VP9Decoder_s *pbi, u32 mask)
 	if (mask & HW_MASK_BACK)
 		vp9_loop_filter_init(pbi);
 #endif
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 		data32 = 0x1 | (0x1 << 2) | (0x1 <<3) | (24 << 4) | (32 << 11) | (24 << 18) | (32 << 25);
 		WRITE_VREG(HEVCD_MPP_DECOMP_AXIURG_CTL, data32);
 
@@ -11518,7 +11522,8 @@ static void run_front(struct vdec_s *vdec)
 
 	WRITE_VREG(HEVC_DEC_STATUS_REG, HEVC_ACTION_DONE);
 
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 		u32 i;
 		WRITE_VREG(VP9_CONTROL, 1); // Enable vp9_enable
 		for (i = 0; i < 8; i++) {

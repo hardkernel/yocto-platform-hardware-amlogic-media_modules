@@ -589,6 +589,7 @@ retry:
 		canvas_config_config(ctx->dev->cache.res[3].cid, &vf_out->canvas0_config[0]);
 		if ((ge2d_config.src_para.format & 0xfffff) == GE2D_FORMAT_M24_YUV420) {
 			vf_out->canvas0_config[1].width <<= 1;
+			vf_out->plane_num = 2;
 		}
 		canvas_config_config(ctx->dev->cache.res[4].cid, &vf_out->canvas0_config[1]);
 		canvas_config_config(ctx->dev->cache.res[5].cid, &vf_out->canvas0_config[2]);

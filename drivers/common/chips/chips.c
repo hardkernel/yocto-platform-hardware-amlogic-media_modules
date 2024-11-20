@@ -84,7 +84,7 @@ static int codec_profile_desc_init(char *desc, int format)
 static int codec_level_idc_init(int format)
 {
 	u32 i, cpu, sub;
-	const u32 chip_level[][1 + VFORMAT_MAX] = {
+	static const u32 chip_level[][1 + VFORMAT_MAX] = {
 		/* chip,                     mp2, mp4, 264, mjpg, real, jpg, vc1, avs, yuv, mvc, 2k4k, 265, 264enc, jpenc, vp9, avs2, av1, avs3, vvc*/
 		{AM_MESON_CPU_MAJOR_ID_G12A,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
 		{AM_MESON_CPU_MAJOR_ID_G12B,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
@@ -111,8 +111,9 @@ static int codec_level_idc_init(int format)
 		{AM_MESON_CPU_MAJOR_ID_S6,    0,   5,   52,  0,    0,    0,   0,   0,   0,   52,  52,  52,  0,      0,     0,   0,    52,  0,    52},
 		{AM_MESON_CPU_MAJOR_ID_T6D,   0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  41,  0,      0,     0,   0,    41,  0,    0},
 		{AM_MESON_CPU_MAJOR_ID_GXLX4, 0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T6W,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    51},
 	};
-	const u32 sub_chip_level[][1 + VFORMAT_MAX] = {
+	static const u32 sub_chip_level[][1 + VFORMAT_MAX] = {
 		/* chip,                          mp2, mp4, 264, mjpg, real, jpg, vc1, avs, yuv, mvc, 2k4k, 265, 264enc, jpenc, vp9, avs2, av1, avs3, vvc*/
 		{AM_MESON_CPU_MINOR_ID_REVB_G12B,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
 		{AM_MESON_CPU_MINOR_ID_REVB_TM2,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},

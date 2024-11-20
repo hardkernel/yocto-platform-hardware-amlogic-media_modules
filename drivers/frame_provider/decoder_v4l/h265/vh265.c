@@ -5064,6 +5064,7 @@ static void hevc_config_work_space_hw(struct hevc_state_s *hevc)
 #ifdef HEVC_8K_LFTOFFSET_FIX
 	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
 		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TXHD2) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T6W) &&
 		(get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_S6)) {
 		if (buf_spec->max_width <= 4096 && buf_spec->max_height <= 2304)
 			WRITE_VREG(HEVC_DBLK_CFG3, 0x4010);
@@ -5210,7 +5211,8 @@ static void hevc_init_decoder_hw(struct hevc_state_s *hevc,
 	}
 
 	/* hevc_parser_core_clk_en */
-	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_S6) {
+	if ((get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T6W) &&
+		(get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_S6)) {
 		WRITE_VREG(HEVC_PARSER_CORE_CONTROL, (1 << 0));
 	}
 	WRITE_VREG(HEVC_DEC_STATUS_REG, 0);
@@ -5900,13 +5902,15 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 		data32 |=
 			(hevc->lcu_size == 64) ? 0 : ((hevc->lcu_size == 32) ? 1 : 2);
 
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6))
 			data32 |= (0x3 << 20);
 		else
 			data32 |= (hevc->pic_w <= 64) ? (1 << 20) : 0;
 		WRITE_VREG(HEVC_DBLK_CFG1, data32);
 
 		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
+			(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_T6W) &&
 			(get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_S6)) {
 			data32 = 1 << 28; /* Debug only: sts1 chooses dblk_main*/
 			WRITE_VREG(HEVC_DBLK_STS1 + 4, data32); /* 0x3510 */
@@ -6064,7 +6068,8 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 	* [31:13] reserved
 	*/
 	if (dw_mode & 0x10) {
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)) {
 			data32 &= ~(0x3ff << 13);
 			data32 |= ((hevc->endian & 0x1f) << 13) | ((hevc->endian & 0x1f) << 18);
 		}

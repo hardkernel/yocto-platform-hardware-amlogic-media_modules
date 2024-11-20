@@ -9067,9 +9067,9 @@ static void vavs3_prot_init(struct AVS3Decoder_s *dec)
 #ifndef FOR_S5
 	WRITE_VREG(HEVC_PSCALE_CTRL, 0);
 #endif
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6)
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6))
 		WRITE_VREG(HEVC_PSCALE_CTRL, 0);
-
 
 	WRITE_VREG(DEBUG_REG1, 0x0);
 	/*check vps/sps/pps/i-slice in ucode*/

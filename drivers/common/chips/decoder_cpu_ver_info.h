@@ -74,7 +74,7 @@ enum AM_MESON_CPU_MAJOR_ID {
 	AM_MESON_CPU_MAJOR_ID_GXLX3	= 0x3f,
 	AM_MESON_CPU_MAJOR_ID_T5M	= 0x41,
 	AM_MESON_CPU_MAJOR_ID_T3X	= 0x42,
-	AM_MESON_CPU_MAJOR_ID_RES_0x43,
+	AM_MESON_CPU_MAJOR_ID_T6W	= 0x43,
 	AM_MESON_CPU_MAJOR_ID_TXHD2	= 0x44,
 	AM_MESON_CPU_MAJOR_ID_S1A	= 0x45,
 	AM_MESON_CPU_MAJOR_ID_S7	= 0x46,
@@ -173,6 +173,8 @@ struct dos_of_dev_s {
 	bool is_support_hevc_arb;
 
 	bool is_support_34bit;  /* 34bit axi, 34bit addr, 16G addr */
+
+	bool is_amrisc_imem_size_6k;
 
 	u32 fmt_support_flags;
 
@@ -289,6 +291,8 @@ inline bool is_need_send_parser_cmd(void);
 inline bool is_use_dcac_dma_hw(void);
 
 inline bool is_use_ipp_dyn_cache(void);
+
+inline bool is_amrisc_imem_size_6k(void);
 
 void pr_dos_infos(void);
 
