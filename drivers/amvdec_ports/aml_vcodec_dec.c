@@ -857,7 +857,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 		/* get header and page size */
 		if (!vdec_if_get_param(ctx, GET_PARAM_COMP_BUF_INFO, &ctx->comp_info)) {
 			submit_prealloc_job(PREALLOC_AVBC_HEADER_TYPE, CTX_BUF_TOTAL(ctx),
-				ctx->comp_info.header_size, align_2n, memflags);
+				ctx->comp_info.header_size, align_2n, memflags, ctx->id);
 		}
 	}
 
@@ -3641,7 +3641,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
 					cal_yuv_size(ctx, dec->cfg.double_write_mode),
-						PAGE_SHIFT, CODEC_MM_FLAGS_TVP);
+						PAGE_SHIFT, CODEC_MM_FLAGS_TVP, ctx->id);
 			}
 
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
@@ -3688,7 +3688,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
 					cal_yuv_size(ctx, dec->cfg.double_write_mode),
-						PAGE_SHIFT, CODEC_MM_FLAGS_TVP);
+						PAGE_SHIFT, CODEC_MM_FLAGS_TVP, ctx->id);
 			}
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
 			if (ret) {
@@ -4917,7 +4917,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			/* get header and page size */
 			if (!vdec_if_get_param(ctx, GET_PARAM_COMP_BUF_INFO, &ctx->comp_info)) {
 				submit_prealloc_job(PREALLOC_AVBC_HEADER_TYPE, CTX_BUF_TOTAL(ctx),
-					ctx->comp_info.header_size, align_2n, memflags);
+					ctx->comp_info.header_size, align_2n, memflags, ctx->id);
 			}
 		}
 	}

@@ -8998,12 +8998,14 @@ static inline void av1_prealloc_mv_buf(struct AV1HW_s *hw, int count, int size)
 {
 	int align_2n = decoder_bmmu_box_get_align_2n(hw->bmmu_box);
 	int memflags = decoder_bmmu_box_get_memflags(hw->bmmu_box);
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
 	if (!vdec_secure(hw_to_vdec(hw)))
 		return;
 
 	if (size && count)
-		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n, memflags);
+		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
+			memflags, ctx->id);
 	else
 		av1_print(hw, AV1_DEBUG_BUFMGR, "invalid para type for mv type size is %u count is %u\n",
 			size, count);
@@ -9034,6 +9036,7 @@ static int v4l_res_change(struct AV1HW_s *hw)
 			hw->frame_width = hw->common.seq_params.max_frame_width;
 			hw->frame_height = hw->common.seq_params.max_frame_height;
 
+			release_prealloc_job(ctx->id);
 			if (get_valid_double_write_mode(hw) != 16) {
 				vav1_get_comp_buf_info(hw, &comp);
 				vdec_v4l_set_comp_buf_info(ctx, &comp);
@@ -10613,7 +10616,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 
 	hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->index,
+			ctx->id,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

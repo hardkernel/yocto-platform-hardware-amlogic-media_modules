@@ -226,6 +226,7 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct aml_vcodec_dev *dev = video_drvdata(file);
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
+	int id = ctx->id;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "release decoder %lx\n", (ulong) ctx);
 	mutex_lock(&dev->dev_mutex);
@@ -251,7 +252,8 @@ static int fops_vcodec_release(struct file *file)
 	aml_v4l_vpp_release_early(ctx);
 	kref_put(&ctx->ctx_ref, aml_v4l_ctx_release);
 	mutex_unlock(&dev->dev_mutex);
-	release_prealloc_job();
+	release_prealloc_job(id);
+
 	return 0;
 }
 

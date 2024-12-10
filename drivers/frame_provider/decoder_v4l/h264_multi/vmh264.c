@@ -13280,6 +13280,7 @@ int ammvdec_h264_bmmu_init(struct vdec_h264_hw_s *hw)
 {
 	int ret = -1;
 	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ? CODEC_MM_FLAGS_TVP : 0;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
 	pr_debug("ammvdec_h264_bmmu_init tvp = 0x%x\n", tvp_flag);
 	hw->sc_start_time = get_jiffies_64();
@@ -13287,7 +13288,7 @@ int ammvdec_h264_bmmu_init(struct vdec_h264_hw_s *hw)
 	if (!hw->bmmu_box) {
 		hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->id,
+			ctx->id,
 			BMMU_MAX_BUFFERS,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

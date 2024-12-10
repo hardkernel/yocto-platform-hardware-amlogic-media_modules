@@ -119,12 +119,9 @@ void *decoder_bmmu_box_alloc_box(const char *name,
 {
 	struct decoder_bmmu_box *box;
 	int size;
-	int tvp_flags;
-	tvp_flags = (mem_flags & CODEC_MM_FLAGS_TVP) ?
-		CODEC_MM_FLAGS_TVP : 0;
 
 	if (vdec_get_debug() & VDEC_DBG_DETAIL_INFO)
-		pr_debug("decoder_bmmu_box_alloc_box, tvp_flags = %x\n", tvp_flags);
+		pr_debug("decoder_bmmu_box_alloc_box, tvp_flags = %x\n", mem_flags & CODEC_MM_FLAGS_TVP);
 
 	size = sizeof(struct decoder_bmmu_box) + sizeof(struct codec_mm_s *) *
 		   max_num;
@@ -137,7 +134,7 @@ void *decoder_bmmu_box_alloc_box(const char *name,
 	box->name = name;
 	box->channel_id = channel_id;
 	box->align2n = aligned;
-	box->mem_flags = mem_flags | tvp_flags;
+	box->mem_flags = mem_flags;
 	box->alloc_flags = alloc_flags;
 	box->exp_num = 0;
 	box->exp_mm_list.mm = NULL;
@@ -268,7 +265,11 @@ int decoder_bmmu_box_alloc_idx(void *handle, int idx, int size, int aligned_2n,
 		}
 	}
 	if (!mm) {
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 15, 0)
 		mm = codec_mm_alloc(box->name, size, align, memflags);
+#else
+		mm = codec_mm_alloc(box->name, size, align, memflags, box->channel_id);
+#endif
 		if (mm) {
 			decoder_bmmu_box_set_mm_from_idx(box, idx, mm);
 			box->total_size += mm->buffer_size;

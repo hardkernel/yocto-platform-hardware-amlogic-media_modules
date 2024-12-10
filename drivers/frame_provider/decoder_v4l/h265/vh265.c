@@ -3342,6 +3342,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, bool bmmu_flag)
 		(CODEC_MM_FLAGS_TVP | CODEC_MM_FLAGS_FOR_TRY_PREALLOC) : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
+	struct aml_vcodec_ctx * ctx = hevc->v4l2_ctx;
 
 	if (get_dbg_flag(hevc)) {
 		hevc_print(hevc, 0, "%s max_w %d max_h %d\n",
@@ -3355,7 +3356,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, bool bmmu_flag)
 		return 0;
 
 	hevc->bmmu_box = decoder_bmmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			ctx->id,
 			BMMU_MAX_BUFFERS,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
@@ -11681,12 +11682,14 @@ void h265_prealloc_mv_buf(struct hevc_state_s *hw, int count, int size)
 {
 	int align_2n = decoder_bmmu_box_get_align_2n(hw->bmmu_box);
 	int memflags = decoder_bmmu_box_get_memflags(hw->bmmu_box);
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
 	if (!vdec_secure(hw_to_vdec(hw)))
 		return;
 
 	if (size && count) {
-		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n, memflags);
+		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
+			memflags, ctx->id);
 	} else {
 		hevc_print(hw, H265_DEBUG_BUFMGR_MORE, "invalid para type for mv type size is %u count is %u\n",
 			size, count);
@@ -11715,6 +11718,8 @@ static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 				width,
 				height,
 				hevc->interlace_flag);
+
+			release_prealloc_job(ctx->id);
 
 			if (get_valid_double_write_mode(hevc) != 16) {
 				struct vdec_comp_buf_info info;
