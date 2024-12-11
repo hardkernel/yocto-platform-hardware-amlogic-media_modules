@@ -58,7 +58,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_dual_core = false,
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
-		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC,
+		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVBCD,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_GXL - MAJOR_ID_START] = {
@@ -74,7 +74,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_dual_core = false,
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
-		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9,
+		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9 | FMT_AVBCD,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_G12A - MAJOR_ID_START] = {
@@ -212,7 +212,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_dual_core = false,
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K, //unsupport vp9 & av1
-		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVS2,
+		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVS2 | FMT_AVBCD,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T5D - MAJOR_ID_START] = {
@@ -405,7 +405,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_dual_core = false,
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_4K,	//unsupport avs2,av1
-		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9,
+		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9 | FMT_AVBCD,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S1A - MAJOR_ID_START] = {
@@ -422,7 +422,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_monitor = true,
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
-		.fmt_support_flags = FMT_HEVC | FMT_H264 | FMT_MPEG2 | FMT_MPEG4 | FMT_VC1,
+		.fmt_support_flags = FMT_HEVC | FMT_H264 | FMT_MPEG2 | FMT_MPEG4 | FMT_VC1 | FMT_AVBCD,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S7 - MAJOR_ID_START] = {
@@ -1081,6 +1081,7 @@ inline bool is_core_hevc_fmt(int format)
 		case VFORMAT_VP9:
 		case VFORMAT_AVS3:
 		case VFORMAT_H266:
+		case VFORMAT_AVBCD:
 			return true;
 		default:
 			return false;

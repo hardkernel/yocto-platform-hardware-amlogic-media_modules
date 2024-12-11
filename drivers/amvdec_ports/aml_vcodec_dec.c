@@ -1130,7 +1130,7 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		if (vdec_if_get_param(ctx, GET_PARAM_TW_MODE, &tw_mode))
 			break;
 
-		if ((dw_mode == DM_AVBC_ONLY) && (tw_mode == DM_INVALID))
+		if (!ctx->avbcd_work_mode && (dw_mode == DM_AVBC_ONLY) && (tw_mode == DM_INVALID))
 			break;
 
 		snprintf(file_name, 64, "%s/dec_dump_%ux%u.raw", dump_path, vf->width, vf->height);
@@ -3683,6 +3683,12 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 				"vcodec state (AML_STATE_INIT)\n");
 		}
 		mutex_unlock(&ctx->state_lock);
+#ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
+		if (ctx->avbcd_work_mode & 0x8000) {
+			aml_avbc_wrapper_destroy(aml_avbc_get_wrapper());
+			aml_avbc_wrapper_init(&ctx->avbc_wrapper, NULL);
+		}
+#endif
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
 		q_data->sizeimage[0] = pix->sizeimage;
 		q_data->coded_width = pix->width;
@@ -6038,7 +6044,10 @@ static int vidioc_vdec_s_parm(struct file *file, void *fh,
 			ctx->avbcd_work_mode = avbcd_work_mode;
 			ctx->no_fbc_output = false;
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
-			aml_avbc_wrapper_init(&ctx->avbc_wrapper);
+			if (!(ctx->avbcd_work_mode & 0x8000)) {
+				aml_avbc_wrapper_destroy(aml_avbc_get_wrapper());
+				aml_avbc_wrapper_init(&ctx->avbc_wrapper, NULL);
+			}
 #endif
 			aml_buf_configure_update(ctx);
 		}

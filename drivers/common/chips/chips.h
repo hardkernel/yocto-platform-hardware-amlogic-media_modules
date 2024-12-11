@@ -46,6 +46,7 @@ bool check_efuse_chip(int vformat);
 #define FMT_AV1      BIT(VFORMAT_AV1)
 #define FMT_AVS3     BIT(VFORMAT_AVS3)
 #define FMT_H266     BIT(VFORMAT_H266)
+#define FMT_AVBCD    BIT(VFORMAT_AVBCD)
 
 //hcodec
 #define FMT_H264_ENC BIT(VFORMAT_H264_ENC)
@@ -55,8 +56,8 @@ bool check_efuse_chip(int vformat);
 #define FMT_VDEC_ALL               (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC | FMT_AVS)
 #define FMT_VDEC_NO_AVS            (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC)
 
-#define FMT_HEVC_VP9_AV1           (FMT_HEVC | FMT_VP9 | FMT_AV1)
-#define FMT_HEVC_VP9_AVS2          (FMT_HEVC | FMT_VP9 | FMT_AVS2)
+#define FMT_HEVC_VP9_AV1           (FMT_HEVC | FMT_VP9 | FMT_AV1 | FMT_AVBCD)
+#define FMT_HEVC_VP9_AVS2          (FMT_HEVC | FMT_VP9 | FMT_AVS2 | FMT_AVBCD)
 #define FMT_HEVC_VP9_AVS2_AV1      (FMT_AV1  | FMT_HEVC_VP9_AVS2)
 #define FMT_HEVC_VP9_AVS2_AV1_AVS3 (FMT_AVS3 | FMT_HEVC_VP9_AVS2_AV1)
 

@@ -18,6 +18,7 @@ outs_common = [
         "frame_provider/decoder/mjpeg/amvdec_mmjpeg.ko",
         "frame_provider/decoder/mpeg12/amvdec_mmpeg12.ko",
         "frame_provider/decoder/mpeg4/amvdec_mmpeg4.ko",
+        "frame_provider/decoder/avbcd/amvdec_avbcd.ko",
         "frame_provider/decoder/utils/amvdec_debug_port.ko",
         "frame_provider/decoder/utils/decoder_common.ko",
         "frame_provider/decoder_v4l/avs2/amvdec_avs2_v4l.ko",

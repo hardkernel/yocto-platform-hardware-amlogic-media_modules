@@ -6296,6 +6296,15 @@ static void av1_post_avbcd_task(struct AV1HW_s *hw)
 	vf->canvas0_config[0].height = vf->compHeight;
 	vf->canvas0_config[1].width = ALIGN(vf->compWidth, align_w);
 	vf->canvas0_config[1].height = vf->compHeight;
+
+	if (hw->aom_param.p.bit_depth == 10) {
+		vf->canvas0_config[0].endian = HEVC_CONFIG_P010_LE;
+		vf->canvas0_config[1].endian = HEVC_CONFIG_P010_LE;
+	} else if (ctx->avbcd_work_mode & AVBCD_HARDWARE_MODE) {
+		vf->canvas0_config[0].endian = HEVC_CONFIG_LITTLE_ENDIAN;
+		vf->canvas0_config[1].endian = HEVC_CONFIG_LITTLE_ENDIAN;
+	}
+
 	if (vf->canvas0_config[0].block_mode == CANVAS_BLKMODE_LINEAR)
 			vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 	offset = ALIGN(vf->compWidth, align_w) * ALIGN(vf->compHeight, align_h);
@@ -6337,6 +6346,9 @@ static void av1_post_avbcd_task(struct AV1HW_s *hw)
 	} else if (ctx->avbcd_work_mode & AVBCD_SOFT_USER_MODE) {
 		out->img.mtype = AVBC_MEM_PHYADDR;
 		out->img.data = (ulong)vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
+	} else {
+		out->img.mtype = AVBC_MEM_DMABUF;
+		out->img.data = vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
 	}
 	out->img.rect.width = ALIGN(vf->compWidth, align_w);
 	out->img.rect.height = ALIGN(vf->compHeight, align_h);

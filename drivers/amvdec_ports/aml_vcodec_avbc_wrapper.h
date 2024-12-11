@@ -34,7 +34,7 @@
  *
  * Used to init AVBC Wrapper context
  */
-int aml_avbc_wrapper_init(void**);
+int aml_avbc_wrapper_init(void**, void*);
 
 /*
  * aml_avbc_wrapper_destroy() - AVBC Wrapper context destroy.
@@ -75,6 +75,8 @@ void aml_avbc_wrapper_stop(void *priv);
  * Used to post AVBC process task
  */
 int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag);
+
+struct aml_avbc_wrapper_s *aml_avbc_get_wrapper(void);
 
 struct task_ops_s *get_avbc_ops(void);
 

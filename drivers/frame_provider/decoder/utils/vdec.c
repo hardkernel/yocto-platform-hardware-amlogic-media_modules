@@ -1748,6 +1748,7 @@ static const char * const vdec_device_name[] = {
 	"amvdec_av1",        "ammvdec_av1",
 	"amvdec_avs3",       "ammvdec_avs3",
 	"amvdec_h266",       "ammvdec_h266",
+	"amvdec_avbcd",      "ammvdec_avbcd",
 };
 
 

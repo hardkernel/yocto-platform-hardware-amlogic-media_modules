@@ -426,6 +426,17 @@ struct aml_avbc_buf {
 };
 #endif
 
+struct aml_avbc_info {
+	ulong avbc_header_addr;
+	ulong avbc_y_addr;
+	u32 avbc_width;
+	u32 avbc_height;
+	u32 align_w;
+	u32 align_h;
+	u32 bitdepth;
+	u32 format;
+};
+
 struct vdec_s {
 	u32 magic;
 	struct list_head list;
@@ -596,8 +607,7 @@ struct vdec_s {
 	void *wrapper;
 	u32 pic0_done;
 	u32 pic_end;
-	ulong avbc_header_addr;
-	ulong avbc_y_addr;
+	struct aml_avbc_info avbc_info;
 	char frame_code_rate_name[32];
 	char decode_hw_front_time_name[32];
 	char decode_hw_back_time_name[32];

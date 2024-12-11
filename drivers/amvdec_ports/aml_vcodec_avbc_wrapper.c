@@ -110,6 +110,14 @@ struct aml_avbc_wrapper_buf {
 	struct vframe_s vf;
 };
 
+
+struct aml_avbc_hw_buf {
+	ulong mem_handle;
+	dos_addr_t phy_addr;
+	void *virt_addr;
+	u32 size;
+};
+
 /*
  * struct aml_avbc_wrapper_s - Structure defining AVBCD wrapper context and parameters.
  *
@@ -159,9 +167,17 @@ struct aml_avbc_wrapper_s {
 	struct work_struct 		avbc_work;
 	int				dec_result;
 	struct completion 		avbc_done;
+	struct completion 		seq_header_done;
 	int				hard_mode;
 	u32				frame_count;
 	u32				stop_flag;
+	u32				width;
+	u32				height;
+	u32				bitdepth;
+	u32				flag;
+	struct aml_avbc_hw_buf		hw_buf;
+	struct timeval 			start;
+	struct timeval 			end;
 };
 
 static DEFINE_MUTEX(avbc_mutex);
@@ -169,6 +185,60 @@ struct aml_avbc_wrapper_s *g_wrapper;
 
 extern int avbcd_work_mode;
 extern int crc_dump;
+extern int dump_avbcd_frame;
+extern char dump_path[32];
+extern int dec_i_frame_once;
+
+
+static void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out)
+{
+	u8 *dst_addr, *src_addr, *src_addr_start, *dst_addr_start, *dump_addr;
+	u32 src_w_stride, src_h_stride, dst_w_stride, dst_h_stride;
+	int i;
+
+	src_w_stride = ALIGN(wrapper->vdec->avbc_info.avbc_width, 64);
+	if (wrapper->vdec->avbc_info.bitdepth == 10)
+		src_w_stride = src_w_stride * 2;
+	src_h_stride = ALIGN(wrapper->vdec->avbc_info.avbc_height, 64);
+
+	dst_w_stride = out->img.rect.width;
+	dst_h_stride = out->img.rect.height;
+
+	src_addr = wrapper->hw_buf.virt_addr;
+try_map:
+	dst_addr = codec_mm_vmap_noncache(out->img.data, out->img.size);
+	if (!dst_addr) {
+		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
+		"%s Map fail!Try again!\n", __func__);
+		goto try_map;
+	}
+
+	src_addr_start = src_addr;
+	dst_addr_start = dst_addr;
+
+	dump_addr = dst_addr;
+
+	for (i = 0; i < src_h_stride; i++) {
+		memcpy(dst_addr, src_addr, src_w_stride);
+		dst_addr += dst_w_stride;
+		src_addr += src_w_stride;
+	}
+
+	src_addr = src_addr_start + src_w_stride * src_h_stride;
+	dst_addr = dst_addr_start + dst_w_stride * dst_h_stride;
+
+	for (i = 0; i < src_h_stride / 2; i++) {
+		memcpy(dst_addr, src_addr, src_w_stride);
+		dst_addr += dst_w_stride;
+		src_addr += src_w_stride;
+	}
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
+		"data 0x%llx size %d, dst_addr: 0x%px, src_addr: 0x%px, src_w_stride: %u, src_h_stride: %u, dst_w_stride:%u, dst_h_stride %u\n",
+		 out->img.data, out->img.size, dst_addr, src_addr, src_w_stride, src_h_stride, dst_w_stride, dst_h_stride);
+
+	codec_mm_unmap_phyaddr(dst_addr);
+}
 
 static void do_vframe_avbc_soft_decode(struct soft_data_t *soft_data)
 {
@@ -536,9 +606,12 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		(struct aml_avbc_wrapper_s *)vdec->wrapper;
 	int r = 0;
 	u8 *data = NULL;
+	struct avbc_output *out = NULL;
 
-	wrapper->vdec_cb = callback;
-	wrapper->vdec_cb_arg = arg;
+	if (callback && arg) {
+		wrapper->vdec_cb = callback;
+		wrapper->vdec_cb_arg = arg;
+	}
 
 	wrapper->chunk = vdec_input_next_chunk(&vdec->input);
 	r = wrapper->chunk->size;
@@ -550,44 +623,92 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 
 	wrapper->dec_result = DEC_RESULT_NONE;
 
-	if (!wrapper->chunk->block->is_mapped)
-		data = codec_mm_vmap(wrapper->chunk->block->start +
-			wrapper->data_offset, r);
-	else
-		data = ((u8 *)wrapper->chunk->block->start_virt) +
-			wrapper->data_offset;
+	data = ((u8 *)wrapper->chunk->block->start_virt) +
+		wrapper->data_offset;
 
-	if (!wrapper->hard_mode || vdec->pic0_done) {
-		struct avbc_output *out;
-		memcpy(&wrapper->in, data, sizeof(struct avbc_input));
-		vdec->avbc_header_addr = (ulong)wrapper->in.img.data;
-		if (wrapper->hard_mode && kfifo_peek(&wrapper->out, &out))
-			vdec->avbc_y_addr = (ulong)out->img.data;
+	memcpy(&wrapper->in, data, sizeof(struct avbc_input));
 
-		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: size 0x%x  header_addr 0x%lx, header_size %u, width %u, height %u y_addr 0x%lx\n",
-			__func__, r,
-			(ulong)wrapper->in.img.data,
-			wrapper->in.img.size,
-			wrapper->in.img.rect.width,
-			wrapper->in.img.rect.height,
-			vdec->avbc_y_addr);
-	} else
-		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: init the first frame!\n", __func__);
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: size 0x%x  header_addr 0x%lx, header_size %u, width %u, height %u, bitdepth %u\n",
+		__func__, r,
+		(ulong)wrapper->in.img.data,
+		wrapper->in.img.size,
+		wrapper->in.img.rect.width,
+		wrapper->in.img.rect.height,
+		wrapper->in.img.bitdep);
 
-	if (wrapper->hard_mode && vdec->pic0_done) {
-		memset(data, 0, 623);
-		memcpy(data, trigger_p_1080, 27);
-		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: p frame\n", __func__);
+	if (!wrapper->stop_flag && wrapper->hard_mode) {
+		if (dec_i_frame_once && wrapper->frame_count &&
+			wrapper->width && wrapper->height &&
+			 wrapper->in.img.rect.width && wrapper->in.img.rect.height &&
+			(wrapper->width != wrapper->in.img.rect.width ||
+			wrapper->height != wrapper->in.img.rect.height)) {
+			vdec->pic0_done = 0;
+			v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: resolution change: (%u x %u)==>(%u x %u)\n",
+					__func__,
+					wrapper->width,
+					wrapper->height,
+					wrapper->in.img.rect.width,
+					wrapper->in.img.rect.height);
+		}
+		memset(data, 0, r);
+
+		if (vdec->pic0_done) {
+			memcpy(data, trigger_p_1080, P_FRAME_SIZE);
+			if (wrapper->hard_mode && vdec->pic0_done &&
+				kfifo_peek(&wrapper->out, &out)) {
+				vdec->avbc_info.avbc_y_addr = (ulong)out->img.data;
+				vdec->avbc_info.format = out->img.format != AML_PIX_FMT_NV21 ?
+								AML_PIX_FMT_NV12 : AML_PIX_FMT_NV21;
+			}
+			if (wrapper->flag & AVBC_FLAG_IO_BLOCKING) {
+				u32 size = ALIGN(vdec->avbc_info.avbc_width, 64) * ALIGN(vdec->avbc_info.avbc_height, 64) * 3 /2;
+				if (vdec->avbc_info.bitdepth == 10)
+					size = size * 2;
+				wrapper->hw_buf.size = size;
+				wrapper->hw_buf.virt_addr = codec_mm_dma_alloc_coherent(&wrapper->hw_buf.mem_handle, &wrapper->hw_buf.phy_addr, wrapper->hw_buf.size, "AVBCD_BUF");
+				vdec->avbc_info.avbc_y_addr = (ulong)wrapper->hw_buf.phy_addr;
+			}
+			if (dec_i_frame_once && wrapper->frame_count) {
+				vdec->avbc_info.avbc_width = wrapper->in.img.rect.width;
+				vdec->avbc_info.avbc_height = wrapper->in.img.rect.height;
+				vdec->avbc_info.bitdepth = wrapper->in.img.bitdep;
+				vdec->avbc_info.align_w = 64;
+				vdec->avbc_info.align_h = 64;
+				vdec->avbc_info.avbc_header_addr = (ulong)wrapper->in.img.data;
+			}
+			if (out)
+				v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: p frame, avbc_wxh(%dx%d), dst_addr(0x%lx), y_addr(0x%lx), size(%u), avbc_header_addr(0x%lx), format(0x%x)\n",
+						__func__,
+						vdec->avbc_info.avbc_width,
+						vdec->avbc_info.avbc_height,
+						(ulong)out->img.data,
+						vdec->avbc_info.avbc_y_addr ? vdec->avbc_info.avbc_y_addr : (ulong)out->img.data,
+						wrapper->hw_buf.size,
+						vdec->avbc_info.avbc_header_addr,
+						vdec->avbc_info.format);
+		} else {
+			vdec->avbc_info.avbc_width = wrapper->in.img.rect.width;
+			vdec->avbc_info.avbc_height = wrapper->in.img.rect.height;
+			vdec->avbc_info.bitdepth = wrapper->in.img.bitdep;
+			vdec->avbc_info.align_w = 64;
+			vdec->avbc_info.align_h = 64;
+			vdec->avbc_info.avbc_header_addr = (ulong)wrapper->in.img.data;
+
+			wrapper->width = wrapper->in.img.rect.width;
+			wrapper->height = wrapper->in.img.rect.height;
+
+			memcpy(data, trigger_i_1080, I_FRAME_SIZE);
+			v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s: init the first frame! avbc_header_addr %lx\n", __func__, vdec->avbc_info.avbc_header_addr);
+			do_gettimeofday(&wrapper->start);
+		}
 	}
-	if (!wrapper->chunk->block->is_mapped)
-		codec_mm_unmap_phyaddr(data);
 
 	if (wrapper->stop_flag) {
 		wrapper->dec_result = DEC_RESULT_ERROR;
 		queue_work(wrapper->avbc_workqueue, &wrapper->avbc_work);
 	} else {
 		if (wrapper->hard_mode) {
-			vdec->run_avbc(vdec, mask, callback, arg);
+			vdec->run_avbc(vdec, mask, wrapper->vdec_cb, wrapper->vdec_cb_arg);
 		} else {
 			wrapper->dec_result = DEC_RESULT_DONE;
 			if (!wrapper->in.img.data)
@@ -601,7 +722,10 @@ void aml_avbc_wrapper_reset(void *priv)
 {
 	struct aml_avbc_wrapper_s *wrapper =
 		(struct aml_avbc_wrapper_s *)priv;
+	struct vdec_s *vdec = wrapper->vdec;
 	int i;
+
+	vdec_reset(vdec);
 
 	mutex_lock(&avbc_mutex);
 
@@ -672,7 +796,9 @@ static void aml_buf_avbcd_worker(struct work_struct *work)
 				if (ret)
 					wrapper->dec_result = DEC_RESULT_ERROR;
 			}
-		} else {
+		} else if (wrapper->hard_mode && (wrapper->flag & AVBC_FLAG_IO_BLOCKING)) {
+			copy_yuv(wrapper, out);
+		} else if (!wrapper->hard_mode) {
 			v4l_dbg_avbcd(0, V4L_DEBUG_CODEC_ERROR, "%s Get out fifo fail!\n", __func__);
 			goto out;
 		}
@@ -690,6 +816,13 @@ static void aml_buf_avbcd_worker(struct work_struct *work)
 	}
 
 out:
+	if (wrapper->hw_buf.mem_handle) {
+		codec_mm_dma_free_coherent(wrapper->hw_buf.mem_handle);
+		wrapper->hw_buf.phy_addr = 0;
+		wrapper->hw_buf.virt_addr = 0;
+		wrapper->hw_buf.size = 0;
+		wrapper->hw_buf.mem_handle = 0;
+	}
 	vdec_vframe_dirty(wrapper->vdec, wrapper->chunk);
 	wrapper->chunk = NULL;
 	complete(&wrapper->avbc_done);
@@ -708,11 +841,29 @@ static irqreturn_t avbc_irq_cb(struct vdec_s *vdec, int irq)
 	return vdec->avbc_irq_handler(vdec, irq);
 }
 
+u8 *aml_avbcd_wrapper_yuv_dump(struct file *fp, u8 *start_addr, u32 real_width, u32 real_height, u32 align, u32 bitdepth)
+{
+	u32 coded_width = ALIGN(real_width, align);
+	u32 coded_height = ALIGN(real_height, align);
+	u8 *yuv_data_addr = start_addr;
+	u32 stride = coded_width;
+	u32 size;
+
+	 if (bitdepth == 10)
+		stride = stride * 2;
+
+	size = stride * coded_height * 3 / 2;
+	media_write(fp, yuv_data_addr, size, 0);
+
+	return (start_addr + size);
+}
+
 static irqreturn_t avbc_isr_thread_fn(int irq, void *data)
 {
 	struct vdec_s *vdec = (struct vdec_s *)data;
 	struct aml_avbc_wrapper_s *wrapper =
 		(struct aml_avbc_wrapper_s *)vdec->wrapper;
+	ulong time_use = 0;
 
 	vdec->avbc_threaded_irq_handler(vdec, irq);
 
@@ -722,11 +873,50 @@ static irqreturn_t avbc_isr_thread_fn(int irq, void *data)
 			v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s init\n", __func__);
 			vdec->pic0_done = 1;
 			wrapper->chunk = NULL;
+			vdec->run(vdec, 0, NULL, NULL);
 		} else {
-			v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s done!\n", __func__);
+			do_gettimeofday(&wrapper->end);
+			time_use = (wrapper->end.tv_sec - wrapper->start.tv_sec) * 1000 * 1000 +
+				(wrapper->end.tv_usec - wrapper->start.tv_usec);
+			v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s done! time_use:%lu us\n", __func__, time_use);
+			if (!dec_i_frame_once)
+				vdec->pic0_done = 0;
 			wrapper->dec_result = DEC_RESULT_DONE;
 			if (!wrapper->in.img.data)
 				wrapper->dec_result = DEC_RESULT_EOS;
+
+			do {
+				struct vdec_s *vdec = wrapper->vdec;
+				struct file *fp;
+				char file_name[64] = {0};
+
+				if (!dump_avbcd_frame)
+					break;
+
+				snprintf(file_name, 64, "%s/avbcd_dump_%ux%u_%u.yuv",
+					dump_path, vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height, dump_avbcd_frame);
+
+				fp = media_open(file_name,
+						O_CREAT | O_RDWR | O_LARGEFILE | O_APPEND, 0666);
+
+				if (!IS_ERR(fp)) {
+					u32 length = ALIGN(vdec->avbc_info.avbc_width, vdec->avbc_info.align_w) *
+						ALIGN(vdec->avbc_info.avbc_height, vdec->avbc_info.align_h) * 3 / 2;
+					void *y_vaddr;
+
+					if (vdec->avbc_info.bitdepth == 10)
+						length = length * 2;
+					y_vaddr = codec_mm_vmap(vdec->avbc_info.avbc_y_addr, length);
+
+					aml_avbcd_wrapper_yuv_dump(fp, (u8 *)y_vaddr,
+						vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height, 64, vdec->avbc_info.bitdepth);
+					codec_mm_unmap_phyaddr(y_vaddr);
+
+					pr_info("dump idx: %d %dx%d\n", dump_avbcd_frame, vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height);
+					dump_avbcd_frame--;
+					media_close(fp, NULL);
+				}
+			} while(0);
 			wrapper->frame_count++;
 			queue_work(wrapper->avbc_workqueue, &wrapper->avbc_work);
 		}
@@ -817,10 +1007,11 @@ static int aml_avbc_disable_hardware(struct stream_port_s *port)
 	return 0;
 }
 
-int aml_avbc_wrapper_init(void **pwrapper)
+int aml_avbc_wrapper_init(void **pwrapper, void *para)
 {
 	struct vdec_s *vdec = NULL;
 	struct aml_avbc_wrapper_s *wrapper = NULL;
+	struct avbc_input *avbc_in = (struct avbc_input *)para;
 	int ret = -1;
 	int i;
 
@@ -835,6 +1026,15 @@ int aml_avbc_wrapper_init(void **pwrapper)
 	if (!wrapper) {
 		goto err_no_mem;
 	}
+
+	if (avbcd_work_mode & 0x10) {
+		if (avbc_in && ((avbc_in->img.rect.width == 2560 && avbc_in->img.rect.height == 1090) ||
+			(avbc_in->img.rect.width == 3840 && avbc_in->img.rect.height == 1634)))
+			avbcd_work_mode = 0x12;
+		else
+			avbcd_work_mode = 0x14;
+	}
+
 	init_completion(&wrapper->avbc_done);
 	atomic_set(&wrapper->ref, 1);
 	wrapper->avbc_workqueue =
@@ -850,7 +1050,7 @@ int aml_avbc_wrapper_init(void **pwrapper)
 	if (IS_ERR_OR_NULL(vdec))
 		goto vdec_create_fail;
 
-	wrapper->format 	= VFORMAT_HEVC;
+	wrapper->format 	= VFORMAT_AVBCD;
 	vdec->port		= &wrapper->port;
 	vdec->format		= wrapper->format;
 
@@ -873,8 +1073,9 @@ int aml_avbc_wrapper_init(void **pwrapper)
 	vdec->port->flag = vdec->port_flag;
 	wrapper->vdec = vdec;
 	vdec->disable_vfm = true;
-	wrapper->hard_mode = 0;
 	vdec->avbc_mode = avbcd_work_mode;
+	if (vdec->avbc_mode & AVBCD_HARDWARE_MODE)
+		wrapper->hard_mode = 1;
 	aml_avbc_enable_hardware(&wrapper->port);
 	vdec_init(vdec, 0, 0);
 	avbcd_wrapper_probe(vdec);
@@ -908,9 +1109,7 @@ int aml_avbc_wrapper_init(void **pwrapper)
 	g_wrapper = wrapper;
 	*pwrapper = wrapper;
 
-	if (wrapper->hard_mode)
-		ret = vdec_write_vframe(wrapper->vdec, (const char *)trigger_i_1080, 623, NULL, NULL, NULL);
-	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s success! size %d\n", __func__, ret);
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s success! avbcd_work_mode %d\n", __func__, avbcd_work_mode);
 
 	mutex_unlock(&avbc_mutex);
 
@@ -972,7 +1171,10 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 	if (!is_support_avbc_wrapper() && !(avbcd_work_mode & 0x8000))
 		goto out;
 
-	ret = aml_avbc_wrapper_init((void**)&wrapper);
+	if (g_wrapper && (flag & AVBC_FLAG_IO_BLOCKING))
+		aml_avbc_wrapper_destroy(g_wrapper);
+
+	ret = aml_avbc_wrapper_init((void**)&wrapper, in);
 	if (ret) {
 		v4l_dbg_avbcd(0, V4L_DEBUG_CODEC_ERROR, "[ERR] aml_avbc_wrapper_init fail.\n");
 		goto out;
@@ -980,7 +1182,17 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 
 	kfifo_put(&wrapper->out, out);
 
-	ret = vdec_write_vframe(wrapper->vdec, (const char *)in, sizeof(*in), NULL, NULL, NULL);
+	wrapper->flag = flag;
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s:  header_addr 0x%lx, header_size %u, width %u, height %u, bitdepth %u flag %d\n",
+		__func__,
+		(ulong)in->img.data,
+		in->img.size,
+		in->img.rect.width,
+		in->img.rect.height,
+		in->img.bitdep,
+		flag);
+
+	ret = vdec_write_vframe(wrapper->vdec, (const char *)in, P_FRAME_SIZE, NULL, NULL, NULL);
 	if (ret < 0) {
 		v4l_dbg_avbcd(0, V4L_DEBUG_CODEC_ERROR, "[ERR] %s fail!\n", __func__);
 		goto out;
@@ -1086,6 +1298,12 @@ static void fill_avbc_buf_cb(void *v4l_ctx, void *fb_ctx)
 			"avbc push vframe err, ret: %d\n", ret);
 	}
 }
+
+struct aml_avbc_wrapper_s *aml_avbc_get_wrapper(void)
+{
+	return g_wrapper;
+}
+EXPORT_SYMBOL(aml_avbc_get_wrapper);
 
 static struct task_ops_s avbc_ops = {
 	.type		= TASK_TYPE_AVBCD,

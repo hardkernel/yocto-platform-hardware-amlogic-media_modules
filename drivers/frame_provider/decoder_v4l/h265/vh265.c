@@ -830,6 +830,9 @@ enum NalUnitType {
  *bit [23] ucode check multi slice info
  *	1: no check multi slice info
  *	0: check multi slice info
+ *bit [26] avbcd wrapper mode info
+ *	1: avbcd wrapper mode
+ *	0: not avbcd wrapper mode
  */
 #define NAL_SEARCH_CTL            HEVC_ASSIST_SCRATCH_I
 	/*read only*/
@@ -6872,7 +6875,7 @@ static inline void hevc_pre_pic(struct hevc_state_s *hevc,
 			hevc_print_cont(hevc, 0,
 				"clear referenced flag of all buffers\n");
 		}
-		if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE)
+		if (get_dbg_flag(hevc) & H265_DEBUG_DUMP_PIC_LIST)
 			dump_pic_list(hevc);
 		if (atomic_read(&hevc->vf_pre_count) == 1 &&
 				hevc->first_pic_flag == 1) {
@@ -7604,7 +7607,7 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 					get_picture_qos_info(hevc);
 			}
 			hevc->first_pic_after_recover = 0;
-			if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE)
+			if (get_dbg_flag(hevc) & H265_DEBUG_DUMP_PIC_LIST)
 				dump_pic_list(hevc);
 
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
@@ -7738,7 +7741,7 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 				return -1;
 			hevc->wait_buf = 0;
 		}
-		if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE)
+		if (get_dbg_flag(hevc) & H265_DEBUG_DUMP_PIC_LIST)
 			dump_pic_list(hevc);
 	}
 
@@ -10203,8 +10206,14 @@ static void h265_post_avbcd_task(struct hevc_state_s *hevc)
 	vf->canvas0_config[0].height = vf->compHeight;
 	vf->canvas0_config[1].width = ALIGN(vf->compWidth, align_w);
 	vf->canvas0_config[1].height = vf->compHeight;
-	if (vf->canvas0_config[0].block_mode == CANVAS_BLKMODE_LINEAR)
-			vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
+	if (hevc->bit_depth_luma == 10) {
+		vf->canvas0_config[0].endian = HEVC_CONFIG_P010_LE;
+		vf->canvas0_config[1].endian = HEVC_CONFIG_P010_LE;
+	} else if (ctx->avbcd_work_mode & AVBCD_HARDWARE_MODE) {
+		vf->canvas0_config[0].endian = HEVC_CONFIG_LITTLE_ENDIAN;
+		vf->canvas0_config[1].endian = HEVC_CONFIG_LITTLE_ENDIAN;
+	}
+	vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 	offset = ALIGN(vf->compWidth, align_w) * ALIGN(vf->compHeight, align_h);
 	if (hevc->bit_depth_luma == 10)
 		offset *= 2;
@@ -10244,6 +10253,9 @@ static void h265_post_avbcd_task(struct hevc_state_s *hevc)
 	} else if (ctx->avbcd_work_mode & AVBCD_SOFT_USER_MODE) {
 		out->img.mtype = AVBC_MEM_PHYADDR;
 		out->img.data = (ulong)vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
+	} else {
+		out->img.mtype = AVBC_MEM_DMABUF;
+		out->img.data = vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
 	}
 
 	out->img.rect.x = 0;
@@ -10264,9 +10276,9 @@ static void h265_post_avbcd_task(struct hevc_state_s *hevc)
 	aml_buf_done(&ctx->bm, dec_buf, BUF_USER_DEC);
 
 	hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
-			"%s: block mode 0x%x bit_depth_luma %d (vf %px header_addr 0x%lx y_addr 0x%lx wxh %d x %d bitdepth %d type 0x%lx index %d poc %d/%d"
+			"%s: block mode 0x%x flag 0x%x bit_depth_luma %d (vf %px header_addr 0x%lx y_addr 0x%lx wxh %d x %d bitdepth %d type 0x%lx index %d poc %d/%d"
 			" offset %d)\n",
-			__func__, hevc->mem_map_mode, hevc->bit_depth_luma, vf, (ulong)in->img.data, am_buf->planes[0].addr, in->img.rect.width, in->img.rect.height, in->img.bitdep,
+			__func__, hevc->mem_map_mode, vf->flag, hevc->bit_depth_luma, vf, (ulong)in->img.data, am_buf->planes[0].addr, in->img.rect.width, in->img.rect.height, in->img.bitdep,
 			vf->type, vf->index, get_pic_poc(hevc, vf->index & 0xff),
 			get_pic_poc(hevc, (vf->index >> 8) & 0xff), offset);
 
@@ -11659,7 +11671,6 @@ static int vh265_get_ps_info(struct hevc_state_s *hevc,
 	ps->dpb_frames		= v4l_parser_work_pic_num(hevc);
 	ps->dpb_margin		= get_dynamic_buf_num_margin(hevc);
 	ps->bitdepth		= (hevc->param.p.bit_depth & 0xf) + 8;
-
 	if (!ctx->is_multiplanar &&
 		hevc->interlace_flag && (ps->bitdepth == 8)) {
 		struct aml_vdec_cfg_infos cfg_info = { 0 };
@@ -14456,7 +14467,7 @@ static int h265_reset_frame_buffer(struct hevc_state_s *hevc)
 		pic = hevc->m_PIC[i];
 		if (pic == NULL)
 			continue;
-		if (pic->cma_alloc_addr) {
+		if (hevc->m_BUF[pic->index].v4l_ref_buf_addr) {
 			aml_buf = (struct aml_buf *)hevc->m_BUF[pic->index].v4l_ref_buf_addr;
 
 			hevc_print(hevc, H265_DEBUG_BUFMGR,
@@ -14512,7 +14523,7 @@ static int h265_recycle_frame_buffer(struct hevc_state_s *hevc)
 			continue;
 
 		if (pic->referenced == 0 && (pic->vf_ref || pic->drop_mark) &&
-			pic->cma_alloc_addr) {
+			hevc->m_BUF[pic->index].v4l_ref_buf_addr) {
 
 			if ((ctx->vpp_is_need || ctx->enable_di_post) &&
 				!(pic->drop_mark)) {
@@ -14756,7 +14767,7 @@ static unsigned char is_new_pic_available(struct hevc_state_s *hevc)
 		return 1;
 
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
-	if (ctx->avbcd_work_mode & (AVBCD_SOFT_KERNEL_MODE | AVBCD_SOFT_USER_MODE))
+	if (ctx->avbcd_work_mode)
 		return has_free_buf;
 #endif
 
@@ -14781,7 +14792,7 @@ static unsigned char is_new_pic_available(struct hevc_state_s *hevc)
 		dpb_frames = hevc->param.p.sps_max_dec_pic_buffering_minus1_0 +
 				(save_buffer ? 2 : 3);
 		if (decode_count >= dpb_frames + 1) {
-			if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE)
+			if (get_dbg_flag(hevc) & H265_DEBUG_DUMP_PIC_LIST)
 				dump_pic_list(hevc);
 			if (!(error_handle_policy & 0x400)) {
 				spin_unlock_irqrestore(&h265_lock, flags);

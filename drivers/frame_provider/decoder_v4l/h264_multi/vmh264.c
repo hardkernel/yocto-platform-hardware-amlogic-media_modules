@@ -3048,6 +3048,9 @@ static void h264_post_avbcd_task(struct vdec_h264_hw_s *hw)
 	} else if (ctx->avbcd_work_mode & AVBCD_SOFT_USER_MODE) {
 		out->img.mtype = AVBC_MEM_PHYADDR;
 		out->img.data = (ulong)vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
+	} else {
+		out->img.mtype = AVBC_MEM_DMABUF;
+		out->img.data = vb2_dma_contig_plane_dma_addr(buf->am_buf->vb, 0);
 	}
 
 	out->img.rect.x = 0;
@@ -7308,7 +7311,7 @@ static bool is_buffer_available(struct vdec_s *vdec)
 
 			if (
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
-			!(ctx->avbcd_work_mode & (AVBCD_SOFT_KERNEL_MODE | AVBCD_SOFT_USER_MODE)) &&
+			!ctx->avbcd_work_mode &&
 #endif
 				((p_H264_Dpb->mDPB.used_size >= p_H264_Dpb->dec_dpb_size) ||
 				!check_num_ref(&p_H264_Dpb->mDPB)))
@@ -11677,6 +11680,13 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 
 	if (ctx->avbcd_work_mode && hw->double_write_mode != DM_AVBC_ONLY) {
 		struct aml_vdec_cfg_infos cfg_info = { 0 };
+
+		if (!hw->mmu_enable) {
+			set_mmu_config(hw, vdec);
+			vdec_core_release(vdec, hw->mask);
+			hw->mask = CORE_MASK_VDEC_1 | CORE_MASK_HEVC | CORE_MASK_COMBINE;
+			vdec_core_request(vdec, hw->mask);
+		}
 
 		hw->double_write_mode = DM_AVBC_ONLY;
 		dpb_print(DECODE_ID(hw), 0, "avbc mode double_write_mode %d\n", hw->double_write_mode);

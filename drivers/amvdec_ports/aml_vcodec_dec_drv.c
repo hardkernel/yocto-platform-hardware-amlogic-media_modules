@@ -901,6 +901,14 @@ int dump_es_output_frame;
 EXPORT_SYMBOL(dump_es_output_frame);
 MEDIA_PARAM(dump_es_output_frame, int, 0644);
 
+int dump_avbcd_frame;
+EXPORT_SYMBOL(dump_avbcd_frame);
+MEDIA_PARAM(dump_avbcd_frame, int, 0644);
+
+int dec_i_frame_once = 1;
+EXPORT_SYMBOL(dec_i_frame_once);
+MEDIA_PARAM(dec_i_frame_once, int, 0644);
+
 int vpp_bypass_frames;
 EXPORT_SYMBOL(vpp_bypass_frames);
 MEDIA_PARAM(vpp_bypass_frames, int, 0644);
