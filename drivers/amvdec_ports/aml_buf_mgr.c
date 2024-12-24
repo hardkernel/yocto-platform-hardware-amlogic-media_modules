@@ -34,7 +34,7 @@
 #include <linux/amlogic/media/video_processor/di_proc_buf_mgr.h>
 #include <linux/amlogic/media/dmabuf_heaps/amlogic_dmabuf_heap.h>
 
-#define IS_VPP_POST(bm)	(bm->vpp_work_mode == VPP_WORK_MODE_DI_POST)
+#define IS_VPP_POST(bm)	(bm->config.vpp_work_mode == VPP_WORK_MODE_DI_POST)
 
 static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm);
 static void aml_buf_vpp_mgr_release(struct aml_buf_mgr_s *bm);
