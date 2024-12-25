@@ -199,6 +199,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_h264_mmu    = true,
 		.is_support_dual_core = false,
 		.is_support_monitor = true,
+		.is_support_avbc_wrapper = true,
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
@@ -533,6 +534,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.hevc_stream_extra_shift = 8,
 		.is_vdec_hevc_combine = true,
 		.is_support_bandwidth_msr = false,
+		.is_support_avbc_wrapper = true,
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AV1,
@@ -1362,6 +1364,12 @@ inline bool is_need_fix_streambuf_rp(void)
 	return false;
 }
 EXPORT_SYMBOL(is_need_fix_streambuf_rp);
+
+inline bool is_support_avbc_wrapper(void)
+{
+	return platform_dos_dev->is_support_avbc_wrapper;
+}
+EXPORT_SYMBOL(is_support_avbc_wrapper);
 
 void pr_dos_infos(void)
 {

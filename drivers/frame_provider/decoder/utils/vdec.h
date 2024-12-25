@@ -84,6 +84,7 @@ enum vdec_type_e {
 	VDEC_HEVC,
 	VDEC_HEVCB,
 	VDEC_WAVE,
+	VDEC_AVBCD_SOFT,
 	VDEC_MAX
 };
 
@@ -190,6 +191,7 @@ enum e_trace_work_status {
 #define CORE_MASK_HEVC (1 << VDEC_HEVC)
 #define CORE_MASK_HEVC_FRONT (1 << VDEC_HEVC)
 #define CORE_MASK_HEVC_BACK (1 << VDEC_HEVCB)
+#define CORE_MASK_AVBCD_SOFT (1 << VDEC_AVBCD_SOFT)
 #define CORE_MASK_COMBINE (1UL << 31)
 
 #define mask_front_core(mask) ((mask & ~CORE_MASK_HEVC_BACK) || (mask == 0))
@@ -587,7 +589,7 @@ struct vdec_s {
 	void *wrapper;
 	u32 pic0_done;
 	u32 pic_end;
-	u32 avbc_header_addr;
+	ulong avbc_header_addr;
 	ulong avbc_y_addr;
 	char frame_code_rate_name[32];
 	char decode_hw_front_time_name[32];
