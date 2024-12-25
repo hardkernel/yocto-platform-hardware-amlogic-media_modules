@@ -2532,7 +2532,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 {
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)vdec->private;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
-	int pic_struct = 0, structure = 0;
+	int pic_struct = -1, structure = -1;
 	struct aml_vcodec_ctx * v4l = hw->v4l2_ctx;
 	struct buffer_spec_s *pic = NULL;
 	int i, idx = INVALID_IDX;
@@ -7886,6 +7886,7 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 		(vdec_stream_based(vdec) && p_Dpb->need_put_ref))) {
 		int buf_spec_num = hw->dpb.cur_idx;
 		int pic_struct = dec_picture->pic_struct;
+		int structure = dec_picture->structure;
 		struct aml_buf *aml_buf;
 		bool fence_mode_error_frame_buf_posted = false;
 
@@ -7909,12 +7910,18 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 				hw->buffer_spec[buf_spec_num].cma_alloc_addr, hw->buffer_spec[buf_spec_num].buf_adr);
 
 		if (!ctx->avbcd_work_mode) {
-			if (ctx->picinfo.field == V4L2_FIELD_INTERLACED) //frame_mbs_only_flag
-				aml_buf_put_ref(&ctx->bm, aml_buf);
+			if ((ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED) ||
+				ctx->vpp_is_need) {//frame_mbs_only_flag
+				if (pic_struct == PIC_TOP_BOT ||
+					pic_struct == PIC_BOT_TOP ||
+					ctx->picinfo.field == V4L2_FIELD_INTERLACED) {
+					aml_buf_put_ref(&ctx->bm, aml_buf);
+				}
 
-			if (pic_struct == PIC_TOP_BOT_TOP ||
-				pic_struct == PIC_BOT_TOP_BOT) {
-				aml_buf_put_ref(&ctx->bm, aml_buf);
+				if (((pic_struct == PIC_TOP_BOT_TOP || pic_struct == PIC_BOT_TOP_BOT)
+					&& structure == FRAME) ||
+					check_force_interlace(hw, hw->frame_width, hw->frame_height))
+					aml_buf_put_ref(&ctx->bm, aml_buf);
 			}
 		}
 
