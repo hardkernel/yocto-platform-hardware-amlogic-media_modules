@@ -30,6 +30,7 @@
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "decoder_cpu_ver_info.h"
 #include "../register/register.h"
+#include "../media_utils/media_kernel_version.h"
 
 #define AM_SUCCESS 0
 #define MAJOR_ID_START AM_MESON_CPU_MAJOR_ID_M6
@@ -969,7 +970,7 @@ bit1: force support all video format;
 #define FORCE_VDEC_NO_PARSER     BIT(0)
 #define FORCE_VDEC_SUPPORT_FMT   BIT(1)
 #define FORCE_VDEC_NO_OVERSIZE   BIT(2)
-static u32 force_dos_support;
+extern u32 force_dos_support;
 
 inline bool is_core_vdec_fmt(int format)
 {
@@ -1430,6 +1431,4 @@ void dos_info_debug(void)
 	cpu_sub_id = save_sub_id;
 }
 EXPORT_SYMBOL(dos_info_debug);
-
-module_param(force_dos_support, uint, 0664);
 

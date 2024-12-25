@@ -779,136 +779,177 @@ module_init(amvdec_ports_init);
 module_exit(amvdec_ports_exit);
 
 EXPORT_SYMBOL(debug_mode);
-module_param(debug_mode, uint, 0644);
+MEDIA_PARAM(debug_mode, uint, 0644);
 
 int t3x_tw_output;
 EXPORT_SYMBOL(t3x_tw_output);
-module_param(t3x_tw_output, int, 0644);
+MEDIA_PARAM(t3x_tw_output, int, 0644);
 
 u32 disable_vpp_dw_mmu;
 EXPORT_SYMBOL(disable_vpp_dw_mmu);
-module_param(disable_vpp_dw_mmu, uint, 0644);
+MEDIA_PARAM(disable_vpp_dw_mmu, uint, 0644);
 
 bool aml_set_vfm_enable;
 EXPORT_SYMBOL(aml_set_vfm_enable);
-module_param(aml_set_vfm_enable, bool, 0644);
+MEDIA_PARAM(aml_set_vfm_enable, bool, 0644);
 
 int aml_set_vfm_path;
 EXPORT_SYMBOL(aml_set_vfm_path);
-module_param(aml_set_vfm_path, int, 0644);
+MEDIA_PARAM(aml_set_vfm_path, int, 0644);
 
 bool aml_set_vdec_type_enable;
 EXPORT_SYMBOL(aml_set_vdec_type_enable);
-module_param(aml_set_vdec_type_enable, bool, 0644);
+MEDIA_PARAM(aml_set_vdec_type_enable, bool, 0644);
 
 int aml_set_vdec_type;
 EXPORT_SYMBOL(aml_set_vdec_type);
-module_param(aml_set_vdec_type, int, 0644);
+MEDIA_PARAM(aml_set_vdec_type, int, 0644);
 
 int vp9_need_prefix;
 EXPORT_SYMBOL(vp9_need_prefix);
-module_param(vp9_need_prefix, int, 0644);
+MEDIA_PARAM(vp9_need_prefix, int, 0644);
 
 int av1_need_prefix;
 EXPORT_SYMBOL(av1_need_prefix);
-module_param(av1_need_prefix, int, 0644);
+MEDIA_PARAM(av1_need_prefix, int, 0644);
 
 bool multiplanar;
 EXPORT_SYMBOL(multiplanar);
-module_param(multiplanar, bool, 0644);
+MEDIA_PARAM(multiplanar, bool, 0644);
 
 int dump_capture_frame;
 EXPORT_SYMBOL(dump_capture_frame);
-module_param(dump_capture_frame, int, 0644);
+MEDIA_PARAM(dump_capture_frame, int, 0644);
 
 int dump_vpp_input;
 EXPORT_SYMBOL(dump_vpp_input);
-module_param(dump_vpp_input, int, 0644);
+MEDIA_PARAM(dump_vpp_input, int, 0644);
 
 int dump_ge2d_input;
 EXPORT_SYMBOL(dump_ge2d_input);
-module_param(dump_ge2d_input, int, 0644);
+MEDIA_PARAM(dump_ge2d_input, int, 0644);
 
 int dump_output_frame;
 EXPORT_SYMBOL(dump_output_frame);
-module_param(dump_output_frame, int, 0644);
+MEDIA_PARAM(dump_output_frame, int, 0644);
 
 u32 dump_output_start_position;
 EXPORT_SYMBOL(dump_output_start_position);
-module_param(dump_output_start_position, uint, 0644);
+MEDIA_PARAM(dump_output_start_position, uint, 0644);
 
 EXPORT_SYMBOL(param_sets_from_ucode);
-module_param(param_sets_from_ucode, bool, 0644);
+MEDIA_PARAM(param_sets_from_ucode, bool, 0644);
 
 EXPORT_SYMBOL(enable_drm_mode);
-module_param(enable_drm_mode, bool, 0644);
+MEDIA_PARAM(enable_drm_mode, bool, 0644);
 
 int bypass_vpp;
 EXPORT_SYMBOL(bypass_vpp);
-module_param(bypass_vpp, int, 0644);
+MEDIA_PARAM(bypass_vpp, int, 0644);
 
 int bypass_ge2d;
 EXPORT_SYMBOL(bypass_ge2d);
-module_param(bypass_ge2d, int, 0644);
+MEDIA_PARAM(bypass_ge2d, int, 0644);
 
 int max_di_instance = 2;
 EXPORT_SYMBOL(max_di_instance);
-module_param(max_di_instance, int, 0644);
+MEDIA_PARAM(max_di_instance, int, 0644);
 
 int bypass_progressive = 1;
 EXPORT_SYMBOL(bypass_progressive);
-module_param(bypass_progressive, int, 0644);
+MEDIA_PARAM(bypass_progressive, int, 0644);
 
 int force_di_permission;
 EXPORT_SYMBOL(force_di_permission);
-module_param(force_di_permission, int, 0644);
+MEDIA_PARAM(force_di_permission, int, 0644);
 
 bool support_mjpeg;
 EXPORT_SYMBOL(support_mjpeg);
-module_param(support_mjpeg, bool, 0644);
+MEDIA_PARAM(support_mjpeg, bool, 0644);
 
 bool support_format_I420;
 EXPORT_SYMBOL(support_format_I420);
-module_param(support_format_I420, bool, 0644);
+MEDIA_PARAM(support_format_I420, bool, 0644);
 
 int force_enable_nr;
 EXPORT_SYMBOL(force_enable_nr);
-module_param(force_enable_nr, int, 0644);
+MEDIA_PARAM(force_enable_nr, int, 0644);
 
 int force_enable_di_local_buffer;
 EXPORT_SYMBOL(force_enable_di_local_buffer);
-module_param(force_enable_di_local_buffer, int, 0644);
+MEDIA_PARAM(force_enable_di_local_buffer, int, 0644);
 
 int es_node_expand = 1;
 EXPORT_SYMBOL(es_node_expand);
-module_param(es_node_expand, int, 0644);
+MEDIA_PARAM(es_node_expand, int, 0644);
 
 int dump_es_output_frame;
 EXPORT_SYMBOL(dump_es_output_frame);
-module_param(dump_es_output_frame, int, 0644);
+MEDIA_PARAM(dump_es_output_frame, int, 0644);
 
 int vpp_bypass_frames;
 EXPORT_SYMBOL(vpp_bypass_frames);
-module_param(vpp_bypass_frames, int, 0644);
+MEDIA_PARAM(vpp_bypass_frames, int, 0644);
 
 int bypass_nr_flag;
 EXPORT_SYMBOL(bypass_nr_flag);
-module_param(bypass_nr_flag, int, 0644);
+MEDIA_PARAM(bypass_nr_flag, int, 0644);
 
 u32 trace_config = 0xffffffff;
 EXPORT_SYMBOL(trace_config);
-module_param(trace_config, uint, 0644);
+MEDIA_PARAM(trace_config, uint, 0644);
 
 int enable_di_post;
 EXPORT_SYMBOL(enable_di_post);
-module_param(enable_di_post, int, 0644);
+MEDIA_PARAM(enable_di_post, int, 0644);
 
 int avbcd_work_mode = 2;
 EXPORT_SYMBOL(avbcd_work_mode);
-module_param(avbcd_work_mode, int, 0644);
+MEDIA_PARAM(avbcd_work_mode, int, 0644);
 
 int crc_dump = 1;
-module_param(crc_dump, int, 0664);
+MEDIA_PARAM(crc_dump, int, 0664);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_ports_params[] = {
+	PARAM_UINT(debug_mode),
+	PARAM_INT(t3x_tw_output),
+	PARAM_UINT(disable_vpp_dw_mmu),
+	PARAM_BOOL(aml_set_vfm_enable),
+	PARAM_INT(aml_set_vfm_path),
+	PARAM_BOOL(aml_set_vdec_type_enable),
+	PARAM_INT(aml_set_vdec_type),
+	PARAM_INT(vp9_need_prefix),
+	PARAM_INT(av1_need_prefix),
+	PARAM_BOOL(multiplanar),
+	PARAM_INT(dump_capture_frame),
+	PARAM_INT(dump_vpp_input),
+	PARAM_INT(dump_ge2d_input),
+	PARAM_INT(dump_output_frame),
+	PARAM_INT(dump_output_start_position),
+	PARAM_BOOL(param_sets_from_ucode),
+	PARAM_BOOL(enable_drm_mode),
+	PARAM_INT(bypass_vpp),
+	PARAM_INT(bypass_ge2d),
+	PARAM_INT(max_di_instance),
+	PARAM_INT(bypass_progressive),
+	PARAM_INT(force_di_permission),
+	PARAM_BOOL(support_mjpeg),
+	PARAM_INT(support_format_I420),
+	PARAM_INT(force_enable_nr),
+	PARAM_INT(force_enable_di_local_buffer),
+	PARAM_INT(es_node_expand),
+	PARAM_INT(dump_es_output_frame),
+	PARAM_INT(vpp_bypass_frames),
+	PARAM_INT(bypass_nr_flag),
+	PARAM_UINT(trace_config),
+	PARAM_INT(enable_di_post),
+	PARAM_INT(avbcd_work_mode),
+	PARAM_INT(crc_dump),
+	{ /* sentinel */ }
+};
+module_param_cb(amvdec_ports, &key_value_param_ops, &amvdec_ports_params, 0644);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("AML video codec V4L2 decoder driver");

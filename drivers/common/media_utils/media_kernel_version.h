@@ -21,6 +21,9 @@
 #define __MEDIA_KERNEL_VERSION_H__
 
 #include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/amlogic/gki_module.h>
+#endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
 #define KV_CLASS_CONST
@@ -42,6 +45,12 @@
 #else
 #define KV_INT_TO_VOID                       void
 #define KV_RET_x_TO_VOID(a)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+#define MEDIA_PARAM(a, b, c) module_param(a, b, c)
+#else
+#define MEDIA_PARAM(a, b, c)
 #endif
 
 #endif

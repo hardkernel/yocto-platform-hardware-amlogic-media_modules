@@ -98,7 +98,15 @@ static u32 detail;
 static bool new_package = false;
 
 static bool dos_tee_enabled = true;
-module_param(dos_tee_enabled, bool, 0664);
+MEDIA_PARAM(dos_tee_enabled, bool, 0664);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry firmware_params[] = {
+	PARAM_UINT(dos_tee_enabled),
+	{ /* sentinel */ }
+};
+module_param_cb(firmware, &key_value_param_ops, &firmware_params, 0644);
+#endif
 
 bool fw_tee_enabled(void)
 {

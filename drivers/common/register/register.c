@@ -31,6 +31,7 @@
 #include <linux/platform_device.h>
 #include "../chips/decoder_cpu_ver_info.h"
 #include "register.h"
+#include "../media_utils/media_kernel_version.h"
 
 static void __iomem *reg_base[MAX_REG_BUS];
 struct bus_reg_desc *reg_desc[MAX_REG_BUS];
@@ -54,8 +55,7 @@ struct bus_reg_desc *reg_desc[MAX_REG_BUS];
 #define REG_OFFSET(new, old)  ((signed int)((new) - (old)))
 #define REG_COMPAT_RANGE(start, end)  ((end) - (start) + 1)
 
-static u32 register_debug;
-module_param(register_debug, uint, 0664);
+extern u32 register_debug;
 
 void registers_offset_config(struct bus_reg_desc *offset_from, s32 val, u32 size)
 {

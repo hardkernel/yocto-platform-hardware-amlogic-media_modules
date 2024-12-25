@@ -118,7 +118,7 @@
 
 static int clock_real_clk[VDEC_MAX + 1];
 
-static unsigned int set_frq_enable, vdec_frq, hevc_frq, hevcb_frq;
+static unsigned int set_frq;
 
 #ifdef NO_CLKTREE
 static struct gp_pll_user_handle_s *gp_pll_user_vdec, *gp_pll_user_hevc;
@@ -762,9 +762,9 @@ static int vdec_clock_set(int clk)
 
 	clk = vdec_max_clk_get();
 
-	if (set_frq_enable && vdec_frq) {
-		pr_info("Set the vdec frq is %u MHz\n", vdec_frq);
-		clk = vdec_frq;
+	if (set_frq) {
+		pr_info("Set the vdec frq is %u MHz\n", (set_frq));
+		clk = (set_frq);
 	}
 
 	vdec_set_clk(VDEC_1, clk * MHz);
@@ -812,9 +812,9 @@ static int hevc_back_clock_set(int clk)
 
 	clk = hevcb_max_clk_get();
 
-	if (set_frq_enable && hevcb_frq) {
-		pr_info("Set the hevcb frq is %u MHz\n", hevcb_frq);
-		clk = hevcb_frq;
+	if (set_frq) {
+		pr_info("Set the hevcb frq is %u MHz\n", (set_frq));
+		clk = (set_frq);
 	}
 
 	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_TXLX) &&
@@ -859,9 +859,9 @@ static int hevc_clock_set(int clk)
 
 	clk = hevcf_max_clk_get();
 
-	if (set_frq_enable && hevc_frq) {
-		pr_info("Set the hevc frq is %u MHz\n", hevc_frq);
-		clk = hevc_frq;
+	if (set_frq) {
+		pr_info("Set the hevc frq is %u MHz\n", (set_frq));
+		clk = (set_frq);
 	}
 
 	vdec_set_clk(VDEC_HEVC, clk * MHz);
@@ -1078,17 +1078,24 @@ static int vdec_clock_get(enum vdec_type_e core)
 	0}
 #include "clk.h"
 
-module_param(set_frq_enable, uint, 0664);
-MODULE_PARM_DESC(set_frq_enable, "\n set frequency enable\n");
+MEDIA_PARAM(set_frq, uint, 0664);
+MODULE_PARM_DESC(set_frq, "\n set frequency\n");
 
-module_param(vdec_frq, uint, 0664);
-MODULE_PARM_DESC(vdec_frq, "\n set vdec frequency\n");
+u32 force_dos_support;
+MEDIA_PARAM(force_dos_support, uint, 0664);
 
-module_param(hevc_frq, uint, 0664);
-MODULE_PARM_DESC(hevc_frq, "\n set hevc frequency\n");
+u32 register_debug;
+MEDIA_PARAM(register_debug, uint, 0664);
 
-module_param(hevcb_frq, uint, 0664);
-MODULE_PARM_DESC(hevcb_frq, "\n set hevcb frequency\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry media_clock_params[] = {
+	PARAM_UINT(set_frq),
+	PARAM_UINT(register_debug),
+	PARAM_UINT(force_dos_support),
+	{ /* sentinel */ }
+};
+module_param_cb(media_clock, &key_value_param_ops, &media_clock_params, 0644);
+#endif
 
 ARCH_VDEC_CLK_INIT();
 ARCH_VDEC_CLK_EXIT();
