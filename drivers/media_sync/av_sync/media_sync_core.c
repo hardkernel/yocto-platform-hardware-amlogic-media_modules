@@ -30,8 +30,13 @@
 #include <linux/time.h>
 #include <linux/time64.h>
 #include <asm/current.h>
-
+#include <linux/version.h>
 #include "media_sync_core.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/moduleparam.h>
+#include <linux/amlogic/gki_module.h>
+#endif
+
 #define KERNEL_ATRACE_TAG KERNEL_ATRACE_TAG_MEDIA_SYNC
 #include <trace/events/meson_atrace.h>
 
@@ -4590,6 +4595,21 @@ int register_mediasync_video_hold_set_cb(void* pfunc) {
 	return 0;
 }
 EXPORT_SYMBOL(register_mediasync_video_hold_set_cb);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry mediasync_params[] = {
+	PARAM_INT(media_sync_debug_level),
+	PARAM_INT(media_sync_user_debug_level),
+	PARAM_INT(media_sync_calculate_cache_enable),
+	PARAM_INT(media_sync_start_slow_sync_enable),
+	PARAM_INT(media_sync_start_play_threshold),
+	PARAM_INT(media_sync_show_firstframe_nosync),
+	{ /* sentinel */ }
+};
+
+module_param_cb(debug_mediasync, &key_value_param_ops, &mediasync_params, 0644);
+#else
+
 module_param(media_sync_debug_level, uint, 0664);
 MODULE_PARM_DESC(media_sync_debug_level, "\n mediasync debug level\n");
 
@@ -4608,4 +4628,4 @@ MODULE_PARM_DESC(media_sync_start_play_threshold, "\n mediasync start play thres
 
 module_param(media_sync_show_firstframe_nosync, uint, 0664);
 MODULE_PARM_DESC(media_sync_show_firstframe_nosync, "\n media sync show first frame no sync\n");
-
+#endif

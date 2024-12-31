@@ -9,6 +9,8 @@
 #include <linux/time64.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/module.h>
+#include <linux/version.h>
 #include <linux/amlogic/media/vfm/vframe.h>
 #include <linux/amlogic/media/vfm/vframe_provider.h>
 #include <linux/amlogic/media/vfm/vframe_receiver.h>
@@ -18,6 +20,10 @@
 #include "media_sync_vfm.h"
 #include "media_sync_policy.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/moduleparam.h>
+#include <linux/amlogic/gki_module.h>
+#endif
 
 #define DUR2US(x) ((x)*1000/96)
 
@@ -589,8 +595,15 @@ int mediasync_vf_init(void)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry mediasync_vfm_params[] = {
+	PARAM_INT(media_sync_vf_debug_level),
+	{ /* sentinel */ }
+};
 
+module_param_cb(debug_mediasync_vfm, &key_value_param_ops, &mediasync_vfm_params, 0644);
+
+#else
 module_param(media_sync_vf_debug_level, uint, 0664);
 MODULE_PARM_DESC(media_sync_vf_debug_level, "\n media sync vf debug level\n");
-
-
+#endif

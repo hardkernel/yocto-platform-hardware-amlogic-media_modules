@@ -11,9 +11,14 @@
 #include <linux/time.h>
 #include <linux/time64.h>
 #include <linux/vmalloc.h>
+#include <linux/version.h>
 #include <trace/events/meson_atrace.h>
 #include "media_sync_core.h"
 #include "media_sync_policy.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/moduleparam.h>
+#include <linux/amlogic/gki_module.h>
+#endif
 
 static u32 media_sync_policy_debug_level = 0;
 
@@ -1806,7 +1811,19 @@ void mediasync_policy_manager_exit(void)
 	kref_put(&m_mgr->ref, mediasync_policy_destroy);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry mediasyncpolicy_params[] = {
+	PARAM_INT(media_sync_policy_debug_level),
+	PARAM_INT(first_frame_no_sync),
+	PARAM_INT(slow_sync_avdiff_min_threshold),
+	PARAM_INT(slow_sync_avdiff_max_threshold),
+	PARAM_INT(slow_sync_expect_av_sync_done),
+	{ /* sentinel */ }
+};
 
+module_param_cb(debug_mediasyncpolicy, &key_value_param_ops, &mediasyncpolicy_params, 0644);
+
+#else
 module_param(media_sync_policy_debug_level, uint, 0664);
 MODULE_PARM_DESC(media_sync_policy_debug_level, "\n media sync policy debug level\n");
 
@@ -1821,3 +1838,4 @@ MODULE_PARM_DESC(slow_sync_avdiff_max_threshold, "\n media sync policy slow sync
 
 module_param(slow_sync_expect_av_sync_done, uint, 0664);
 MODULE_PARM_DESC(slow_sync_expect_av_sync_done, "\n media sync policy slow sync expect av sync done\n");
+#endif

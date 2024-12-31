@@ -20,7 +20,6 @@
 #ifndef PTS_SERVER_HEAD_HH
 #define PTS_SERVER_HEAD_HH
 
-#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>

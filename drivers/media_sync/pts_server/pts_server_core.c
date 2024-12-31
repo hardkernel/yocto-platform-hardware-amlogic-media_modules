@@ -30,8 +30,12 @@
 #include <linux/time.h>
 #include <linux/time64.h>
 #include <linux/vmalloc.h>
-
+#include <linux/version.h>
 #include "pts_server_core.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/moduleparam.h>
+#include <linux/amlogic/gki_module.h>
+#endif
 
 #define pts_pr_vinfo(number,fmt,args...) pr_info("ptsserv_v:[%d] " fmt, number,##args)
 #define pts_pr_ainfo(number,fmt,args...) pr_info("ptsserv_a:[%d] " fmt, number,##args)
@@ -1753,6 +1757,16 @@ long ptsserver_ins_reset(s32 pServerInsId) {
 }
 EXPORT_SYMBOL(ptsserver_ins_reset);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry ptsserver_params[] = {
+	PARAM_INT(ptsserver_debuglevel),
+	{ /* sentinel */ }
+};
+
+module_param_cb(debug_ptsserver, &key_value_param_ops, &ptsserver_params, 0644);
+
+#else
 module_param(ptsserver_debuglevel, uint, 0664);
 MODULE_PARM_DESC(ptsserver_debuglevel, "\n pts server debug level\n");
+#endif
 

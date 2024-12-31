@@ -20,7 +20,6 @@
 #ifndef MEDIA_SYNC_HEAD_HH
 #define MEDIA_SYNC_HEAD_HH
 
-#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
