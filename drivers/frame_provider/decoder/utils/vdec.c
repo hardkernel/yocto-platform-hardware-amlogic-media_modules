@@ -257,6 +257,8 @@ static int mmu_copy_dynamic_alloc_buffer = 0;
 
 static bool is_vdec_dual_core_mode(struct vdec_s *vdec);
 
+static bool is_post_task_busy(struct vdec_s *vdec);
+
 st_userdata userdata;
 
 struct am_reg {
@@ -4595,10 +4597,7 @@ void vdec_release(struct vdec_s *vdec)
 		}
 	}
 
-	while (vdec->irq_cnt > vdec->irq_thread_cnt) {
-		if ((wcount & 0x1f) == 0)
-			pr_debug("%s vdec[%lx]: %lld > %lld, loop %u times\n",__func__, (unsigned long)vdec,
-				vdec->irq_cnt,vdec->irq_thread_cnt, wcount);
+	while ((vdec->irq_cnt > vdec->irq_thread_cnt) || (is_post_task_busy(vdec))) {
 		/*
 		 * Wait at most 2000 ms.
 		 * In suspend scenario, the system may disable thread_fn,
@@ -4606,6 +4605,9 @@ void vdec_release(struct vdec_s *vdec)
 		 */
 		if (++wcount > 1000)
 			break;
+		if ((wcount & 0xff) == 0)
+			pr_debug("%s timeout %d, vdec[%px]: %lld > %lld, task busy %d\n",__func__, wcount,
+				vdec, vdec->irq_cnt, vdec->irq_thread_cnt, is_post_task_busy(vdec));
 		usleep_range(1000, 2000);
 	}
 
@@ -8044,6 +8046,29 @@ static int vdec_post_task_recycle(void *args)
 	return 0;
 }
 
+static bool is_post_task_busy(struct vdec_s *vdec)
+{
+	struct vdec_post_task_parms_s *parms;
+	struct post_task_mgr_s *post = &vdec_core->post;
+
+	mutex_lock(&post->mutex);
+	if (list_empty(&post->task_recycle)) {
+		mutex_unlock(&post->mutex);
+		return false;
+	}
+
+	list_for_each_entry(parms, &post->task_recycle, recycle) {
+		if (parms->ins == vdec) {
+			mutex_unlock(&post->mutex);
+			pr_info("%s, vdec %px, %d\n", __func__, vdec, vdec->id);
+			return true;
+		}
+	}
+	mutex_unlock(&post->mutex);
+
+	return false;
+}
+
 static void vdec_post_task_exit(void)
 {
 	struct post_task_mgr_s *post = &vdec_core->post;
@@ -8095,7 +8120,7 @@ static int vdec_post_handler(void *args)
 	return 0;
 }
 
-int vdec_post_task(post_task_handler func, void *args)
+int vdec_post_task(struct vdec_s *ins, post_task_handler func, void *args)
 {
 	struct vdec_post_task_parms_s *parms;
 	struct post_task_mgr_s *post = &vdec_core->post;
@@ -8106,6 +8131,7 @@ int vdec_post_task(post_task_handler func, void *args)
 
 	parms->func	= func;
 	parms->private	= args;
+	parms->ins      = ins;
 	init_completion(&parms->park);
 	parms->scheduled = 0;
 	parms->task	= kthread_run(vdec_post_handler,

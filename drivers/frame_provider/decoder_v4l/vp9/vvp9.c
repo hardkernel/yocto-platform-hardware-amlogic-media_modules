@@ -10772,7 +10772,7 @@ static void vp9_work_implement(struct VP9Decoder_s *pbi)
 
 			if (pbi->wait_more_buf) {
 				vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_5, __LINE__);
-				vdec_post_task(vp9_wait_cap_buf, pbi);
+				vdec_post_task(vdec, vp9_wait_cap_buf, pbi);
 			}
 		} else {
 			int i;

@@ -10033,8 +10033,13 @@ static void avs3_work_implement(struct AVS3Decoder_s *dec)
 			dec->stat &= ~STAT_ISR_REG;
 		}
 	} else if (dec->dec_result == DEC_RESULT_WAIT_BUFFER) {
+		if (vdec->next_status == VDEC_STATUS_DISCONNECTED) {
+			dec->dec_result = DEC_RESULT_FORCE_EXIT;
+			vdec_schedule_work(&dec->work);
+			return;
+		}
 		pr_err("DEC_RESULT_WAIT_BUFFER in\n");
-		vdec_post_task(avs3_wait_alloc_buf, dec);
+		vdec_post_task(vdec, avs3_wait_alloc_buf, dec);
 		dec->pic_list_wait_alloc_done_flag = BUFFER_ALLOCATING;
 		dec->process_state =
 			PROC_STATE_DECODE_AGAIN;
@@ -10580,8 +10585,6 @@ static void run_back(struct vdec_s *vdec, void (*callback)(struct vdec_s *, void
 	dec->vdec_back_cb_arg = arg;
 	dec->vdec_back_cb = callback;
 	vdec->back_pic_done = false;
-	//pr_err("run h265_HEVC_back_test\n");
-	//vdec_post_task(h265_HEVC_back_test, hevc);
 
 	ret = BackEnd_StartDecoding(dec);
 

@@ -1176,7 +1176,7 @@ static void reset(struct vdec_s *vdec)
 
 		hw->reload_task_start = true;
 		vc1_print(0, VC1_DEBUG_DETAIL, "vdec_post_task, reload_task_start %d\n", hw->reload_task_start);
-		vdec_post_task(vc1_reloadmc_ex, hw);
+		vdec_post_task(vdec, vc1_reloadmc_ex, hw);
 	}
 
 	vdec_v4l_inst_reset(ctx);

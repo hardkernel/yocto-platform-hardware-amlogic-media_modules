@@ -10107,7 +10107,7 @@ static void av1_work_implement(struct AV1HW_s *hw)
 
 			if (hw->wait_more_buf) {
 				vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_5, __LINE__);
-				ret = vdec_post_task(av1_wait_cap_buf, hw);
+				ret = vdec_post_task(vdec, av1_wait_cap_buf, hw);
 				if (ret != 0) {
 					pr_err("post task create failed!!!! ret %d\n", ret);
 					spin_lock_irqsave(&hw->wait_buf_lock, flags);

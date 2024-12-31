@@ -16437,7 +16437,12 @@ done_end:
 		hevc_print(hevc, 0, "%s: force exit end\n",
 			__func__);
 	} else if (hevc->dec_result == DEC_RESULT_WAIT_BUFFER) {
-		vdec_post_task(h265_wait_alloc_buf, hevc);
+		if (vdec->next_status == VDEC_STATUS_DISCONNECTED) {
+			hevc->dec_result = DEC_RESULT_FORCE_EXIT;
+			vdec_schedule_work(&hevc->work);
+			return;
+		}
+		vdec_post_task(vdec, h265_wait_alloc_buf, hevc);
 		hevc->pic_mv_buf_wait_alloc_done_flag = BUFFER_ALLOCATING;
 	} else if (hevc->dec_result == DEC_RESULT_UNFINISH) {
 		int i;
@@ -17394,8 +17399,7 @@ static void run_back(struct vdec_s *vdec, void (*callback)(struct vdec_s *, void
 	hevc->vdec_back_cb_arg = arg;
 	hevc->vdec_back_cb = callback;
 	vdec->back_pic_done = false;
-	//pr_err("run h265_HEVC_back_test\n");
-	//vdec_post_task(h265_HEVC_back_test, hevc);
+
 	ret = BackEnd_StartDecoding(hevc);
 	if (ret) {
 		reset_process_time_back(hevc);

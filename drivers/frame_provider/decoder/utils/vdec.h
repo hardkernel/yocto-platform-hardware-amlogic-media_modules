@@ -694,6 +694,7 @@ struct vdec_post_task_parms_s {
 	post_task_handler	func;
 	void			*private;
 	int			scheduled;
+	struct vdec_s	*ins;
 };
 
 #define MAX_USERDATA_CHANNEL_NUM 9
@@ -973,7 +974,7 @@ bool vdec_has_single_mode(void);
 
 void vdec_set_input_underrun(struct vdec_s *vdec, bool set);
 
-int vdec_post_task(post_task_handler func, void *args);
+int vdec_post_task(struct vdec_s *ins, post_task_handler func, void *args);
 
 void vdec_mm_dma_flush(ulong phys, u32 size);
 
