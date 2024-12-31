@@ -234,7 +234,9 @@ static u32 udebug_pause_decode_idx;
 
 static unsigned int disp_vframe_valve_level;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int decode_frame_count[MAX_INSTANCE_MUN];
 static unsigned int display_frame_count[MAX_INSTANCE_MUN];
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
@@ -13389,227 +13391,301 @@ static void __exit ammvdec_h264_driver_remove_module(void)
 }
 
 /****************************************/
-module_param(h264_debug_flag, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_h264_params[] = {
+	PARAM_UINT(h264_debug_flag),
+	PARAM_INT(start_decode_buf_level),
+	PARAM_INT(pre_decode_buf_level),
+	PARAM_UINT(fixed_frame_rate_mode),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT(errordata_timeout_val),
+	PARAM_UINT(get_data_timeout_val),
+	PARAM_UINT(frame_max_data_packet),
+	PARAM_UINT(reorder_dpb_size_margin),
+	PARAM_UINT(interlace_filed_margin),
+#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
+	PARAM_UINT(reorder_dpb_size_margin_dv),
+	PARAM_UINT(dv_toggle_prov_name),
+	PARAM_UINT(dolby_meta_with_el),
+#endif
+	PARAM_UINT(reference_buf_margin),
+#ifdef CONSTRAIN_MAX_BUF_NUM
+	PARAM_UINT(run_ready_max_vf_only_num),
+	PARAM_UINT(run_ready_display_q_num),
+	PARAM_UINT(run_ready_max_buf_num),
+#endif
+	PARAM_UINT(radr),
+	PARAM_UINT(rval),
+	PARAM_UINT(h264_debug_mask),
+	PARAM_UINT(h264_debug_cmd),
+	PARAM_INT(force_rate_streambase),
+	PARAM_INT(dec_control),
+	PARAM_INT(force_rate_framebase),
+	PARAM_INT(force_disp_bufspec_num),
+	PARAM_INT(V_BUF_ADDR_OFFSET),
+	PARAM_UINT(prefix_aux_buf_size),
+	PARAM_UINT(suffix_aux_buf_size),
+	PARAM_UINT(fast_output_enable),
+	PARAM_UINT(error_proc_policy),
+	PARAM_UINT(error_skip_count),
+	PARAM_UINT(force_sliding_margin),
+	PARAM_UINT(i_only_flag),
+	PARAM_UINT(first_i_policy),
+	PARAM_UINT(frmbase_cont_bitlevel),
+	PARAM_UINT(frmbase_cont_bitlevel2),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(udebug_pause_pos),
+	PARAM_UINT(udebug_pause_val),
+	PARAM_UINT(udebug_pause_decode_idx),
+	PARAM_UINT(max_alloc_buf_count),
+	PARAM_UINT(enable_itu_t35),
+	PARAM_UINT(endian),
+	PARAM_UINT(mmu_enable),
+	PARAM_UINT(force_enable_mmu),
+	PARAM_UINT(again_threshold),
+	PARAM_UINT(stream_mode_start_num),
+	PARAM_UINT(colocate_old_cal),
+	PARAM_UINT_ARRAY(decode_frame_count),
+	PARAM_UINT_ARRAY(display_frame_count),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_UINT_ARRAY(run_count),
+	PARAM_UINT_ARRAY(not_run_ready),
+	PARAM_UINT_ARRAY(input_empty),
+	PARAM_UINT_ARRAY(max_get_frame_interval),
+	PARAM_UINT_ARRAY(step),
+	PARAM_UINT_ARRAY(ref_frame_mark_flag),
+	PARAM_UINT(disp_vframe_valve_level),
+	PARAM_UINT(double_write_mode),
+	PARAM_UINT(mem_map_mode),
+	PARAM_UINT(without_display_mode),
+	PARAM_UINT(check_slice_num),
+	PARAM_UINT(mb_count_threshold),
+	PARAM_INT(loop_playback_poc_threshold),
+	PARAM_INT(poc_threshold),
+	PARAM_INT(loop_times),
+	PARAM_UINT(force_config_fence),
+	PARAM_UINT(dirty_again_threshold),
+	PARAM_UINT(one_packet_multi_frames_multi_run),
+	PARAM_UINT(save_buffer),
+	PARAM_UINT(save_buffer_in_res_change),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_h264_params, 0644);
+#endif
+
+MEDIA_PARAM(h264_debug_flag, uint, 0664);
 MODULE_PARM_DESC(h264_debug_flag, "\n ammvdec_h264 h264_debug_flag\n");
 
-module_param(start_decode_buf_level, int, 0664);
+MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
 		"\n ammvdec_h264 start_decode_buf_level\n");
 
-module_param(pre_decode_buf_level, int, 0664);
+MEDIA_PARAM(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level, "\n ammvdec_h264 pre_decode_buf_level\n");
 
-module_param(fixed_frame_rate_mode, uint, 0664);
+MEDIA_PARAM(fixed_frame_rate_mode, uint, 0664);
 MODULE_PARM_DESC(fixed_frame_rate_mode, "\namvdec_h264 fixed_frame_rate_mode\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val, "\n amvdec_h264 decode_timeout_val\n");
 
-module_param(errordata_timeout_val, uint, 0664);
+MEDIA_PARAM(errordata_timeout_val, uint, 0664);
 MODULE_PARM_DESC(errordata_timeout_val, "\n amvdec_h264 errordata_timeout_val\n");
 
-module_param(get_data_timeout_val, uint, 0664);
+MEDIA_PARAM(get_data_timeout_val, uint, 0664);
 MODULE_PARM_DESC(get_data_timeout_val, "\n amvdec_h264 get_data_timeout_val\n");
 
-module_param(frame_max_data_packet, uint, 0664);
+MEDIA_PARAM(frame_max_data_packet, uint, 0664);
 MODULE_PARM_DESC(frame_max_data_packet, "\n amvdec_h264 frame_max_data_packet\n");
 
-module_param(reorder_dpb_size_margin, uint, 0664);
+MEDIA_PARAM(reorder_dpb_size_margin, uint, 0664);
 MODULE_PARM_DESC(reorder_dpb_size_margin, "\n ammvdec_h264 reorder_dpb_size_margin\n");
 
-module_param(interlace_filed_margin, uint, 0664);
+MEDIA_PARAM(interlace_filed_margin, uint, 0664);
 MODULE_PARM_DESC(interlace_filed_margin, "\n ammvdec_h264 interlace_filed_margin\n");
 
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-module_param(reorder_dpb_size_margin_dv, uint, 0664);
+MEDIA_PARAM(reorder_dpb_size_margin_dv, uint, 0664);
 MODULE_PARM_DESC(reorder_dpb_size_margin_dv,
 	"\n ammvdec_h264 reorder_dpb_size_margin_dv\n");
+MEDIA_PARAM(dv_toggle_prov_name, uint, 0664);
+MODULE_PARM_DESC(dv_toggle_prov_name, "\n dv_toggle_prov_name\n");
+
+MEDIA_PARAM(dolby_meta_with_el, uint, 0664);
+MODULE_PARM_DESC(dolby_meta_with_el, "\n dolby_meta_with_el\n");
 #endif
 
-module_param(reference_buf_margin, uint, 0664);
+MEDIA_PARAM(reference_buf_margin, uint, 0664);
 MODULE_PARM_DESC(reference_buf_margin, "\n ammvdec_h264 reference_buf_margin\n");
 
 #ifdef CONSTRAIN_MAX_BUF_NUM
-module_param(run_ready_max_vf_only_num, uint, 0664);
+MEDIA_PARAM(run_ready_max_vf_only_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_max_vf_only_num, "\n run_ready_max_vf_only_num\n");
 
-module_param(run_ready_display_q_num, uint, 0664);
+MEDIA_PARAM(run_ready_display_q_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_display_q_num, "\n run_ready_display_q_num\n");
 
-module_param(run_ready_max_buf_num, uint, 0664);
+MEDIA_PARAM(run_ready_max_buf_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_max_buf_num, "\n run_ready_max_buf_num\n");
 #endif
 
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\nradr\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\nrval\n");
 
-module_param(h264_debug_mask, uint, 0664);
+MEDIA_PARAM(h264_debug_mask, uint, 0664);
 MODULE_PARM_DESC(h264_debug_mask, "\n amvdec_h264 h264_debug_mask\n");
 
-module_param(h264_debug_cmd, uint, 0664);
+MEDIA_PARAM(h264_debug_cmd, uint, 0664);
 MODULE_PARM_DESC(h264_debug_cmd, "\n amvdec_h264 h264_debug_cmd\n");
 
-module_param(force_rate_streambase, int, 0664);
+MEDIA_PARAM(force_rate_streambase, int, 0664);
 MODULE_PARM_DESC(force_rate_streambase, "\n amvdec_h264 force_rate_streambase\n");
 
-module_param(dec_control, int, 0664);
+MEDIA_PARAM(dec_control, int, 0664);
 MODULE_PARM_DESC(dec_control, "\n amvdec_h264 dec_control\n");
 
-module_param(force_rate_framebase, int, 0664);
+MEDIA_PARAM(force_rate_framebase, int, 0664);
 MODULE_PARM_DESC(force_rate_framebase, "\n amvdec_h264 force_rate_framebase\n");
 
-module_param(force_disp_bufspec_num, int, 0664);
+MEDIA_PARAM(force_disp_bufspec_num, int, 0664);
 MODULE_PARM_DESC(force_disp_bufspec_num, "\n amvdec_h264 force_disp_bufspec_num\n");
 
-module_param(V_BUF_ADDR_OFFSET, int, 0664);
+MEDIA_PARAM(V_BUF_ADDR_OFFSET, int, 0664);
 MODULE_PARM_DESC(V_BUF_ADDR_OFFSET, "\n amvdec_h264 V_BUF_ADDR_OFFSET\n");
 
-module_param(prefix_aux_buf_size, uint, 0664);
+MEDIA_PARAM(prefix_aux_buf_size, uint, 0664);
 MODULE_PARM_DESC(prefix_aux_buf_size, "\n prefix_aux_buf_size\n");
 
-module_param(suffix_aux_buf_size, uint, 0664);
+MEDIA_PARAM(suffix_aux_buf_size, uint, 0664);
 MODULE_PARM_DESC(suffix_aux_buf_size, "\n suffix_aux_buf_size\n");
 
-#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-module_param(dv_toggle_prov_name, uint, 0664);
-MODULE_PARM_DESC(dv_toggle_prov_name, "\n dv_toggle_prov_name\n");
-
-module_param(dolby_meta_with_el, uint, 0664);
-MODULE_PARM_DESC(dolby_meta_with_el, "\n dolby_meta_with_el\n");
-
-#endif
-
-module_param(fast_output_enable, uint, 0664);
+MEDIA_PARAM(fast_output_enable, uint, 0664);
 MODULE_PARM_DESC(fast_output_enable, "\n amvdec_h264 fast_output_enable\n");
 
-module_param(error_proc_policy, uint, 0664);
+MEDIA_PARAM(error_proc_policy, uint, 0664);
 MODULE_PARM_DESC(error_proc_policy, "\n amvdec_h264 error_proc_policy\n");
 
-module_param(error_skip_count, uint, 0664);
+MEDIA_PARAM(error_skip_count, uint, 0664);
 MODULE_PARM_DESC(error_skip_count, "\n amvdec_h264 error_skip_count\n");
 
-module_param(force_sliding_margin, uint, 0664);
+MEDIA_PARAM(force_sliding_margin, uint, 0664);
 MODULE_PARM_DESC(force_sliding_margin, "\n amvdec_h264 force_sliding_margin\n");
 
-module_param(i_only_flag, uint, 0664);
+MEDIA_PARAM(i_only_flag, uint, 0664);
 MODULE_PARM_DESC(i_only_flag, "\n amvdec_h264 i_only_flag\n");
 
-module_param(first_i_policy, uint, 0664);
+MEDIA_PARAM(first_i_policy, uint, 0664);
 MODULE_PARM_DESC(first_i_policy, "\n amvdec_h264 first_i_policy\n");
 
-module_param(frmbase_cont_bitlevel, uint, 0664);
+MEDIA_PARAM(frmbase_cont_bitlevel, uint, 0664);
 MODULE_PARM_DESC(frmbase_cont_bitlevel,
 	"\n amvdec_h264 frmbase_cont_bitlevel\n");
 
-module_param(frmbase_cont_bitlevel2, uint, 0664);
+MEDIA_PARAM(frmbase_cont_bitlevel2, uint, 0664);
 MODULE_PARM_DESC(frmbase_cont_bitlevel2,
 	"\n amvdec_h264 frmbase_cont_bitlevel\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_mh264 udebug_flag\n");
 
-module_param(udebug_pause_pos, uint, 0664);
+MEDIA_PARAM(udebug_pause_pos, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_pos, "\n udebug_pause_pos\n");
 
-module_param(udebug_pause_val, uint, 0664);
+MEDIA_PARAM(udebug_pause_val, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_val, "\n udebug_pause_val\n");
 
-module_param(udebug_pause_decode_idx, uint, 0664);
+MEDIA_PARAM(udebug_pause_decode_idx, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_decode_idx, "\n udebug_pause_decode_idx\n");
 
-module_param(max_alloc_buf_count, uint, 0664);
+MEDIA_PARAM(max_alloc_buf_count, uint, 0664);
 MODULE_PARM_DESC(max_alloc_buf_count, "\n amvdec_h264 max_alloc_buf_count\n");
 
-module_param(enable_itu_t35, uint, 0664);
+MEDIA_PARAM(enable_itu_t35, uint, 0664);
 MODULE_PARM_DESC(enable_itu_t35, "\n amvdec_h264 enable_itu_t35\n");
 
-module_param(endian, uint, 0664);
+MEDIA_PARAM(endian, uint, 0664);
 MODULE_PARM_DESC(endian, "\nrval\n");
 
-module_param(mmu_enable, uint, 0664);
+MEDIA_PARAM(mmu_enable, uint, 0664);
 MODULE_PARM_DESC(mmu_enable, "\n mmu_enable\n");
 
-module_param(force_enable_mmu, uint, 0664);
+MEDIA_PARAM(force_enable_mmu, uint, 0664);
 MODULE_PARM_DESC(force_enable_mmu, "\n force_enable_mmu\n");
 
-module_param(again_threshold, uint, 0664);
+MEDIA_PARAM(again_threshold, uint, 0664);
 MODULE_PARM_DESC(again_threshold, "\n again_threshold\n");
 
-module_param(stream_mode_start_num, uint, 0664);
+MEDIA_PARAM(stream_mode_start_num, uint, 0664);
 MODULE_PARM_DESC(stream_mode_start_num, "\n stream_mode_start_num\n");
 
-module_param(colocate_old_cal, uint, 0664);
+MEDIA_PARAM(colocate_old_cal, uint, 0664);
 MODULE_PARM_DESC(colocate_old_cal, "\n amvdec_mh264 colocate_old_cal\n");
 
-/*
-module_param(trigger_task, uint, 0664);
-MODULE_PARM_DESC(trigger_task, "\n amvdec_h264 trigger_task\n");
-*/
-module_param_array(decode_frame_count, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(decode_frame_count, uint, &max_decode_instance_num, 0664);
 
-module_param_array(display_frame_count, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(display_frame_count, uint, &max_decode_instance_num, 0664);
 
-module_param_array(max_process_time, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(max_process_time, uint, &max_decode_instance_num, 0664);
 
-module_param_array(run_count, uint,
+MEDIA_PARAM_ARRAY(run_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(not_run_ready, uint,
+MEDIA_PARAM_ARRAY(not_run_ready, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(input_empty, uint,
+MEDIA_PARAM_ARRAY(input_empty, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(max_get_frame_interval, uint,
+MEDIA_PARAM_ARRAY(max_get_frame_interval, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(step, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(step, uint, &max_decode_instance_num, 0664);
 
-module_param_array(ref_frame_mark_flag, bool, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(ref_frame_mark_flag, bool, &max_decode_instance_num, 0664);
 
-module_param(disp_vframe_valve_level, uint, 0664);
+MEDIA_PARAM(disp_vframe_valve_level, uint, 0664);
 MODULE_PARM_DESC(disp_vframe_valve_level, "\n disp_vframe_valve_level\n");
 
-module_param(double_write_mode, uint, 0664);
+MEDIA_PARAM(double_write_mode, uint, 0664);
 MODULE_PARM_DESC(double_write_mode, "\n double_write_mode\n");
 
-module_param(mem_map_mode, uint, 0664);
+MEDIA_PARAM(mem_map_mode, uint, 0664);
 MODULE_PARM_DESC(mem_map_mode, "\n mem_map_mode\n");
 
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
-module_param(check_slice_num, uint, 0664);
+MEDIA_PARAM(check_slice_num, uint, 0664);
 MODULE_PARM_DESC(check_slice_num, "\n check_slice_num\n");
 
-module_param(mb_count_threshold, uint, 0664);
+MEDIA_PARAM(mb_count_threshold, uint, 0664);
 MODULE_PARM_DESC(mb_count_threshold, "\n mb_count_threshold\n");
 
-module_param(loop_playback_poc_threshold, int, 0664);
+MEDIA_PARAM(loop_playback_poc_threshold, int, 0664);
 MODULE_PARM_DESC(loop_playback_poc_threshold, "\n loop_playback_poc_threshold\n");
 
-module_param(poc_threshold, int, 0664);
+MEDIA_PARAM(poc_threshold, int, 0664);
 MODULE_PARM_DESC(poc_threshold, "\n poc_threshold\n");
 
-module_param(loop_times, int, 0664);
+MEDIA_PARAM(loop_times, int, 0664);
 MODULE_PARM_DESC(loop_times, "\n loop_times\n");
 
-module_param(force_config_fence, uint, 0664);
+MEDIA_PARAM(force_config_fence, uint, 0664);
 MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");
 
-module_param(dirty_again_threshold, uint, 0664);
+MEDIA_PARAM(dirty_again_threshold, uint, 0664);
 MODULE_PARM_DESC(dirty_again_threshold, "\n amvdec_h264 dirty_again_threshold\n");
 
-module_param(one_packet_multi_frames_multi_run, uint, 0664);
+MEDIA_PARAM(one_packet_multi_frames_multi_run, uint, 0664);
 MODULE_PARM_DESC(one_packet_multi_frames_multi_run, "\n one_packet_multi_frames_multi_run\n");
 
-module_param(save_buffer, uint, 0664);
+MEDIA_PARAM(save_buffer, uint, 0664);
 MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
-module_param(save_buffer_in_res_change, uint, 0664);
+MEDIA_PARAM(save_buffer_in_res_change, uint, 0664);
 MODULE_PARM_DESC(save_buffer_in_res_change, "\n save_buffer_in_res_change\n");
 
 module_init(ammvdec_h264_driver_init_module);

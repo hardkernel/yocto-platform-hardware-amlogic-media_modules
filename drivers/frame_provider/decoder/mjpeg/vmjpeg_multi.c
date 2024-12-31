@@ -88,13 +88,15 @@
 
 #define DEFAULT_MEM_SIZE	(32*SZ_1M)
 #define RP_WORKAROUND_SIZE  SZ_4K
-static int debug_enable;
+static u32 debug_enable;
 static u32 udebug_flag;
 #define DECODE_ID(hw) (hw_to_vdec(hw)->id)
 
 static unsigned int radr;
 static unsigned int rval;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
 static unsigned int decode_timeout_val = 200;
 static struct vframe_s *vmjpeg_vf_peek(void *);
@@ -1671,32 +1673,49 @@ static void __exit ammvdec_mjpeg_driver_remove_module(void)
 }
 
 /****************************************/
-module_param(debug_enable, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_mjpeg_params[] = {
+	PARAM_UINT(debug_enable),
+	PARAM_INT(pre_decode_buf_level),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(dynamic_buf_num_margin),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_UINT(radr),
+	PARAM_UINT(start_decode_buf_level),
+	PARAM_UINT(rval),
+	PARAM_UINT(without_display_mode),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_mjpeg_params, 0644);
+#endif
+
+MEDIA_PARAM(debug_enable, uint, 0664);
 MODULE_PARM_DESC(debug_enable, "\n debug enable\n");
-module_param(pre_decode_buf_level, int, 0664);
+MEDIA_PARAM(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level,
 		"\n ammvdec_h264 pre_decode_buf_level\n");
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_mmpeg12 udebug_flag\n");
 
-module_param(dynamic_buf_num_margin, uint, 0664);
+MEDIA_PARAM(dynamic_buf_num_margin, uint, 0664);
 MODULE_PARM_DESC(dynamic_buf_num_margin, "\n dynamic_buf_num_margin\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val, "\n ammvdec_mjpeg decode_timeout_val\n");
 
-module_param_array(max_process_time, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(max_process_time, uint, &max_decode_instance_num, 0664);
 
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\nradr\n");
 
-module_param(start_decode_buf_level, uint, 0664);
+MEDIA_PARAM(start_decode_buf_level, uint, 0664);
 MODULE_PARM_DESC(start_decode_buf_level, "\nstart_decode_buf_level\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\nrval\n");
 
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
 module_init(ammvdec_mjpeg_driver_init_module);

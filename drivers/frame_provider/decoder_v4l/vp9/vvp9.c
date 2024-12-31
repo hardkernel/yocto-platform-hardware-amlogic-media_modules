@@ -134,7 +134,9 @@
 #ifdef MULTI_INSTANCE_SUPPORT
 #define MULTI_DRIVER_NAME "ammvdec_vp9_v4l"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int decode_frame_count[MAX_INSTANCE_MUN];
 static unsigned int display_frame_count[MAX_INSTANCE_MUN];
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
@@ -147,8 +149,6 @@ static int start_decode_buf_level = 0x8000;
 static u32 work_buf_size;
 
 static u32 force_pts_unstable;
-
-static u32 mv_buf_margin;
 
 static u32 mv_buf_dynamic_alloc;
 static u32 debug_mask = 0xffffffff;
@@ -3092,7 +3092,6 @@ static u32 mem_map_mode = 2  /* 0:linear 1:32x32 2:64x32*/
 #else
 static u32 mem_map_mode; /* 0:linear 1:32x32 2:64x32 ; m8baby test1902 */
 #endif
-static u32 enable_mem_saving = 1;
 static u32 force_w_h;
 
 static u32 force_fps;
@@ -3104,7 +3103,6 @@ static u32 radr;
 static u32 rval;
 static u32 pop_shorts;
 static u32 dbg_cmd;
-static u32 dbg_skip_decode_index;
 
 /*
  * bit 0~3, for HEVCD_IPP_AXIIF_CONFIG endian config
@@ -3121,23 +3119,15 @@ static u32 dbg_nal_skip_flag;
 static u32 dbg_nal_skip_count;
 #endif
 /*for debug*/
-static u32 decode_pic_begin;
-static uint slice_parse_begin;
 static u32 step;
 #ifdef MIX_STREAM_SUPPORT
 static u32 buf_alloc_width = 4096;
 static u32 buf_alloc_height = 2304;
-static u32 vp9_max_pic_w = 4096;
-static u32 vp9_max_pic_h = 2304;
-
-static u32 dynamic_buf_num_margin;
 #else
 static u32 buf_alloc_width;
 static u32 buf_alloc_height;
-static u32 dynamic_buf_num_margin = 7;
 #endif
 static u32 buf_alloc_depth = 10;
-static u32 buf_alloc_size;
 /*
  *bit[0]: 0,
  *    bit[1]: 0, always release cma buffer when stop
@@ -3155,9 +3145,6 @@ static u32 buf_alloc_size;
 /* set to 1 for fast play;
  *	set to 8 for other case of "keep last frame"
  */
-static u32 buffer_mode = 1;
-/* buffer_mode_dbg: debug only*/
-static u32 buffer_mode_dbg = 0xffff0000;
 /**/
 static u32 high_bandwidth_dynamic_enabled = 0;
 
@@ -3167,11 +3154,8 @@ static u32 high_bandwidth_dynamic_enabled = 0;
  */
 static u32 i_only_flag;
 
-static u32 low_latency_flag;
-
 static u32 no_head;
 
-static u32 max_decoding_time;
 /*
  *error handling
  */
@@ -3195,7 +3179,6 @@ static u32 max_decoding_time;
 static u32 error_handle_policy;
 #define MAX_BUF_NUM_NORMAL     15
 #define MAX_BUF_NUM_LESS   10
-static u32 max_buf_num = MAX_BUF_NUM_NORMAL;
 #define MAX_BUF_NUM_SAVE_BUF  8
 
 static u32 run_ready_min_buf_num = 2;
@@ -12508,33 +12491,21 @@ static struct mconfig vp9_configs[] = {
 	MC_PU32("rval", &rval),
 	MC_PU32("pop_shorts", &pop_shorts),
 	MC_PU32("dbg_cmd", &dbg_cmd),
-	MC_PU32("dbg_skip_decode_index", &dbg_skip_decode_index),
 	MC_PU32("endian", &endian),
 	MC_PU32("step", &step),
 	MC_PU32("udebug_flag", &udebug_flag),
-	MC_PU32("decode_pic_begin", &decode_pic_begin),
-	MC_PU32("slice_parse_begin", &slice_parse_begin),
 	MC_PU32("i_only_flag", &i_only_flag),
 	MC_PU32("error_handle_policy", &error_handle_policy),
 	MC_PU32("buf_alloc_width", &buf_alloc_width),
 	MC_PU32("buf_alloc_height", &buf_alloc_height),
 	MC_PU32("buf_alloc_depth", &buf_alloc_depth),
-	MC_PU32("buf_alloc_size", &buf_alloc_size),
-	MC_PU32("buffer_mode", &buffer_mode),
-	MC_PU32("buffer_mode_dbg", &buffer_mode_dbg),
-	MC_PU32("max_buf_num", &max_buf_num),
-	MC_PU32("dynamic_buf_num_margin", &dynamic_buf_num_margin),
 	MC_PU32("mem_map_mode", &mem_map_mode),
 	MC_PU32("double_write_mode", &double_write_mode),
-	MC_PU32("enable_mem_saving", &enable_mem_saving),
 	MC_PU32("force_w_h", &force_w_h),
 	MC_PU32("force_fps", &force_fps),
-	MC_PU32("max_decoding_time", &max_decoding_time),
 	MC_PU32("on_no_keyframe_skiped", &on_no_keyframe_skiped),
 	MC_PU32("start_decode_buf_level", &start_decode_buf_level),
 	MC_PU32("decode_timeout_val", &decode_timeout_val),
-	MC_PU32("vp9_max_pic_w", &vp9_max_pic_w),
-	MC_PU32("vp9_max_pic_h", &vp9_max_pic_h),
 };
 static struct mconfig_node vp9_node;
 
@@ -12580,18 +12551,12 @@ static int __init amvdec_vp9_driver_init_module(void)
 	dbg_nal_skip_count = 0;
 #endif
 	udebug_flag = 0;
-	decode_pic_begin = 0;
-	slice_parse_begin = 0;
 	step = 0;
-	buf_alloc_size = 0;
 
 	if (platform_driver_register(&ammvdec_vp9_driver)) {
 		pr_err("failed to register ammvdec_vp9 driver\n");
 		return -ENODEV;
 	}
-
-	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A)
-		max_buf_num = MAX_BUF_NUM_LESS;
 
 	vcodec_profile_register_v2("VP9-V4L", VFORMAT_VP9, 1);
 	INIT_REG_NODE_CONFIGS("media.decoder", &vp9_node,
@@ -12609,200 +12574,221 @@ static void __exit amvdec_vp9_driver_remove_module(void)
 }
 
 /****************************************/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_vp9_v4l_params[] = {
+	PARAM_UINT(bit_depth_luma),
+	PARAM_UINT(bit_depth_chroma),
+	PARAM_UINT(frame_width),
+	PARAM_UINT(frame_height),
+	PARAM_UINT(debug),
+	PARAM_UINT(radr),
+	PARAM_UINT(rval),
+	PARAM_UINT(pop_shorts),
+	PARAM_UINT(dbg_cmd),
+	PARAM_UINT(endian),
+	PARAM_UINT(step),
+	PARAM_UINT(i_only_flag),
+	PARAM_UINT(no_head),
+	PARAM_UINT(error_handle_policy),
+	PARAM_UINT(buf_alloc_width),
+	PARAM_UINT(buf_alloc_height),
+	PARAM_UINT(buf_alloc_depth),
+	PARAM_UINT(mv_buf_dynamic_alloc),
+	PARAM_UINT(run_ready_min_buf_num),
+	PARAM_UINT(mem_map_mode),
+#ifdef SUPPORT_10BIT
+	PARAM_UINT(double_write_mode),
+#ifdef OW_TRIPLE_WRITE
+	PARAM_UINT(triple_write_mode),
+#endif
+	PARAM_UINT(force_w_h),
+#endif
+	PARAM_UINT(force_fps),
+	PARAM_UINT(on_no_keyframe_skiped),
+	PARAM_UINT(mcrcc_cache_alg_flag),
+#ifdef MULTI_INSTANCE_SUPPORT
+	PARAM_INT(start_decode_buf_level),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT_ARRAY(decode_frame_count),
+	PARAM_UINT_ARRAY(display_frame_count),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_UINT_ARRAY(run_count),
+	PARAM_UINT_ARRAY(input_empty),
+	PARAM_UINT_ARRAY(not_run_ready),
+#endif
+#ifdef SUPPORT_FB_DECODING
+	PARAM_UINT_ARRAY(not_run2_ready),
+	PARAM_UINT_ARRAY(run2_count),
+	PARAM_UINT(stage_buf_num),
+#endif
+	PARAM_UINT(force_bufspec),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(udebug_pause_pos),
+	PARAM_UINT(udebug_pause_val),
+	PARAM_UINT(udebug_pause_decode_idx),
+	PARAM_UINT(without_display_mode),
+	PARAM_UINT(force_config_fence),
+	PARAM_UINT(force_pts_unstable),
+	PARAM_UINT(v4l_bitstream_id_enable),
+	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(high_bandwidth_dynamic_enabled),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_vp9_v4l_params, 0644);
+#endif
 
-module_param(bit_depth_luma, uint, 0664);
+MEDIA_PARAM(bit_depth_luma, uint, 0664);
 MODULE_PARM_DESC(bit_depth_luma, "\n amvdec_vp9 bit_depth_luma\n");
 
-module_param(bit_depth_chroma, uint, 0664);
+MEDIA_PARAM(bit_depth_chroma, uint, 0664);
 MODULE_PARM_DESC(bit_depth_chroma, "\n amvdec_vp9 bit_depth_chroma\n");
 
-module_param(frame_width, uint, 0664);
+MEDIA_PARAM(frame_width, uint, 0664);
 MODULE_PARM_DESC(frame_width, "\n amvdec_vp9 frame_width\n");
 
-module_param(frame_height, uint, 0664);
+MEDIA_PARAM(frame_height, uint, 0664);
 MODULE_PARM_DESC(frame_height, "\n amvdec_vp9 frame_height\n");
 
-module_param(debug, uint, 0664);
+MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_vp9 debug\n");
 
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\n radr\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\n rval\n");
 
-module_param(pop_shorts, uint, 0664);
+MEDIA_PARAM(pop_shorts, uint, 0664);
 MODULE_PARM_DESC(pop_shorts, "\n rval\n");
 
-module_param(dbg_cmd, uint, 0664);
+MEDIA_PARAM(dbg_cmd, uint, 0664);
 MODULE_PARM_DESC(dbg_cmd, "\n dbg_cmd\n");
 
-module_param(dbg_skip_decode_index, uint, 0664);
-MODULE_PARM_DESC(dbg_skip_decode_index, "\n dbg_skip_decode_index\n");
-
-module_param(endian, uint, 0664);
+MEDIA_PARAM(endian, uint, 0664);
 MODULE_PARM_DESC(endian, "\n rval\n");
 
-module_param(step, uint, 0664);
+MEDIA_PARAM(step, uint, 0664);
 MODULE_PARM_DESC(step, "\n amvdec_vp9 step\n");
 
-module_param(decode_pic_begin, uint, 0664);
-MODULE_PARM_DESC(decode_pic_begin, "\n amvdec_vp9 decode_pic_begin\n");
-
-module_param(slice_parse_begin, uint, 0664);
-MODULE_PARM_DESC(slice_parse_begin, "\n amvdec_vp9 slice_parse_begin\n");
-
-module_param(i_only_flag, uint, 0664);
+MEDIA_PARAM(i_only_flag, uint, 0664);
 MODULE_PARM_DESC(i_only_flag, "\n amvdec_vp9 i_only_flag\n");
 
-module_param(low_latency_flag, uint, 0664);
-MODULE_PARM_DESC(low_latency_flag, "\n amvdec_vp9 low_latency_flag\n");
-
-module_param(no_head, uint, 0664);
+MEDIA_PARAM(no_head, uint, 0664);
 MODULE_PARM_DESC(no_head, "\n amvdec_vp9 no_head\n");
 
-module_param(error_handle_policy, uint, 0664);
+MEDIA_PARAM(error_handle_policy, uint, 0664);
 MODULE_PARM_DESC(error_handle_policy, "\n amvdec_vp9 error_handle_policy\n");
 
-module_param(buf_alloc_width, uint, 0664);
+MEDIA_PARAM(buf_alloc_width, uint, 0664);
 MODULE_PARM_DESC(buf_alloc_width, "\n buf_alloc_width\n");
 
-module_param(buf_alloc_height, uint, 0664);
+MEDIA_PARAM(buf_alloc_height, uint, 0664);
 MODULE_PARM_DESC(buf_alloc_height, "\n buf_alloc_height\n");
 
-module_param(buf_alloc_depth, uint, 0664);
+MEDIA_PARAM(buf_alloc_depth, uint, 0664);
 MODULE_PARM_DESC(buf_alloc_depth, "\n buf_alloc_depth\n");
 
-module_param(buf_alloc_size, uint, 0664);
-MODULE_PARM_DESC(buf_alloc_size, "\n buf_alloc_size\n");
-
-module_param(buffer_mode, uint, 0664);
-MODULE_PARM_DESC(buffer_mode, "\n buffer_mode\n");
-
-module_param(buffer_mode_dbg, uint, 0664);
-MODULE_PARM_DESC(buffer_mode_dbg, "\n buffer_mode_dbg\n");
 /*USE_BUF_BLOCK*/
-module_param(max_buf_num, uint, 0664);
-MODULE_PARM_DESC(max_buf_num, "\n max_buf_num\n");
-
-module_param(dynamic_buf_num_margin, uint, 0664);
-MODULE_PARM_DESC(dynamic_buf_num_margin, "\n dynamic_buf_num_margin\n");
-
-module_param(mv_buf_margin, uint, 0664);
-MODULE_PARM_DESC(mv_buf_margin, "\n mv_buf_margin\n");
-
-module_param(mv_buf_dynamic_alloc, uint, 0664);
+MEDIA_PARAM(mv_buf_dynamic_alloc, uint, 0664);
 MODULE_PARM_DESC(mv_buf_dynamic_alloc, "\n mv_buf_dynamic_alloc\n");
 
-module_param(run_ready_min_buf_num, uint, 0664);
+MEDIA_PARAM(run_ready_min_buf_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_min_buf_num, "\n run_ready_min_buf_num\n");
 
 /**/
 
-module_param(mem_map_mode, uint, 0664);
+MEDIA_PARAM(mem_map_mode, uint, 0664);
 MODULE_PARM_DESC(mem_map_mode, "\n mem_map_mode\n");
 
 #ifdef SUPPORT_10BIT
-module_param(double_write_mode, uint, 0664);
+MEDIA_PARAM(double_write_mode, uint, 0664);
 MODULE_PARM_DESC(double_write_mode, "\n double_write_mode\n");
 
-module_param(triple_write_mode, uint, 0664);
+MEDIA_PARAM(triple_write_mode, uint, 0664);
 MODULE_PARM_DESC(triple_write_mode, "\n triple_write_mode\n");
 
-module_param(enable_mem_saving, uint, 0664);
-MODULE_PARM_DESC(enable_mem_saving, "\n enable_mem_saving\n");
-
-module_param(force_w_h, uint, 0664);
+MEDIA_PARAM(force_w_h, uint, 0664);
 MODULE_PARM_DESC(force_w_h, "\n force_w_h\n");
 #endif
 
-module_param(force_fps, uint, 0664);
+MEDIA_PARAM(force_fps, uint, 0664);
 MODULE_PARM_DESC(force_fps, "\n force_fps\n");
 
-module_param(max_decoding_time, uint, 0664);
-MODULE_PARM_DESC(max_decoding_time, "\n max_decoding_time\n");
-
-module_param(on_no_keyframe_skiped, uint, 0664);
+MEDIA_PARAM(on_no_keyframe_skiped, uint, 0664);
 MODULE_PARM_DESC(on_no_keyframe_skiped, "\n on_no_keyframe_skiped\n");
 
-module_param(mcrcc_cache_alg_flag, uint, 0664);
+MEDIA_PARAM(mcrcc_cache_alg_flag, uint, 0664);
 MODULE_PARM_DESC(mcrcc_cache_alg_flag, "\n mcrcc_cache_alg_flag\n");
 
 #ifdef MULTI_INSTANCE_SUPPORT
-module_param(start_decode_buf_level, int, 0664);
+MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
 		"\n vp9 start_decode_buf_level\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val,
 	"\n vp9 decode_timeout_val\n");
 
-module_param(vp9_max_pic_w, uint, 0664);
-MODULE_PARM_DESC(vp9_max_pic_w, "\n vp9_max_pic_w\n");
-
-module_param(vp9_max_pic_h, uint, 0664);
-MODULE_PARM_DESC(vp9_max_pic_h, "\n vp9_max_pic_h\n");
-
-module_param_array(decode_frame_count, uint,
+MEDIA_PARAM_ARRAY(decode_frame_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(display_frame_count, uint,
+MEDIA_PARAM_ARRAY(display_frame_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(max_process_time, uint,
+MEDIA_PARAM_ARRAY(max_process_time, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(run_count, uint,
+MEDIA_PARAM_ARRAY(run_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(input_empty, uint,
+MEDIA_PARAM_ARRAY(input_empty, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(not_run_ready, uint,
+MEDIA_PARAM_ARRAY(not_run_ready, uint,
 	&max_decode_instance_num, 0664);
 #endif
 
 #ifdef SUPPORT_FB_DECODING
-module_param_array(not_run2_ready, uint,
+MEDIA_PARAM_ARRAY(not_run2_ready, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(run2_count, uint,
+MEDIA_PARAM_ARRAY(run2_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param(stage_buf_num, uint, 0664);
+MEDIA_PARAM(stage_buf_num, uint, 0664);
 MODULE_PARM_DESC(stage_buf_num, "\n amvdec_vp9 stage_buf_num\n");
 #endif
-module_param(force_bufspec, uint, 0664);
+MEDIA_PARAM(force_bufspec, uint, 0664);
 MODULE_PARM_DESC(force_bufspec, "\n amvdec_vp9 force_bufspec\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_vp9 udebug_flag\n");
 
-module_param(udebug_pause_pos, uint, 0664);
+MEDIA_PARAM(udebug_pause_pos, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_pos, "\n udebug_pause_pos\n");
 
-module_param(udebug_pause_val, uint, 0664);
+MEDIA_PARAM(udebug_pause_val, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_val, "\n udebug_pause_val\n");
 
-module_param(udebug_pause_decode_idx, uint, 0664);
+MEDIA_PARAM(udebug_pause_decode_idx, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_decode_idx, "\n udebug_pause_decode_idx\n");
 
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
-module_param(force_config_fence, uint, 0664);
+MEDIA_PARAM(force_config_fence, uint, 0664);
 MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");
 
-module_param(force_pts_unstable, uint, 0664);
+MEDIA_PARAM(force_pts_unstable, uint, 0664);
 MODULE_PARM_DESC(force_pts_unstable, "\n force_pts_unstable\n");
 
-module_param(v4l_bitstream_id_enable, uint, 0664);
+MEDIA_PARAM(v4l_bitstream_id_enable, uint, 0664);
 MODULE_PARM_DESC(v4l_bitstream_id_enable, "\n v4l_bitstream_id_enable\n");
 
-module_param(efficiency_mode, uint, 0664);
+MEDIA_PARAM(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
 
-module_param(high_bandwidth_dynamic_enabled, uint, 0664);
+MEDIA_PARAM(high_bandwidth_dynamic_enabled, uint, 0664);
 MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_vp9 high_bandwidth_dynamic_enabled\n");
 
 module_init(amvdec_vp9_driver_init_module);

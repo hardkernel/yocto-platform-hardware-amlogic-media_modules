@@ -121,6 +121,23 @@ static int keep_vdec_mem;
 static unsigned int debug_trace_num = 16 * 20;
 static int step_mode;
 static unsigned int clk_config;
+
+unsigned int fc_debug;
+unsigned int size_yuv_buf;
+unsigned int aux_enable;
+unsigned int checksum_enable;
+unsigned int checksum_start_count;
+char checksum_info[128] = "checksum info";
+char checksum_filename[128] = "checksum";
+u32 force_no_head_mode;
+
+
+u32 vdec_ge2d_debug = 0;
+uint dec_time_stat_flag;
+uint dec_time_stat_reset;
+u32 fps60_high_bandwidth_ms = 13;
+u32 fps30_high_bandwidth_ms = 33;
+
 /*
 0x1 : enable rdma
 0x2 : check rdma result
@@ -8568,80 +8585,145 @@ EXPORT_SYMBOL(force_hevc_clock_cntl);
 
 module_param(force_hevc_clock_cntl, uint, 0664);
 */
-module_param(debug, uint, 0664);
-module_param(debug_trace_num, uint, 0664);
-module_param(hevc_max_reset_count, int, 0664);
-module_param(clk_config, uint, 0664);
-module_param(step_mode, int, 0664);
-module_param(debugflags, int, 0664);
-module_param(parallel_decode, int, 0664);
-module_param(fps_detection, int, 0664);
-module_param(fps_clear, int, 0664);
-module_param(force_nosecure_even_drm, int, 0664);
-module_param(disable_switch_single_to_mult, int, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+module_param_string(checksum_info, checksum_info, 128, 0664);
+MODULE_PARM_DESC(checksum_info, "\n checksum_info\n");
 
-module_param(debug_meta, uint, 0664);
+module_param_string(checksum_filename, checksum_filename, 128, 0664);
+MODULE_PARM_DESC(checksum_filename, "\n checksum_filename\n");
+static struct param_entry decoder_common_params[] = {
+	PARAM_UINT(debug),
+	PARAM_UINT(debug_trace_num),
+	PARAM_INT(hevc_max_reset_count),
+	PARAM_UINT(clk_config),
+	PARAM_INT(step_mode),
+	PARAM_INT(debugflags),
+	PARAM_INT(parallel_decode),
+	PARAM_INT(fps_detection),
+	PARAM_INT(fps_clear),
+	PARAM_INT(force_nosecure_even_drm),
+	PARAM_INT(disable_switch_single_to_mult),
+	PARAM_UINT(debug_meta),
+	PARAM_UINT(dec_time_stat_flag),
+	PARAM_UINT(dec_time_stat_reset),
+	PARAM_UINT(fps30_high_bandwidth_ms),
+	PARAM_UINT(fps60_high_bandwidth_ms),
+	PARAM_UINT(force_no_head_mode),
+	PARAM_INT(frameinfo_flag),
+	PARAM_INT(v4lvideo_add_di),
+	PARAM_INT(v4lvideo_add_ppmgr),
+	PARAM_BOOL(use_t5d_driver),
+	PARAM_INT(max_di_instance),
+	PARAM_INT(max_supported_di_instance),
+	PARAM_INT(debug_vdetect),
+	PARAM_INT(rdma_mode),
+	PARAM_UINT(mmu_copy_enable),
+	PARAM_UINT(mmu_copy_dynamic_alloc_buffer),
+	PARAM_UINT(one_pack_multi_f_set_align_size),
+	PARAM_UINT(rate_time_avg_cnt),
+	PARAM_UINT(frame_fps),
+	PARAM_UINT(code_rate_avg_threshold_hi),
+	PARAM_UINT(rate_time_avg_threshold_hi),
+	PARAM_UINT(rate_time_avg_threshold_lo),
+	PARAM_UINT(mediasync_add_di),
+	PARAM_UINT(decoder_bw_config),
+	PARAM_UINT(mediasync_add_amlvideo2),
+	PARAM_UINT(fc_debug),
+	PARAM_UINT(aux_enable),
+	PARAM_UINT(size_yuv_buf),
+	PARAM_UINT(checksum_start_count),
+	PARAM_UINT(checksum_enable),
+	PARAM_INT(vdec_ge2d_debug),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &decoder_common_params, 0644);
+#endif
 
-module_param(frameinfo_flag, int, 0664);
-MODULE_PARM_DESC(frameinfo_flag,
-				"\n frameinfo_flag\n");
-module_param(v4lvideo_add_di, int, 0664);
-MODULE_PARM_DESC(v4lvideo_add_di,
-				"\n v4lvideo_add_di\n");
+MEDIA_PARAM(debug, uint, 0664);
+MEDIA_PARAM(debug_trace_num, uint, 0664);
+MEDIA_PARAM(hevc_max_reset_count, int, 0664);
+MEDIA_PARAM(clk_config, uint, 0664);
+MEDIA_PARAM(step_mode, int, 0664);
+MEDIA_PARAM(debugflags, int, 0664);
+MEDIA_PARAM(parallel_decode, int, 0664);
+MEDIA_PARAM(fps_detection, int, 0664);
+MEDIA_PARAM(fps_clear, int, 0664);
+MEDIA_PARAM(force_nosecure_even_drm, int, 0664);
+MEDIA_PARAM(disable_switch_single_to_mult, int, 0664);
+MEDIA_PARAM(debug_meta, uint, 0664);
+MEDIA_PARAM(dec_time_stat_flag, uint, 0664);
+MEDIA_PARAM(dec_time_stat_reset, uint, 0664);
+MEDIA_PARAM(fps30_high_bandwidth_ms, uint, 0664);
+MEDIA_PARAM(fps60_high_bandwidth_ms, uint, 0664);
+MEDIA_PARAM(force_no_head_mode, uint, 0664);
 
-module_param(v4lvideo_add_ppmgr, int, 0664);
-MODULE_PARM_DESC(v4lvideo_add_ppmgr,
-				"\n v4lvideo_add_ppmgr\n");
-
-module_param(use_t5d_driver, bool, 0664);
-MODULE_PARM_DESC(use_t5d_driver,
-				"\n use_t5d_driver\n");
-
-module_param(max_di_instance, int, 0664);
-MODULE_PARM_DESC(max_di_instance,
-				"\n max_di_instance\n");
-
-module_param(max_supported_di_instance, int, 0664);
-MODULE_PARM_DESC(max_supported_di_instance,
-				"\n max_supported_di_instance\n");
-module_param(debug_vdetect, int, 0664);
+MEDIA_PARAM(frameinfo_flag, int, 0664);
+MODULE_PARM_DESC(frameinfo_flag, "\n frameinfo_flag\n");
+MEDIA_PARAM(v4lvideo_add_di, int, 0664);
+MODULE_PARM_DESC(v4lvideo_add_di, "\n v4lvideo_add_di\n");
+MEDIA_PARAM(v4lvideo_add_ppmgr, int, 0664);
+MODULE_PARM_DESC(v4lvideo_add_ppmgr, "\n v4lvideo_add_ppmgr\n");
+MEDIA_PARAM(use_t5d_driver, bool, 0664);
+MODULE_PARM_DESC(use_t5d_driver, "\n use_t5d_driver\n");
+MEDIA_PARAM(max_di_instance, int, 0664);
+MODULE_PARM_DESC(max_di_instance, "\n max_di_instance\n");
+MEDIA_PARAM(max_supported_di_instance, int, 0664);
+MODULE_PARM_DESC(max_supported_di_instance, "\n max_supported_di_instance\n");
+MEDIA_PARAM(debug_vdetect, int, 0664);
 MODULE_PARM_DESC(debug_vdetect, "\n debug_vdetect\n");
-
-module_param(rdma_mode, int, 0664);
+MEDIA_PARAM(rdma_mode, int, 0664);
 MODULE_PARM_DESC(rdma_mode, "\n rdma_enable\n");
 
-module_param(mmu_copy_enable, uint, 0664);
+MEDIA_PARAM(mmu_copy_enable, uint, 0664);
 MODULE_PARM_DESC(mmu_copy_enable, "\n mmu_copy_enable\n");
 
-module_param(mmu_copy_dynamic_alloc_buffer, uint, 0664);
+MEDIA_PARAM(mmu_copy_dynamic_alloc_buffer, uint, 0664);
 MODULE_PARM_DESC(mmu_copy_dynamic_alloc_buffer, "\n mmu_copy_dynamic_alloc_buffer\n");
 
-module_param(one_pack_multi_f_set_align_size, uint, 0664);
+MEDIA_PARAM(one_pack_multi_f_set_align_size, uint, 0664);
 MODULE_PARM_DESC(one_pack_multi_f_set_align_size, "\n ammvdec_mpeg12 one_pack_multi_f_set_align_size\n");
 
-module_param(rate_time_avg_cnt, uint, 0664);
+MEDIA_PARAM(rate_time_avg_cnt, uint, 0664);
 MODULE_PARM_DESC(rate_time_avg_cnt, "\n rate_time_avg_cnt\n");
 
-module_param(frame_fps, uint, 0664);
+MEDIA_PARAM(frame_fps, uint, 0664);
 MODULE_PARM_DESC(frame_fps, "\n frame_fps\n");
 
-module_param(code_rate_avg_threshold_hi, uint, 0664);
+MEDIA_PARAM(code_rate_avg_threshold_hi, uint, 0664);
 MODULE_PARM_DESC(code_rate_avg_threshold_hi, "\n code_rate_avg_threshold_hi\n");
 
-module_param(rate_time_avg_threshold_hi, uint, 0664);
+MEDIA_PARAM(rate_time_avg_threshold_hi, uint, 0664);
 MODULE_PARM_DESC(rate_time_avg_threshold_hi, "\n rate_time_avg_threshold_hi\n");
 
-module_param(rate_time_avg_threshold_lo, uint, 0664);
+MEDIA_PARAM(rate_time_avg_threshold_lo, uint, 0664);
 MODULE_PARM_DESC(rate_time_avg_threshold_lo, "\n rate_time_avg_threshold_lo\n");
 
-module_param(mediasync_add_di, uint, 0664);
+MEDIA_PARAM(mediasync_add_di, uint, 0664);
 MODULE_PARM_DESC(mediasync_add_di, "\n mediasync_add_di\n");
 
-module_param(decoder_bw_config, uint, 0664);
+MEDIA_PARAM(decoder_bw_config, uint, 0664);
 MODULE_PARM_DESC(decoder_bw_config, "\n decoder_bw_config\n");
 
-module_param(mediasync_add_amlvideo2, uint, 0664);
+MEDIA_PARAM(mediasync_add_amlvideo2, uint, 0664);
 MODULE_PARM_DESC(mediasync_add_amlvideo2, "\n mediasync_add_amlvideo2\n");
+
+MEDIA_PARAM(fc_debug, uint, 0664);
+MODULE_PARM_DESC(fc_debug, "\n frame check debug\n");
+
+MEDIA_PARAM(aux_enable, uint, 0664);
+MODULE_PARM_DESC(aux_enable, "\n aux data check debug\n");
+
+MEDIA_PARAM(size_yuv_buf, uint, 0664);
+MODULE_PARM_DESC(size_yuv_buf, "\n size_yuv_buf\n");
+
+MEDIA_PARAM(checksum_start_count, uint, 0664);
+MODULE_PARM_DESC(checksum_start_count, "\n checksum_start_count\n");
+
+MEDIA_PARAM(checksum_enable, uint, 0664);
+MODULE_PARM_DESC(checksum_enable, "\n checksum_enable\n");
+
+MEDIA_PARAM(vdec_ge2d_debug, int, 0664);
+MODULE_PARM_DESC(vdec_ge2d_debug, "\n vdec_ge2d_debug\n");
 
 /*
 *module_init(vdec_module_init);

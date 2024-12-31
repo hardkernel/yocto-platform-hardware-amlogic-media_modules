@@ -260,8 +260,7 @@ static void copy_loopbufs_ptr(buff_ptr_t* trg, buff_ptr_t* src)
 
 #ifdef PXP_DEBUG_CODE
 
-static u32 dump_fb_opt;
-module_param(dump_fb_opt, uint, 0664);
+extern u32 dump_fb_opt;
 
 static void print_dump(const char *str, ulong ptr, u32 size)
 {

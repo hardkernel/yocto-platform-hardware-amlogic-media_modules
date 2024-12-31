@@ -76,8 +76,8 @@
 
 #define VMAP_STRIDE_SIZE  (1024*1024)
 
-static unsigned int fc_debug;
-static unsigned int size_yuv_buf = (YUV_DEF_SIZE * YUV_DEF_NUM);
+extern unsigned int fc_debug;
+extern unsigned int size_yuv_buf;
 
 #define dbg_print(mask, ...) do {					\
 			if ((fc_debug & mask) ||				\
@@ -93,15 +93,15 @@ static char aux_comp_crc[128] = "aux";
 static struct vdec_s *single_mode_vdec = NULL;
 
 static unsigned int yuv_enable, check_enable;
-static unsigned int aux_enable;
+extern unsigned int aux_enable;
 static unsigned int yuv_start[MAX_INSTANCE_MUN];
 static unsigned int yuv_num[MAX_INSTANCE_MUN];
 
 #define CHECKSUM_PATH  "/data/local/tmp/"
-static char checksum_info[128] = "checksum info";
-static char checksum_filename[128] = "checksum";
-static unsigned int checksum_enable;
-static unsigned int checksum_start_count;
+extern char checksum_info[128] ;
+extern char checksum_filename[128];
+extern unsigned int checksum_enable;
+extern unsigned int checksum_start_count;
 
 static const char * const format_name[] = {
 	"MPEG12",
@@ -1523,6 +1523,7 @@ int vdec_frame_check_init(struct vdec_s *vdec)
 
 	vdec->canvas_mode = CANVAS_BLKMODE_LINEAR;
 	id = vdec->id;
+	size_yuv_buf = (YUV_DEF_SIZE * YUV_DEF_NUM);
 
 	if (check_enable & (0x01 << id)) {
 		frame_check_init(&vdec->vfc, id);
@@ -1809,30 +1810,3 @@ ssize_t aux_check_show(KV_CLASS_CONST struct class *class,
 	return pbuf - buf;
 }
 
-module_param_string(comp_crc, comp_crc, 128, 0664);
-MODULE_PARM_DESC(comp_crc, "\n crc_filename\n");
-
-module_param_string(aux_comp_crc, aux_comp_crc, 128, 0664);
-MODULE_PARM_DESC(aux_comp_crc, "\n aux crc_filename\n");
-
-
-module_param(fc_debug, uint, 0664);
-MODULE_PARM_DESC(fc_debug, "\n frame check debug\n");
-
-module_param(aux_enable, uint, 0664);
-MODULE_PARM_DESC(aux_enable, "\n aux data check debug\n");
-
-module_param(size_yuv_buf, uint, 0664);
-MODULE_PARM_DESC(size_yuv_buf, "\n size_yuv_buf\n");
-
-module_param_string(checksum_info, checksum_info, 128, 0664);
-MODULE_PARM_DESC(checksum_info, "\n checksum_info\n");
-
-module_param_string(checksum_filename, checksum_filename, 128, 0664);
-MODULE_PARM_DESC(checksum_filename, "\n checksum_filename\n");
-
-module_param(checksum_start_count, uint, 0664);
-MODULE_PARM_DESC(checksum_start_count, "\n checksum_start_count\n");
-
-module_param(checksum_enable, uint, 0664);
-MODULE_PARM_DESC(checksum_enable, "\n checksum_enable\n");

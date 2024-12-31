@@ -26,7 +26,7 @@
 #include "vdec_ge2d_utils.h"
 #include "../../../common/chips/decoder_cpu_ver_info.h"
 
-static u32 vdec_ge2d_debug = 0;
+extern u32 vdec_ge2d_debug;
 
 #ifndef  CONFIG_AMLOGIC_MEDIA_GE2D
 inline struct ge2d_context_s *create_ge2d_work_queue(void) { return NULL; }
@@ -488,5 +488,3 @@ int vdec_ge2d_destroy(struct vdec_ge2d *ge2d)
 }
 EXPORT_SYMBOL(vdec_ge2d_destroy);
 
-module_param(vdec_ge2d_debug, int, 0664);
-MODULE_PARM_DESC(vdec_ge2d_debug, "\n vdec_ge2d_debug\n");

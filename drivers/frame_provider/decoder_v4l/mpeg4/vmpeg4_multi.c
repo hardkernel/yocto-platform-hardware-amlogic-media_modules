@@ -159,7 +159,9 @@ static unsigned int rval;
 static unsigned int frmbase_cont_bitlevel = 0x40;
 static unsigned int dynamic_buf_num_margin = 6;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
 static unsigned int decode_timeout_val = 200;
 
@@ -3522,48 +3524,70 @@ static void __exit ammvdec_mpeg4_driver_remove_module(void)
 }
 
 /****************************************/
-module_param(debug_enable, uint, 0664);
-MODULE_PARM_DESC(debug_enable,
-					 "\n ammvdec_mpeg4 debug enable\n");
 
-module_param(frmbase_cont_bitlevel, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_mpeg4_v4l_params[] = {
+	PARAM_UINT(debug_enable),
+	PARAM_UINT(frmbase_cont_bitlevel),
+	PARAM_UINT(dynamic_buf_num_margin),
+	PARAM_UINT(radr),
+	PARAM_UINT(rval),
+	PARAM_INT(dirty_again_threshold),
+	PARAM_UINT(error_proc_policy),
+	PARAM_UINT(error_frame_skip_level),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_INT(pre_decode_buf_level),
+	PARAM_INT(start_decode_buf_level),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(without_display_mode),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_mpeg4_v4l_params, 0644);
+#endif
+
+MEDIA_PARAM(debug_enable, uint, 0664);
+MODULE_PARM_DESC(debug_enable,
+		"\n ammvdec_mpeg4 debug enable\n");
+
+MEDIA_PARAM(frmbase_cont_bitlevel, uint, 0664);
 MODULE_PARM_DESC(frmbase_cont_bitlevel, "\nfrmbase_cont_bitlevel\n");
 
-module_param(dynamic_buf_num_margin, uint, 0664);
+MEDIA_PARAM(dynamic_buf_num_margin, uint, 0664);
 MODULE_PARM_DESC(dynamic_buf_num_margin, "\n dynamic_buf_num_margin\n");
 
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\nradr\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\nrval\n");
 
-module_param(dirty_again_threshold, int, 0664);
+MEDIA_PARAM(dirty_again_threshold, int, 0664);
 MODULE_PARM_DESC(dirty_again_threshold, "\n ammvdec_mpeg4 dirty_again_threshold\n");
 
-module_param(error_proc_policy, uint, 0664);
+MEDIA_PARAM(error_proc_policy, uint, 0664);
 MODULE_PARM_DESC(error_proc_policy, "\n ammvdec_mpeg4 error_proc_policy\n");
 
-module_param(error_frame_skip_level, uint, 0664);
+MEDIA_PARAM(error_frame_skip_level, uint, 0664);
 MODULE_PARM_DESC(error_frame_skip_level, "\n ammvdec_mpeg4 error_frame_skip_level\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val, "\n ammvdec_mpeg4 decode_timeout_val\n");
 
-module_param_array(max_process_time, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(max_process_time, uint, &max_decode_instance_num, 0664);
 
-module_param(pre_decode_buf_level, int, 0664);
+MEDIA_PARAM(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level,
 		"\n ammvdec_mpeg4 pre_decode_buf_level\n");
 
-module_param(start_decode_buf_level, int, 0664);
+MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
 		"\n ammvdec_mpeg4 start_decode_buf_level\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n ammvdec_mpeg4 udebug_flag\n");
 
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n ammvdec_mpeg4 without_display_mode\n");
 
 module_init(ammvdec_mpeg4_driver_init_module);

@@ -49,8 +49,10 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 #define MEDIA_PARAM(a, b, c) module_param(a, b, c)
+#define MEDIA_PARAM_ARRAY(a, b, c, d) module_param_array(a, b, c, d);
 #else
 #define MEDIA_PARAM(a, b, c)
+#define MEDIA_PARAM_ARRAY(a, b, c, d)
 #endif
 
 #endif

@@ -113,8 +113,7 @@ struct aom_film_grain_t {
 	s32 scaling_delta_cr[10];
 };
 
-static u32 debug_fgs;
-module_param(debug_fgs, uint, 0664);
+extern u32 debug_fgs;
 
 // Samples with Gaussian distribution in the range of [-2048, 2047] (12 bits)
 // with zero mean and standard deviation of about 512.

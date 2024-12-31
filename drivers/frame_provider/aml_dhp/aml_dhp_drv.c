@@ -2008,7 +2008,15 @@ static void __exit aml_dhp_exit(void)
 module_init(aml_dhp_init);
 module_exit(aml_dhp_exit);
 
-module_param(debug, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry aml_dhp_params[] = {
+	PARAM_UINT(debug),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &aml_dhp_params, 0644);
+#endif
+
+MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n set debug level \n");
 
 MODULE_LICENSE("GPL");

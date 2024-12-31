@@ -2726,19 +2726,31 @@ static void __exit amvdec_vc1_driver_remove_module(void)
 
 	platform_driver_unregister(&amvdec_vc1_driver);
 }
-module_param(unstable_pts_debug, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_vc1_v4l_params[] = {
+	PARAM_UINT(unstable_pts_debug),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(debug),
+	PARAM_UINT(debug_mask),
+	PARAM_UINT(wait_time),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_vc1_v4l_params, 0644);
+#endif
+
+MEDIA_PARAM(unstable_pts_debug, uint, 0664);
 MODULE_PARM_DESC(unstable_pts_debug, "\n amvdec_vc1_v4l unstable_pts\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_vc1_v4l udebug_flag\n");
 
-module_param(debug, uint, 0664);
+MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_vc1_v4l debug\n");
 
-module_param(debug_mask, uint, 0664);
+MEDIA_PARAM(debug_mask, uint, 0664);
 MODULE_PARM_DESC(debug_mask, "\n amvdec_vc1_v4l debug_mask\n");
 
-module_param(wait_time, uint, 0664);
+MEDIA_PARAM(wait_time, uint, 0664);
 MODULE_PARM_DESC(wait_time, "\n amvdec_vc1_v4l wait_time\n");
 
 /****************************************/

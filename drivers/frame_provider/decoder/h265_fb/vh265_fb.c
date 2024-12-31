@@ -237,7 +237,6 @@ static unsigned int decode_timeout_back_fast_check_threshold = 3;
 
 static u32 run_ready_min_buf_num = 2;
 static u32 disable_ip_mode;
-static u32 print_lcu_error = 1;
 /*data_resend_policy:
 	bit 0, stream base resend data when decoding buf empty
 */
@@ -435,8 +434,6 @@ static u32 run_ready_max_buf_num = 0xff;
 
 static u32 dynamic_buf_num_margin = 6;
 static u32 interlace_filed_margin = 6;
-static u32 buf_alloc_width;
-static u32 buf_alloc_height;
 
 static u32 max_buf_num = 16;
 static u32 buf_alloc_size;
@@ -580,21 +577,21 @@ static u32 work_buf_size;
 static unsigned int force_disp_pic_index;
 static unsigned int disp_vframe_valve_level;
 static int pre_decode_buf_level = 0x1000;
-static unsigned int pic_list_debug;
 #ifdef HEVC_8K_LFTOFFSET_FIX
 /* performance_profile: bit 0, multi slice in ucode
 */
 static unsigned int performance_profile = 1;
 #endif
 #ifdef MULTI_INSTANCE_SUPPORT
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int decode_frame_count[MAX_INSTANCE_MUN];
 static unsigned int display_frame_count[MAX_INSTANCE_MUN];
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
 #ifdef NEW_FB_CODE
 static unsigned int max_process_time_back[MAX_INSTANCE_MUN];
 #endif
-static unsigned int max_get_frame_interval[MAX_INSTANCE_MUN];
 static unsigned int run_count[MAX_INSTANCE_MUN];
 #ifdef NEW_FB_CODE
 static unsigned int run_count_back[MAX_INSTANCE_MUN];
@@ -645,8 +642,6 @@ static u32 detect_stuck_buffer_margin = 3;
 #define get_dbg_flag2(hevc) debug
 #define is_log_enable(hevc) (log_mask ? 1 : 0)
 #define get_valid_double_write_mode(hevc) double_write_mode
-#define get_buf_alloc_width(hevc) buf_alloc_width
-#define get_buf_alloc_height(hevc) buf_alloc_height
 #define get_dynamic_buf_num_margin(hevc) dynamic_buf_num_margin
 #endif
 #define get_buffer_mode(hevc) buffer_mode
@@ -5443,7 +5438,7 @@ static void apply_ref_pic_set(struct hevc_state_s *hevc, int cur_poc,
 	struct PIC_s *pic;
 	unsigned char is_referenced;
 
-	if (pic_list_debug & 0x2) {
+	if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE) {
 		pr_err("cur poc %d\n", cur_poc);
 	}
 	for (ii = 0; ii < MAX_REF_PIC_NUM; ii++) {
@@ -5490,7 +5485,7 @@ static void apply_ref_pic_set(struct hevc_state_s *hevc, int cur_poc,
 		if (is_referenced == 0) {
 			pic->referenced = 0;
 			put_mv_buf(hevc, pic);
-			if (pic_list_debug & 0x2) {
+			if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE) {
 				pr_err("set poc %d reference to 0\n", pic->POC);
 			}
 		}
@@ -7517,7 +7512,7 @@ static struct PIC_s *get_new_pic(struct hevc_state_s *hevc,
 		crop_pic(hevc, new_pic);
 
 	}
-	if (pic_list_debug & 0x1) {
+	if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR_MORE) {
 		dump_pic_list(hevc);
 		pr_err("\n*******************************************\n");
 	}
@@ -7915,7 +7910,7 @@ static void check_pic_decoded_error_pre(struct hevc_state_s *hevc,
 				hevc->cur_pic->error_mark = 1;
 		}
 		if (hevc->cur_pic->error_mark) {
-			if (print_lcu_error)
+			if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR)
 				hevc_print(hevc, 0,
 					"cur lcu idx = %d, (total %d), set error_mark\n",
 					current_lcu_idx,
@@ -8003,7 +7998,7 @@ static void check_pic_decoded_error(struct hevc_state_s *hevc,
 			hevc->cur_pic->error_mark = 1;
 
 		if (hevc->cur_pic->error_mark) {
-			if (print_lcu_error)
+			if (get_dbg_flag(hevc) & H265_DEBUG_BUFMGR)
 				hevc_print(hevc, 0,
 					"cur lcu idx = %d, (total %d), set error_mark\n",
 					current_lcu_idx,
@@ -18883,8 +18878,6 @@ static struct mconfig h265_configs[] = {
 	MC_PU32("debug_mask", &debug_mask),
 	MC_PU32("buffer_mode", &buffer_mode),
 	MC_PU32("double_write_mode", &double_write_mode),
-	MC_PU32("buf_alloc_width", &buf_alloc_width),
-	MC_PU32("buf_alloc_height", &buf_alloc_height),
 	MC_PU32("dynamic_buf_num_margin", &dynamic_buf_num_margin),
 	MC_PU32("max_buf_num", &max_buf_num),
 	MC_PU32("buf_alloc_size", &buf_alloc_size),
@@ -18988,357 +18981,456 @@ static void __exit amvdec_h265_driver_remove_module(void)
 }
 
 /****************************************/
-module_param(use_cma, uint, 0664);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_h265_fb_params[] = {
+	PARAM_UINT(use_cma),
+	PARAM_UINT(bit_depth_luma),
+	PARAM_UINT(bit_depth_chroma),
+	PARAM_UINT(video_signal_type),
+#ifdef ERROR_HANDLE_DEBUG
+	PARAM_UINT(dbg_nal_skip_flag),
+	PARAM_UINT(dbg_nal_skip_count),
+#endif
+	PARAM_UINT(radr),
+	PARAM_UINT(rval),
+	PARAM_UINT(dbg_cmd),
+	PARAM_UINT(dump_nal),
+	PARAM_UINT(dbg_skip_decode_index),
+	PARAM_UINT(endian),
+	PARAM_UINT(step),
+	PARAM_UINT(decode_pic_begin),
+	PARAM_UINT(slice_parse_begin),
+	PARAM_UINT(nal_skip_policy),
+	PARAM_UINT(i_only_flag),
+	PARAM_UINT(fast_output_enable),
+	PARAM_UINT(error_handle_policy),
+	PARAM_UINT(error_handle_threshold),
+	PARAM_UINT(error_handle_nal_skip_threshold),
+	PARAM_UINT(error_handle_system_threshold),
+	PARAM_UINT(error_skip_nal_count),
+	PARAM_UINT(save_buffer),
+	PARAM_UINT(skip_nal_count),
+	PARAM_UINT(error_handle_mode),
+	PARAM_UINT(lcu_percentage_threshold),
+	PARAM_UINT(debug),
+	PARAM_UINT(debug_mask),
+	PARAM_UINT(log_mask),
+	PARAM_UINT(buffer_mode),
+	PARAM_UINT(double_write_mode),
+#ifdef OW_TRIPLE_WRITE
+	PARAM_UINT(triple_write_mode),
+#endif
+	PARAM_UINT(dynamic_buf_num_margin),
+	PARAM_UINT(interlace_filed_margin),
+	PARAM_UINT(max_buf_num),
+	PARAM_UINT(buf_alloc_size),
+#ifdef CONSTRAIN_MAX_BUF_NUM
+	PARAM_UINT(run_ready_max_vf_only_num),
+	PARAM_UINT(run_ready_display_q_num),
+	PARAM_UINT(run_ready_max_buf_num),
+#endif
+	PARAM_UINT(buffer_mode_dbg),
+	PARAM_UINT(mem_map_mode),
+	PARAM_UINT(enable_mem_saving),
+	PARAM_UINT(force_w_h),
+	PARAM_UINT(force_fps),
+	PARAM_UINT(max_decoding_time),
+	PARAM_UINT(prefix_aux_buf_size),
+	PARAM_UINT(suffix_aux_buf_size),
+	PARAM_UINT(interlace_enable),
+	PARAM_UINT(pts_unstable),
+	PARAM_UINT(parser_sei_enable),
+	PARAM_UINT(parser_dolby_vision_enable),
+#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
+	PARAM_UINT(dolby_meta_with_el),
+	PARAM_UINT(dolby_el_flush_th),
+	PARAM_UINT(dv_toggle_prov_name),
+	PARAM_UINT(dv_debug),
+	PARAM_UINT(force_bypass_dvenl),
+#endif
+	PARAM_UINT(mmu_enable),
+	PARAM_UINT(mmu_enable_force),
+#ifdef MULTI_INSTANCE_SUPPORT
+	PARAM_INT(start_decode_buf_level),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT(data_resend_policy),
+	PARAM_INT(poc_num_margin),
+	PARAM_INT(poc_error_limit),
+	PARAM_UINT_ARRAY(decode_frame_count),
+	PARAM_UINT_ARRAY(display_frame_count),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_UINT_ARRAY(run_count),
+	PARAM_UINT_ARRAY(input_empty),
+	PARAM_UINT_ARRAY(not_run_ready),
+	PARAM_BOOL_ARRAY(ref_frame_mark_flag),
+#endif
+
+#ifdef AGAIN_HAS_THRESHOLD
+	PARAM_UINT(again_threshold),
+#endif
+	PARAM_INT(force_disp_pic_index),
+	PARAM_UINT(frmbase_cont_bitlevel),
+	PARAM_UINT(force_bufspec),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(fbdebug_flag),
+	PARAM_UINT(udebug_pause_pos),
+	PARAM_UINT(enable_swap),
+	PARAM_UINT(udebug_pause_val),
+	PARAM_INT(pre_decode_buf_level),
+	PARAM_UINT(udebug_pause_decode_idx),
+	PARAM_UINT(disp_vframe_valve_level),
+	PARAM_UINT(without_display_mode),
+	PARAM_INT(itu_t_t35_enable),
+#ifdef HEVC_8K_LFTOFFSET_FIX
+	PARAM_UINT(performance_profile),
+#endif
+	PARAM_UINT(disable_ip_mode),
+	PARAM_UINT(dirty_again_threshold),
+	PARAM_UINT(dirty_buffersize_threshold),
+	PARAM_UINT(force_config_fence),
+	PARAM_UINT(mv_buf_dynamic_alloc),
+	PARAM_UINT(detect_stuck_buffer_margin),
+	PARAM_UINT(frmbase_multi_slice),
+#ifdef NEW_FB_CODE
+	PARAM_UINT(front_back_mode),
+	PARAM_UINT(fb_ifbuf_num),
+	PARAM_UINT(decode_timeout_val_back),
+	PARAM_UINT(decode_timeout_back_fast_check),
+	PARAM_UINT(decode_timeout_back_fast_check_threshold),
+	PARAM_UINT_ARRAY(max_process_time_back),
+	PARAM_UINT(efficiency_mode),
+#endif
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_h265_fb_params, 0644);
+#endif
+
+MEDIA_PARAM(use_cma, uint, 0664);
 MODULE_PARM_DESC(use_cma, "\n amvdec_h265 use_cma\n");
 
-module_param(bit_depth_luma, uint, 0664);
+MEDIA_PARAM(bit_depth_luma, uint, 0664);
 MODULE_PARM_DESC(bit_depth_luma, "\n amvdec_h265 bit_depth_luma\n");
 
-module_param(bit_depth_chroma, uint, 0664);
+MEDIA_PARAM(bit_depth_chroma, uint, 0664);
 MODULE_PARM_DESC(bit_depth_chroma, "\n amvdec_h265 bit_depth_chroma\n");
 
-module_param(video_signal_type, uint, 0664);
+MEDIA_PARAM(video_signal_type, uint, 0664);
 MODULE_PARM_DESC(video_signal_type, "\n amvdec_h265 video_signal_type\n");
 
 #ifdef ERROR_HANDLE_DEBUG
-module_param(dbg_nal_skip_flag, uint, 0664);
+MEDIA_PARAM(dbg_nal_skip_flag, uint, 0664);
 MODULE_PARM_DESC(dbg_nal_skip_flag, "\n amvdec_h265 dbg_nal_skip_flag\n");
 
-module_param(dbg_nal_skip_count, uint, 0664);
+MEDIA_PARAM(dbg_nal_skip_count, uint, 0664);
 MODULE_PARM_DESC(dbg_nal_skip_count, "\n amvdec_h265 dbg_nal_skip_count\n");
 #endif
 
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\n radr\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\n rval\n");
 
-module_param(dbg_cmd, uint, 0664);
+MEDIA_PARAM(dbg_cmd, uint, 0664);
 MODULE_PARM_DESC(dbg_cmd, "\n dbg_cmd\n");
 
-module_param(dump_nal, uint, 0664);
+MEDIA_PARAM(dump_nal, uint, 0664);
 MODULE_PARM_DESC(dump_nal, "\n dump_nal\n");
 
-module_param(dbg_skip_decode_index, uint, 0664);
+MEDIA_PARAM(dbg_skip_decode_index, uint, 0664);
 MODULE_PARM_DESC(dbg_skip_decode_index, "\n dbg_skip_decode_index\n");
 
-module_param(endian, uint, 0664);
+MEDIA_PARAM(endian, uint, 0664);
 MODULE_PARM_DESC(endian, "\n rval\n");
 
-module_param(step, uint, 0664);
+MEDIA_PARAM(step, uint, 0664);
 MODULE_PARM_DESC(step, "\n amvdec_h265 step\n");
 
-module_param(decode_pic_begin, uint, 0664);
+MEDIA_PARAM(decode_pic_begin, uint, 0664);
 MODULE_PARM_DESC(decode_pic_begin, "\n amvdec_h265 decode_pic_begin\n");
 
-module_param(slice_parse_begin, uint, 0664);
+MEDIA_PARAM(slice_parse_begin, uint, 0664);
 MODULE_PARM_DESC(slice_parse_begin, "\n amvdec_h265 slice_parse_begin\n");
 
-module_param(nal_skip_policy, uint, 0664);
+MEDIA_PARAM(nal_skip_policy, uint, 0664);
 MODULE_PARM_DESC(nal_skip_policy, "\n amvdec_h265 nal_skip_policy\n");
 
-module_param(i_only_flag, uint, 0664);
+MEDIA_PARAM(i_only_flag, uint, 0664);
 MODULE_PARM_DESC(i_only_flag, "\n amvdec_h265 i_only_flag\n");
 
-module_param(fast_output_enable, uint, 0664);
+MEDIA_PARAM(fast_output_enable, uint, 0664);
 MODULE_PARM_DESC(fast_output_enable, "\n amvdec_h265 fast_output_enable\n");
 
-module_param(error_handle_policy, uint, 0664);
+MEDIA_PARAM(error_handle_policy, uint, 0664);
 MODULE_PARM_DESC(error_handle_policy, "\n amvdec_h265 error_handle_policy\n");
 
-module_param(error_handle_threshold, uint, 0664);
+MEDIA_PARAM(error_handle_threshold, uint, 0664);
 MODULE_PARM_DESC(error_handle_threshold,
 		"\n amvdec_h265 error_handle_threshold\n");
 
-module_param(error_handle_nal_skip_threshold, uint, 0664);
+MEDIA_PARAM(error_handle_nal_skip_threshold, uint, 0664);
 MODULE_PARM_DESC(error_handle_nal_skip_threshold,
 		"\n amvdec_h265 error_handle_nal_skip_threshold\n");
 
-module_param(error_handle_system_threshold, uint, 0664);
+MEDIA_PARAM(error_handle_system_threshold, uint, 0664);
 MODULE_PARM_DESC(error_handle_system_threshold,
 		"\n amvdec_h265 error_handle_system_threshold\n");
 
-module_param(error_skip_nal_count, uint, 0664);
+MEDIA_PARAM(error_skip_nal_count, uint, 0664);
 MODULE_PARM_DESC(error_skip_nal_count,
 				 "\n amvdec_h265 error_skip_nal_count\n");
 
-module_param(save_buffer, uint, 0664);
+MEDIA_PARAM(save_buffer, uint, 0664);
 MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
-module_param(skip_nal_count, uint, 0664);
+MEDIA_PARAM(skip_nal_count, uint, 0664);
 MODULE_PARM_DESC(skip_nal_count, "\n skip_nal_count\n");
 
-module_param(error_handle_mode, uint, 0664);
+MEDIA_PARAM(error_handle_mode, uint, 0664);
 MODULE_PARM_DESC(error_handle_mode,
 				 "\n amvdec_h265 error_handle_mode\n");
 
-module_param(lcu_percentage_threshold, uint, 0664);
+MEDIA_PARAM(lcu_percentage_threshold, uint, 0664);
 MODULE_PARM_DESC(lcu_percentage_threshold,
 				"\n amvdec_h265 lcu_percentage_threshold\n");
 
-module_param(debug, uint, 0664);
+MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_h265 debug\n");
 
-module_param(debug_mask, uint, 0664);
+MEDIA_PARAM(debug_mask, uint, 0664);
 MODULE_PARM_DESC(debug_mask, "\n amvdec_h265 debug mask\n");
 
-module_param(log_mask, uint, 0664);
+MEDIA_PARAM(log_mask, uint, 0664);
 MODULE_PARM_DESC(log_mask, "\n amvdec_h265 log_mask\n");
 
-module_param(buffer_mode, uint, 0664);
+MEDIA_PARAM(buffer_mode, uint, 0664);
 MODULE_PARM_DESC(buffer_mode, "\n buffer_mode\n");
 
-module_param(double_write_mode, uint, 0664);
+MEDIA_PARAM(double_write_mode, uint, 0664);
 MODULE_PARM_DESC(double_write_mode, "\n double_write_mode\n");
 
 #ifdef OW_TRIPLE_WRITE
-module_param(triple_write_mode, uint, 0664);
+MEDIA_PARAM(triple_write_mode, uint, 0664);
 MODULE_PARM_DESC(triple_write_mode, "\n triple_write_mode\n");
 #endif
 
-module_param(buf_alloc_width, uint, 0664);
-MODULE_PARM_DESC(buf_alloc_width, "\n buf_alloc_width\n");
-
-module_param(buf_alloc_height, uint, 0664);
-MODULE_PARM_DESC(buf_alloc_height, "\n buf_alloc_height\n");
-
-module_param(dynamic_buf_num_margin, uint, 0664);
+MEDIA_PARAM(dynamic_buf_num_margin, uint, 0664);
 MODULE_PARM_DESC(dynamic_buf_num_margin, "\n dynamic_buf_num_margin\n");
 
-module_param(interlace_filed_margin, uint, 0664);
+MEDIA_PARAM(interlace_filed_margin, uint, 0664);
 MODULE_PARM_DESC(interlace_filed_margin, "\n ammvdec_h264 interlace_filed_margin\n");
 
-module_param(max_buf_num, uint, 0664);
+MEDIA_PARAM(max_buf_num, uint, 0664);
 MODULE_PARM_DESC(max_buf_num, "\n max_buf_num\n");
 
-module_param(buf_alloc_size, uint, 0664);
+MEDIA_PARAM(buf_alloc_size, uint, 0664);
 MODULE_PARM_DESC(buf_alloc_size, "\n buf_alloc_size\n");
 
 #ifdef CONSTRAIN_MAX_BUF_NUM
-module_param(run_ready_max_vf_only_num, uint, 0664);
+MEDIA_PARAM(run_ready_max_vf_only_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_max_vf_only_num, "\n run_ready_max_vf_only_num\n");
 
-module_param(run_ready_display_q_num, uint, 0664);
+MEDIA_PARAM(run_ready_display_q_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_display_q_num, "\n run_ready_display_q_num\n");
 
-module_param(run_ready_max_buf_num, uint, 0664);
+MEDIA_PARAM(run_ready_max_buf_num, uint, 0664);
 MODULE_PARM_DESC(run_ready_max_buf_num, "\n run_ready_max_buf_num\n");
 #endif
 
-#if 0
-module_param(re_config_pic_flag, uint, 0664);
-MODULE_PARM_DESC(re_config_pic_flag, "\n re_config_pic_flag\n");
-#endif
-
-module_param(buffer_mode_dbg, uint, 0664);
+MEDIA_PARAM(buffer_mode_dbg, uint, 0664);
 MODULE_PARM_DESC(buffer_mode_dbg, "\n buffer_mode_dbg\n");
 
-module_param(mem_map_mode, uint, 0664);
+MEDIA_PARAM(mem_map_mode, uint, 0664);
 MODULE_PARM_DESC(mem_map_mode, "\n mem_map_mode\n");
 
-module_param(enable_mem_saving, uint, 0664);
+MEDIA_PARAM(enable_mem_saving, uint, 0664);
 MODULE_PARM_DESC(enable_mem_saving, "\n enable_mem_saving\n");
 
-module_param(force_w_h, uint, 0664);
+MEDIA_PARAM(force_w_h, uint, 0664);
 MODULE_PARM_DESC(force_w_h, "\n force_w_h\n");
 
-module_param(force_fps, uint, 0664);
+MEDIA_PARAM(force_fps, uint, 0664);
 MODULE_PARM_DESC(force_fps, "\n force_fps\n");
 
-module_param(max_decoding_time, uint, 0664);
+MEDIA_PARAM(max_decoding_time, uint, 0664);
 MODULE_PARM_DESC(max_decoding_time, "\n max_decoding_time\n");
 
-module_param(prefix_aux_buf_size, uint, 0664);
+MEDIA_PARAM(prefix_aux_buf_size, uint, 0664);
 MODULE_PARM_DESC(prefix_aux_buf_size, "\n prefix_aux_buf_size\n");
 
-module_param(suffix_aux_buf_size, uint, 0664);
+MEDIA_PARAM(suffix_aux_buf_size, uint, 0664);
 MODULE_PARM_DESC(suffix_aux_buf_size, "\n suffix_aux_buf_size\n");
 
-module_param(interlace_enable, uint, 0664);
+MEDIA_PARAM(interlace_enable, uint, 0664);
 MODULE_PARM_DESC(interlace_enable, "\n interlace_enable\n");
-module_param(pts_unstable, uint, 0664);
+MEDIA_PARAM(pts_unstable, uint, 0664);
 MODULE_PARM_DESC(pts_unstable, "\n amvdec_h265 pts_unstable\n");
-module_param(parser_sei_enable, uint, 0664);
+MEDIA_PARAM(parser_sei_enable, uint, 0664);
 MODULE_PARM_DESC(parser_sei_enable, "\n parser_sei_enable\n");
 
-module_param(parser_dolby_vision_enable, uint, 0664);
+MEDIA_PARAM(parser_dolby_vision_enable, uint, 0664);
 MODULE_PARM_DESC(parser_dolby_vision_enable,
 	"\n parser_dolby_vision_enable\n");
 
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-module_param(dolby_meta_with_el, uint, 0664);
+MEDIA_PARAM(dolby_meta_with_el, uint, 0664);
 MODULE_PARM_DESC(dolby_meta_with_el,
 	"\n dolby_meta_with_el\n");
 
-module_param(dolby_el_flush_th, uint, 0664);
+MEDIA_PARAM(dolby_el_flush_th, uint, 0664);
 MODULE_PARM_DESC(dolby_el_flush_th,
 	"\n dolby_el_flush_th\n");
+MEDIA_PARAM(dv_toggle_prov_name, uint, 0664);
+MODULE_PARM_DESC(dv_toggle_prov_name, "\n dv_toggle_prov_name\n");
+
+MEDIA_PARAM(dv_debug, uint, 0664);
+MODULE_PARM_DESC(dv_debug, "\n dv_debug\n");
+
+MEDIA_PARAM(force_bypass_dvenl, uint, 0664);
+MODULE_PARM_DESC(force_bypass_dvenl, "\n force_bypass_dvenl\n");
 #endif
-module_param(mmu_enable, uint, 0664);
+MEDIA_PARAM(mmu_enable, uint, 0664);
 MODULE_PARM_DESC(mmu_enable, "\n mmu_enable\n");
 
-module_param(mmu_enable_force, uint, 0664);
+MEDIA_PARAM(mmu_enable_force, uint, 0664);
 MODULE_PARM_DESC(mmu_enable_force, "\n mmu_enable_force\n");
 
 #ifdef MULTI_INSTANCE_SUPPORT
-module_param(start_decode_buf_level, int, 0664);
+MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
 		"\n h265 start_decode_buf_level\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val,
 	"\n h265 decode_timeout_val\n");
 
-module_param(print_lcu_error, uint, 0664);
-MODULE_PARM_DESC(print_lcu_error,
-	"\n h265 print_lcu_error\n");
-
-module_param(data_resend_policy, uint, 0664);
+MEDIA_PARAM(data_resend_policy, uint, 0664);
 MODULE_PARM_DESC(data_resend_policy,
 	"\n h265 data_resend_policy\n");
 
-module_param(poc_num_margin, int, 0664);
+MEDIA_PARAM(poc_num_margin, int, 0664);
 MODULE_PARM_DESC(poc_num_margin,
 	"\n h265 poc_num_margin\n");
 
-module_param(poc_error_limit, int, 0664);
+MEDIA_PARAM(poc_error_limit, int, 0664);
 MODULE_PARM_DESC(poc_error_limit,
 	"\n h265 poc_error_limit\n");
 
-module_param_array(decode_frame_count, uint,
+MEDIA_PARAM_ARRAY(decode_frame_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(display_frame_count, uint,
+MEDIA_PARAM_ARRAY(display_frame_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(max_process_time, uint,
+MEDIA_PARAM_ARRAY(max_process_time, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(max_get_frame_interval,
-	uint, &max_decode_instance_num, 0664);
-
-module_param_array(run_count, uint,
+MEDIA_PARAM_ARRAY(run_count, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(input_empty, uint,
+MEDIA_PARAM_ARRAY(input_empty, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(not_run_ready, uint,
+MEDIA_PARAM_ARRAY(not_run_ready, uint,
 	&max_decode_instance_num, 0664);
 
-module_param_array(ref_frame_mark_flag, bool,
+MEDIA_PARAM_ARRAY(ref_frame_mark_flag, bool,
 	&max_decode_instance_num, 0664);
-
-#endif
-#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-module_param(dv_toggle_prov_name, uint, 0664);
-MODULE_PARM_DESC(dv_toggle_prov_name, "\n dv_toggle_prov_name\n");
-
-module_param(dv_debug, uint, 0664);
-MODULE_PARM_DESC(dv_debug, "\n dv_debug\n");
-
-module_param(force_bypass_dvenl, uint, 0664);
-MODULE_PARM_DESC(force_bypass_dvenl, "\n force_bypass_dvenl\n");
 #endif
 
 #ifdef AGAIN_HAS_THRESHOLD
-module_param(again_threshold, uint, 0664);
+MEDIA_PARAM(again_threshold, uint, 0664);
 MODULE_PARM_DESC(again_threshold, "\n again_threshold\n");
 #endif
 
-module_param(force_disp_pic_index, int, 0664);
+MEDIA_PARAM(force_disp_pic_index, int, 0664);
 MODULE_PARM_DESC(force_disp_pic_index,
 	"\n amvdec_h265 force_disp_pic_index\n");
 
-module_param(frmbase_cont_bitlevel, uint, 0664);
+MEDIA_PARAM(frmbase_cont_bitlevel, uint, 0664);
 MODULE_PARM_DESC(frmbase_cont_bitlevel,	"\n frmbase_cont_bitlevel\n");
 
-module_param(force_bufspec, uint, 0664);
+MEDIA_PARAM(force_bufspec, uint, 0664);
 MODULE_PARM_DESC(force_bufspec, "\n amvdec_h265 force_bufspec\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_h265 udebug_flag\n");
 
-module_param(fbdebug_flag, uint, 0664);
+MEDIA_PARAM(fbdebug_flag, uint, 0664);
 MODULE_PARM_DESC(fbdebug_flag, "\n amvdec_h265 fbdebug_flag\n");
 
-module_param(udebug_pause_pos, uint, 0664);
+MEDIA_PARAM(udebug_pause_pos, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_pos, "\n udebug_pause_pos\n");
 
-module_param(enable_swap, uint, 0664);
+MEDIA_PARAM(enable_swap, uint, 0664);
 MODULE_PARM_DESC(enable_swap, "\n enable_swap\n");
 
-module_param(udebug_pause_val, uint, 0664);
+MEDIA_PARAM(udebug_pause_val, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_val, "\n udebug_pause_val\n");
 
-module_param(pre_decode_buf_level, int, 0664);
+MEDIA_PARAM(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level, "\n ammvdec_h264 pre_decode_buf_level\n");
 
-module_param(udebug_pause_decode_idx, uint, 0664);
+MEDIA_PARAM(udebug_pause_decode_idx, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_decode_idx, "\n udebug_pause_decode_idx\n");
 
-module_param(disp_vframe_valve_level, uint, 0664);
+MEDIA_PARAM(disp_vframe_valve_level, uint, 0664);
 MODULE_PARM_DESC(disp_vframe_valve_level, "\n disp_vframe_valve_level\n");
 
-module_param(pic_list_debug, uint, 0664);
-MODULE_PARM_DESC(pic_list_debug, "\n pic_list_debug\n");
-
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n amvdec_h265 without_display_mode\n");
 
-module_param(itu_t_t35_enable, int, 0664);
+MEDIA_PARAM(itu_t_t35_enable, int, 0664);
 MODULE_PARM_DESC(itu_t_t35_enable, "\n amvdec_h265 itu_t_t35_enable\n");
 
 #ifdef HEVC_8K_LFTOFFSET_FIX
-module_param(performance_profile, uint, 0664);
+MEDIA_PARAM(performance_profile, uint, 0664);
 MODULE_PARM_DESC(performance_profile, "\n amvdec_h265 performance_profile\n");
 #endif
-module_param(disable_ip_mode, uint, 0664);
+MEDIA_PARAM(disable_ip_mode, uint, 0664);
 MODULE_PARM_DESC(disable_ip_mode, "\n amvdec_h265 disable ip_mode\n");
 
-module_param(dirty_again_threshold, uint, 0664);
+MEDIA_PARAM(dirty_again_threshold, uint, 0664);
 MODULE_PARM_DESC(dirty_again_threshold, "\n dirty_again_threshold\n");
 
-module_param(dirty_buffersize_threshold, uint, 0664);
+MEDIA_PARAM(dirty_buffersize_threshold, uint, 0664);
 MODULE_PARM_DESC(dirty_buffersize_threshold, "\n dirty_buffersize_threshold\n");
 
-module_param(force_config_fence, uint, 0664);
+MEDIA_PARAM(force_config_fence, uint, 0664);
 MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");
 
-module_param(mv_buf_dynamic_alloc, uint, 0664);
+MEDIA_PARAM(mv_buf_dynamic_alloc, uint, 0664);
 MODULE_PARM_DESC(mv_buf_dynamic_alloc, "\n mv_buf_dynamic_alloc\n");
 
-module_param(detect_stuck_buffer_margin, uint, 0664);
+MEDIA_PARAM(detect_stuck_buffer_margin, uint, 0664);
 MODULE_PARM_DESC(detect_stuck_buffer_margin, "\n detect_stuck_buffer_margin\n");
-module_param(frmbase_multi_slice, uint, 0664);
+MEDIA_PARAM(frmbase_multi_slice, uint, 0664);
 MODULE_PARM_DESC(frmbase_multi_slice,	"\n amvdec_h265 frmbase_multi_slice\n");
 
 #ifdef NEW_FB_CODE
-module_param(front_back_mode, uint, 0664);
+MEDIA_PARAM(front_back_mode, uint, 0664);
 MODULE_PARM_DESC(front_back_mode, "\n amvdec_h265 front_back_mode\n");
 
-module_param(fb_ifbuf_num, uint, 0664);
+MEDIA_PARAM(fb_ifbuf_num, uint, 0664);
 MODULE_PARM_DESC(fb_ifbuf_num, "\n amvdec_h265 fb_ifbuf_num\n");
 
-module_param(decode_timeout_val_back, uint, 0664);
+MEDIA_PARAM(decode_timeout_val_back, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val_back,
 	"\n h265 decode_timeout_val_back\n");
 
-module_param(decode_timeout_back_fast_check, uint, 0664);
+MEDIA_PARAM(decode_timeout_back_fast_check, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_back_fast_check,
 	"\n h265 decode_timeout_back_fast_check\n");
 
 
-module_param(decode_timeout_back_fast_check_threshold, uint, 0664);
+MEDIA_PARAM(decode_timeout_back_fast_check_threshold, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_back_fast_check_threshold,
 	"\n h265 decode_timeout_back_fast_check_threshold\n");
 
-
-module_param_array(max_process_time_back, uint,
+MEDIA_PARAM_ARRAY(max_process_time_back, uint,
 	&max_decode_instance_num, 0664);
 
-module_param(efficiency_mode, uint, 0664);
+MEDIA_PARAM(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
 #endif
 

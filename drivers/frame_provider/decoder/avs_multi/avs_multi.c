@@ -195,7 +195,9 @@ static u32 step;
 
 static u32 start_decoding_delay;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
+#endif
 static unsigned int max_process_time[MAX_INSTANCE_MUN];
 static unsigned int max_get_frame_interval[MAX_INSTANCE_MUN];
 static unsigned int run_count[MAX_INSTANCE_MUN];
@@ -5117,141 +5119,152 @@ static void __exit ammvdec_avs_driver_remove_module(void)
 #endif
 }
 
-/****************************************/
-/*
-module_param(stat, uint, 0664);
-MODULE_PARM_DESC(stat, "\n amvdec_avs stat\n");
-*/
-/******************************************
- *module_param(run_flag, uint, 0664);
- *MODULE_PARM_DESC(run_flag, "\n run_flag\n");
- *
- *module_param(step_flag, uint, 0664);
- *MODULE_PARM_DESC(step_flag, "\n step_flag\n");
- *******************************************
- */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry amvdec_avs_params[] = {
+	PARAM_UINT(dynamic_buf_num_margin),
+	PARAM_UINT(step),
+	PARAM_UINT(debug),
+	PARAM_UINT(debug_mask),
+	PARAM_UINT(error_recovery_mode),
+	PARAM_UINT(radr),
+	PARAM_UINT(rval),
+	PARAM_UINT(dbg_cmd),
+	PARAM_UINT(vf_buf_num),
+	PARAM_UINT(canvas_base),
+	PARAM_UINT(firmware_sel),
+	PARAM_UINT(disable_longcabac_trans),
+	PARAM_UINT(dec_control),
+	PARAM_INT(start_decode_buf_level),
+	PARAM_UINT(decode_timeout_val),
+	PARAM_UINT(error_handle_policy),
+	PARAM_UINT(again_threshold),
+	PARAM_UINT(udebug_flag),
+	PARAM_UINT(udebug_pause_pos),
+	PARAM_UINT(udebug_pause_val),
+	PARAM_UINT(udebug_pause_decode_idx),
+	PARAM_UINT(udebug_pause_ins_id),
+	PARAM_UINT(start_decoding_delay),
+	PARAM_INT(pre_decode_buf_level),
+	PARAM_UINT(without_display_mode),
+#ifdef DEBUG_MULTI_WITH_AUTOMODE
+	PARAM_UINT(debug_flag2),
+#endif
+	PARAM_UINT(force_fps),
+#ifdef DEBUG_MULTI_FRAME_INS
+	PARAM_UINT(delay),
+	PARAM_UINT_ARRAY(max_run_count),
+#endif
+	PARAM_UINT_ARRAY(ins_udebug_flag),
+	PARAM_UINT_ARRAY(max_process_time),
+	PARAM_UINT_ARRAY(run_count),
+	PARAM_UINT_ARRAY(max_get_frame_interval),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &amvdec_avs_params, 0644);
+#endif
 
-module_param(dynamic_buf_num_margin, uint, 0664);
+MEDIA_PARAM(dynamic_buf_num_margin, uint, 0664);
 MODULE_PARM_DESC(dynamic_buf_num_margin, "\n dynamic_buf_num_margin\n");
 
-module_param(step, uint, 0664);
+MEDIA_PARAM(step, uint, 0664);
 MODULE_PARM_DESC(step, "\n step\n");
 
-module_param(debug, uint, 0664);
+MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n debug\n");
 
-module_param(debug_mask, uint, 0664);
+MEDIA_PARAM(debug_mask, uint, 0664);
 MODULE_PARM_DESC(debug_mask, "\n debug_mask\n");
 
-module_param(error_recovery_mode, uint, 0664);
+MEDIA_PARAM(error_recovery_mode, uint, 0664);
 MODULE_PARM_DESC(error_recovery_mode, "\n error_recovery_mode\n");
 
-/******************************************
- *module_param(error_watchdog_threshold, uint, 0664);
- *MODULE_PARM_DESC(error_watchdog_threshold, "\n error_watchdog_threshold\n");
- *
- *module_param(error_watchdog_buf_threshold, uint, 0664);
- *MODULE_PARM_DESC(error_watchdog_buf_threshold,
- *			"\n error_watchdog_buf_threshold\n");
- *******************************************
- */
-/*
-module_param(pic_type, uint, 0444);
-MODULE_PARM_DESC(pic_type, "\n amdec_vas picture type\n");
-*/
-module_param(radr, uint, 0664);
+MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\nradr\n");
 
-module_param(rval, uint, 0664);
+MEDIA_PARAM(rval, uint, 0664);
 MODULE_PARM_DESC(rval, "\nrval\n");
 
-module_param(dbg_cmd, uint, 0664);
+MEDIA_PARAM(dbg_cmd, uint, 0664);
 MODULE_PARM_DESC(dbg_cmd, "\n dbg_cmd\n");
 
-module_param(vf_buf_num, uint, 0664);
+MEDIA_PARAM(vf_buf_num, uint, 0664);
 MODULE_PARM_DESC(vf_buf_num, "\nvf_buf_num\n");
 
-/*
-module_param(vf_buf_num_used, uint, 0664);
-MODULE_PARM_DESC(vf_buf_num_used, "\nvf_buf_num_used\n");
-*/
-module_param(canvas_base, uint, 0664);
+MEDIA_PARAM(canvas_base, uint, 0664);
 MODULE_PARM_DESC(canvas_base, "\ncanvas_base\n");
 
-
-module_param(firmware_sel, uint, 0664);
+MEDIA_PARAM(firmware_sel, uint, 0664);
 MODULE_PARM_DESC(firmware_sel, "\n firmware_sel\n");
 
-module_param(disable_longcabac_trans, uint, 0664);
+MEDIA_PARAM(disable_longcabac_trans, uint, 0664);
 MODULE_PARM_DESC(disable_longcabac_trans, "\n disable_longcabac_trans\n");
 
-module_param(dec_control, uint, 0664);
+MEDIA_PARAM(dec_control, uint, 0664);
 MODULE_PARM_DESC(dec_control, "\n amvdec_vavs decoder control\n");
 
-module_param(start_decode_buf_level, int, 0664);
+MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
 		"\n avs start_decode_buf_level\n");
 
-module_param(decode_timeout_val, uint, 0664);
+MEDIA_PARAM(decode_timeout_val, uint, 0664);
 MODULE_PARM_DESC(decode_timeout_val,
 	"\n avs decode_timeout_val\n");
 
-module_param(error_handle_policy, uint, 0664);
+MEDIA_PARAM(error_handle_policy, uint, 0664);
 MODULE_PARM_DESC(error_handle_policy,
 	"\n avs error_handle_policy\n");
 
-module_param(again_threshold, uint, 0664);
+MEDIA_PARAM(again_threshold, uint, 0664);
 MODULE_PARM_DESC(again_threshold, "\n again_threshold\n");
 
-module_param(udebug_flag, uint, 0664);
+MEDIA_PARAM(udebug_flag, uint, 0664);
 MODULE_PARM_DESC(udebug_flag, "\n amvdec_avs udebug_flag\n");
 
-module_param(udebug_pause_pos, uint, 0664);
+MEDIA_PARAM(udebug_pause_pos, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_pos, "\n udebug_pause_pos\n");
 
-module_param(udebug_pause_val, uint, 0664);
+MEDIA_PARAM(udebug_pause_val, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_val, "\n udebug_pause_val\n");
 
-module_param(udebug_pause_decode_idx, uint, 0664);
+MEDIA_PARAM(udebug_pause_decode_idx, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_decode_idx, "\n udebug_pause_decode_idx\n");
 
-module_param(udebug_pause_ins_id, uint, 0664);
+MEDIA_PARAM(udebug_pause_ins_id, uint, 0664);
 MODULE_PARM_DESC(udebug_pause_ins_id, "\n udebug_pause_ins_id\n");
 
-module_param(start_decoding_delay, uint, 0664);
+MEDIA_PARAM(start_decoding_delay, uint, 0664);
 MODULE_PARM_DESC(start_decoding_delay, "\n start_decoding_delay\n");
 
-module_param(pre_decode_buf_level, int, 0664);
+MEDIA_PARAM(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level,
 				"\n ammvdec_mavs pre_decode_buf_level\n");
 
-module_param(without_display_mode, uint, 0664);
+MEDIA_PARAM(without_display_mode, uint, 0664);
 MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
 #ifdef DEBUG_MULTI_WITH_AUTOMODE
-module_param(debug_flag2, uint, 0664);
+MEDIA_PARAM(debug_flag2, uint, 0664);
 MODULE_PARM_DESC(debug_flag2, "\n debug_flag2\n");
 #endif
-module_param(force_fps, uint, 0664);
+MEDIA_PARAM(force_fps, uint, 0664);
 MODULE_PARM_DESC(force_fps, "\n force_fps\n");
 
 #ifdef DEBUG_MULTI_FRAME_INS
-module_param(delay, uint, 0664);
+MEDIA_PARAM(delay, uint, 0664);
 MODULE_PARM_DESC(delay, "\n delay\n");
 
-module_param_array(max_run_count, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(max_run_count, uint, &max_decode_instance_num, 0664);
 
 #endif
 
-module_param_array(ins_udebug_flag, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(ins_udebug_flag, uint, &max_decode_instance_num, 0664);
 
-module_param_array(max_process_time, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(max_process_time, uint, &max_decode_instance_num, 0664);
 
-module_param_array(run_count, uint, &max_decode_instance_num, 0664);
+MEDIA_PARAM_ARRAY(run_count, uint, &max_decode_instance_num, 0664);
 
-module_param_array(max_get_frame_interval, uint,
+MEDIA_PARAM_ARRAY(max_get_frame_interval, uint,
 	&max_decode_instance_num, 0664);
-
 
 module_init(ammvdec_avs_driver_init_module);
 module_exit(ammvdec_avs_driver_remove_module);

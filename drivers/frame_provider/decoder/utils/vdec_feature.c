@@ -349,7 +349,7 @@ static int vcodec_feature_es_dma_mode(u8 *buf, int size, int vformat, int is_v4l
 	return pbuf - buf;
 }
 
-static u32 force_no_head_mode;
+extern u32 force_no_head_mode;
 
 static u32 is_support_no_head_mode(void)
 {
@@ -550,7 +550,5 @@ int vcodec_feature_register(int vformat, int is_v4l)
 	return 0;
 }
 EXPORT_SYMBOL(vcodec_feature_register);
-
-MEDIA_PARAM(force_no_head_mode, uint, 0664);
 
 

@@ -38,10 +38,10 @@ static DEFINE_SPINLOCK(vdec_profile_spinlock);
 
 static int rec_wp;
 static bool rec_wrapped;
-static uint dec_time_stat_flag;
-uint dec_time_stat_reset;
-static u32 fps60_high_bandwidth_ms = 13;
-static u32 fps30_high_bandwidth_ms = 33;
+extern uint dec_time_stat_flag;
+extern uint dec_time_stat_reset;
+extern u32 fps60_high_bandwidth_ms;
+extern u32 fps30_high_bandwidth_ms;
 
 struct dentry *root, *event;
 
@@ -781,14 +781,6 @@ void vdec_profile_exit_debugfs(void)
 	debugfs_remove(root);
 }
 EXPORT_SYMBOL(vdec_profile_exit_debugfs);
-
-module_param(dec_time_stat_flag, uint, 0664);
-
-module_param(dec_time_stat_reset, uint, 0664);
-
-module_param(fps30_high_bandwidth_ms, uint, 0664);
-
-module_param(fps60_high_bandwidth_ms, uint, 0664);
 
 /*module_init(vdec_profile_init_debugfs);*/
 
