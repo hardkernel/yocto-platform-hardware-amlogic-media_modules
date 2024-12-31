@@ -947,6 +947,7 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 	struct avs2_decoder *avs2_dec = &dec->avs2_dec;
 	struct avs2_frame_s *pic = avs2_dec->hc.cur_pic;
 
+	reset_process_time(dec);
 	avs2_print(dec, 0, "%s decoder timeout, pc 0x%x\n",
 		__func__, READ_VREG(HEVC_MPC_E));
 
@@ -962,7 +963,6 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 	}
 
 	dec->dec_result = DEC_RESULT_DONE;
-	reset_process_time(dec);
 	vdec_schedule_work(&dec->work);
 }
 
@@ -6229,12 +6229,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 	if (dec_status == AVS2_DECODE_BUFEMPTY) {
 		PRINT_LINE();
 		if (dec->m_ins_flag) {
-			reset_process_time(dec);
 			if (!vdec_frame_based(hw_to_vdec(dec)))
 				dec_again_process(dec);
 			else {
 				dec->dec_result = DEC_RESULT_DONE;
-				reset_process_time(dec);
 
 				if (dec->cur_idx != INVALID_IDX) {
 					struct avs2_frame_s *pic = dec->avs2_dec.hc.cur_pic;
@@ -6273,7 +6271,6 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 #endif
 
 			get_picture_qos_info(dec);
-			reset_process_time(dec);
 			dec->dec_result = DEC_RESULT_DONE;
 			amhevc_stop();
 			ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_THREAD_EDN);
@@ -6288,14 +6285,9 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 		debug |= (AVS2_DBG_DIS_LOC_ERROR_PROC |
 			AVS2_DBG_DIS_SYS_ERROR_PROC);
 		dec->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
-		if (dec->m_ins_flag)
-			reset_process_time(dec);
 		goto irq_handled_exit;
 	}
 	PRINT_LINE();
-
-	if (dec->m_ins_flag)
-		reset_process_time(dec);
 
 	if (dec_status == AVS2_HEAD_SEQ_READY)
 		start_code = SEQUENCE_HEADER_CODE;
@@ -6897,6 +6889,8 @@ static irqreturn_t vavs2_isr(int irq, void *data)
 		}
 	}
 	ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_END);
+	if (dec->m_ins_flag)
+		reset_process_time(dec);
 	return IRQ_WAKE_THREAD;
 }
 
@@ -7735,6 +7729,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 				READ_VREG(HEVC_STREAM_WR_PTR),
 				READ_VREG(HEVC_STREAM_RD_PTR));
 			vdec_vframe_dirty(vdec, dec->chunk);
+			dec->chunk = NULL;
 			vdec_clean_input(vdec);
 		}
 
@@ -7822,6 +7817,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT),
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		dec->chunk = NULL;
 		if (dec->dec_status == HEVC_DECPIC_DATA_DONE)
 			vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 	} else if (dec->dec_result == DEC_RESULT_AGAIN) {
@@ -7847,6 +7843,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 			avs2_prepare_display_buf(dec);
 		}
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		dec->chunk = NULL;
 		vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 	} else if (dec->dec_result == DEC_RESULT_FORCE_EXIT) {
 		avs2_print(dec, PRINT_FLAG_VDEC_STATUS, "%s: force exit\n", __func__);

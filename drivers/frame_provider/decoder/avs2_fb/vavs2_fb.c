@@ -1073,6 +1073,7 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 	struct avs2_frame_s *pic = dec->avs2_dec.hc.cur_pic;
 
 	dec->timeout_num++;
+	reset_process_time(dec);
 	avs2_print(dec, 0, "%s decoder timeout, pc 0x%x\n",
 		__func__, READ_VREG(HEVC_MPC_E));
 
@@ -1098,7 +1099,6 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 	}
 
 	dec->dec_result = DEC_RESULT_DONE;
-	reset_process_time(dec);
 	vdec_schedule_work(&dec->work);
 }
 
@@ -6964,7 +6964,9 @@ irqreturn_t avs2_back_irq_cb(struct vdec_s *vdec, int irq)
 	if (dec->dec_status_back == AVS2_DEC_IDLE) {
 		return IRQ_HANDLED;
 	}
-	/**/
+
+	reset_process_time_back(dec);
+
 	return IRQ_WAKE_THREAD;
 }
 
@@ -7056,7 +7058,6 @@ irqreturn_t avs2_back_threaded_irq_cb(struct vdec_s *vdec, int irq)
 		dec->gvs->bit_depth_chroma = pic->depth;
 		dec->gvs->double_write_mode = pic->double_write_mode;
 
-		reset_process_time_back(dec);
 		vdec->back_pic_done = true;
 		avs2_print(dec, PRINT_FLAG_VDEC_STATUS,
 			"BackEnd data done %d, fb_rd_pos %d, poc %d HEVC_SAO_CRC %x HEVC_SAO_CRC_DBE1 %x\n",
@@ -7132,12 +7133,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 	if (dec_status == AVS2_DECODE_BUFEMPTY) {
 		PRINT_LINE();
 		if (dec->m_ins_flag) {
-			reset_process_time(dec);
 			if (!vdec_frame_based(hw_to_vdec(dec)))
 				dec_again_process(dec);
 			else {
 				dec->dec_result = DEC_RESULT_DONE;
-				reset_process_time(dec);
 
 				if (dec->cur_idx != INVALID_IDX) {
 					struct avs2_frame_s *pic = dec->avs2_dec.hc.cur_pic;
@@ -7213,7 +7212,6 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 #endif
 
 			get_picture_qos_info(dec, 0);
-			reset_process_time(dec);
 			dec->dec_result = DEC_RESULT_DONE;
 #ifdef NEW_FB_CODE
 			if (dec->front_back_mode) {
@@ -7235,14 +7233,9 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 		debug |= (AVS2_DBG_DIS_LOC_ERROR_PROC |
 			AVS2_DBG_DIS_SYS_ERROR_PROC);
 		dec->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
-		if (dec->m_ins_flag)
-			reset_process_time(dec);
 		goto irq_handled_exit;
 	}
 	PRINT_LINE();
-
-	if (dec->m_ins_flag)
-		reset_process_time(dec);
 
 	if (dec_status == AVS2_HEAD_SEQ_READY)
 		start_code = SEQUENCE_HEADER_CODE;
@@ -8141,6 +8134,8 @@ static irqreturn_t vavs2_isr(int irq, void *data)
 		}
 	}
 	ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_END);
+	if (dec->m_ins_flag)
+		reset_process_time(dec);
 	return IRQ_WAKE_THREAD;
 }
 

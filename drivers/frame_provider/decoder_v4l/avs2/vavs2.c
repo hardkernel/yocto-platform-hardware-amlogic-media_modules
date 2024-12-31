@@ -958,6 +958,7 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 	struct avs2_frame_s *pic = avs2_dec->hc.cur_pic;
 	struct aml_vcodec_ctx *ctx = dec->v4l2_ctx;
 
+	reset_process_time(dec);
 	avs2_print(dec, 0, "%s decoder timeout, pc 0x%x\n",
 		__func__, READ_VREG(HEVC_MPC_E));
 
@@ -986,7 +987,6 @@ static void timeout_process(struct AVS2Decoder_s *dec)
 
 	vdec_v4l_post_error_event(ctx, DECODER_WARNING_DECODER_TIMEOUT);
 	dec->dec_result = DEC_RESULT_DONE;
-	reset_process_time(dec);
 	vdec_schedule_work(&dec->work);
 }
 
@@ -6215,10 +6215,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			dec->ucode_pause_pos = udebug_pause_pos;
 		} else if (debug_tag & 0x20000)
 			dec->ucode_pause_pos = 0xffffffff;
-		if (dec->ucode_pause_pos)
-			reset_process_time(dec);
-		else
+		if (!dec->ucode_pause_pos) {
+			start_process_time(dec);
 			WRITE_HREG(DEBUG_REG1, 0);
+		}
 	} else if (debug_tag != 0) {
 		pr_info("dbg%x: %x lcu %x\n", READ_HREG(DEBUG_REG1),
 			   READ_HREG(DEBUG_REG2),
@@ -6232,10 +6232,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			udebug_pause_pos &= 0xffff;
 			dec->ucode_pause_pos = udebug_pause_pos;
 		}
-		if (dec->ucode_pause_pos)
-			reset_process_time(dec);
-		else
+		if (!dec->ucode_pause_pos) {
+			start_process_time(dec);
 			WRITE_HREG(DEBUG_REG1, 0);
+		}
 		dec->process_busy = 0;
 		return IRQ_HANDLED;
 	}
@@ -6256,12 +6256,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 		struct avs2_frame_s *pic = dec->avs2_dec.hc.cur_pic;
 		PRINT_LINE();
 		if (dec->m_ins_flag) {
-			reset_process_time(dec);
 			if (!vdec_frame_based(hw_to_vdec(dec)))
 				dec_again_process(dec);
 			else {
 				dec->dec_result = DEC_RESULT_DONE;
-				reset_process_time(dec);
 
 				if (dec->cur_idx != INVALID_IDX) {
 					update_decoded_pic(dec);
@@ -6305,7 +6303,6 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			avs2_recycle_mmu_buf_tail(dec);
 #endif
 			get_picture_qos_info(dec);
-			reset_process_time(dec);
 			dec->dec_result = DEC_RESULT_DONE;
 			amhevc_stop();
 			ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_THREAD_EDN);
@@ -6322,14 +6319,9 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			AVS2_DBG_DIS_SYS_ERROR_PROC);
 		dec->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
 		vdec_v4l_post_error_event(ctx, DECODER_WARNING_DATA_ERROR);
-		if (dec->m_ins_flag)
-			reset_process_time(dec);
 		goto irq_handled_exit;
 	}
 	PRINT_LINE();
-
-	if (dec->m_ins_flag)
-		reset_process_time(dec);
 
 	if (dec_status == AVS2_HEAD_SEQ_READY)
 		start_code = SEQUENCE_HEADER_CODE;
@@ -6908,6 +6900,8 @@ static irqreturn_t vavs2_isr(int irq, void *data)
 		}
 	}
 	ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_END);
+	if (dec->m_ins_flag)
+		reset_process_time(dec);
 	return IRQ_WAKE_THREAD;
 }
 
@@ -7510,6 +7504,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 				READ_VREG(HEVC_STREAM_WR_PTR),
 				READ_VREG(HEVC_STREAM_RD_PTR));
 			vdec_vframe_dirty(vdec, dec->chunk);
+			dec->chunk = NULL;
 			vdec_clean_input(vdec);
 			if (ctx->es_free)
 				ctx->es_free(ctx, vdec->vbuf.buf_rp);
@@ -7601,6 +7596,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT),
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		dec->chunk = NULL;
 		if (ctx->es_free)
 			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		if (dec->dec_status == HEVC_DECPIC_DATA_DONE)
@@ -7625,6 +7621,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 		notify_v4l_eos(hw_to_vdec(dec));
 		vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		dec->chunk = NULL;
 		if (ctx->es_free)
 			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
