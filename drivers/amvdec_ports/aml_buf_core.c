@@ -275,7 +275,7 @@ static void buf_core_deinit_dma(struct buf_core_mgr_s *bc)
 	int i;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -302,7 +302,7 @@ static bool buf_core_dmabuf_slot_occupied(struct buf_core_mgr_s *bc)
 	int ret = false;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -331,7 +331,7 @@ static int buf_core_alloc_dma(struct buf_core_mgr_s *bc,
 	int i;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -364,11 +364,10 @@ out:
 static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 {
 	struct buf_core_dma *dma = NULL, *tmp;
-	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int i, j;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -415,11 +414,10 @@ out:
 static void buf_core_reset_dma(struct buf_core_mgr_s *bc)
 {
 	struct buf_core_dma *dma = NULL;
-	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int i;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -454,10 +452,9 @@ static void buf_core_get_free_dmabuf(struct buf_core_mgr_s *bc,
 						struct buf_core_dma **out_dma)
 {
 	struct buf_core_dma *dma = NULL;
-	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	if (list_empty(&bc->dma_free_que)) {
@@ -487,11 +484,10 @@ out:
 static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ulong uvm_dmabuf, u32 dec_flag)
 {
 	struct buf_core_dma *dma = NULL;
-	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int i;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
@@ -558,11 +554,10 @@ static void buf_core_get_dmabuf_ref(struct buf_core_mgr_s *bc,
 			    ulong dmabuf, u32 dec_flag)
 {
 	struct buf_core_dma *dma = NULL;
-	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int i;
 
 	mutex_lock(&bc->dma_mutex);
-	if (!bm->config.dynamic_mode)
+	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {

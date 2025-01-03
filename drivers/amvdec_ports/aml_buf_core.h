@@ -400,6 +400,7 @@ struct buf_core_mgr_s {
 	int	(*box_init)(struct buf_core_mgr_s *);
 	void	(*update_planes)(struct buf_core_mgr_s *);
 	void    (*reconfigure_planes)(struct buf_core_mgr_s *, struct buf_core_entry *);
+	bool 	(*is_dynamic_mode_init)(struct buf_core_mgr_s *);
 
 	struct buf_core_mem_ops	mem_ops;
 	struct buf_core_ops	buf_ops;

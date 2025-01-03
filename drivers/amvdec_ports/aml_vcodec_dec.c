@@ -390,6 +390,7 @@ static void copy_v4l2_format_dimension(struct aml_vcodec_ctx *ctx,
 static void vidioc_vdec_s_parm_ext(struct v4l2_ctrl *, struct aml_vcodec_ctx *);
 static void vidioc_vdec_g_parm_ext(struct v4l2_ctrl *, struct aml_vcodec_ctx *);
 static int is_vdec_core_fmt(u32 fmt);
+static bool is_dynamic_mode(struct aml_vcodec_ctx *ctx);
 static bool is_game_mode(u32 mode);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
@@ -708,9 +709,7 @@ static u32 v4l_buf_size_decision(struct aml_vcodec_ctx *ctx)
 	ctx->vpp_size = vpp->buf_size;
 	ctx->ge2d_size = ge2d->buf_size;
 
-	if (ctx->enable_di_post &&
-		ctx->picinfo.field != V4L2_FIELD_NONE &&
-		is_vdec_core_fmt(ctx->output_pix_fmt)) {
+	if (is_dynamic_mode(ctx)) {
 		picinfo->dpb_margin = (picinfo->dpb_margin + 1) >> 1;
 		ctx->dpb_size = picinfo->dpb_frames + picinfo->dpb_margin;
 		ctx->dpb_size *= PAIR_DONE;
@@ -728,8 +727,7 @@ static u32 v4l_buf_size_decision(struct aml_vcodec_ctx *ctx)
 			ctx->dpb_size, picinfo->dpb_frames, picinfo->dpb_margin,
 			ctx->vpp_size, ctx->ge2d_size);
 
-	if ((total_size > V4L_CAP_BUFF_MAX) &&
-		!(ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE)) {
+	if ((total_size > V4L_CAP_BUFF_MAX) && !is_dynamic_mode(ctx)) {
 		if (ctx->ge2d_size) {
 			ctx->dpb_size = V4L_CAP_BUFF_MAX - ctx->ge2d_size - ctx->vpp_size;
 		} else if (ctx->vpp_size) {
@@ -775,8 +773,7 @@ static void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.dw_mode		= dw;
 	config.tw_mode		= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
-	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
-		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
+	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 
 	aml_buf_configure(&ctx->bm, &config);
 }
@@ -845,8 +842,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	config.dw_mode			= dw;
 	config.tw_mode			= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
-	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
-		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
+	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 
 	aml_buf_configure(&ctx->bm, &config);
 
@@ -1233,7 +1229,7 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 
 	ctx->decoded_frame_cnt++;
 
-	if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+	if (is_dynamic_mode(ctx)) {
 		aml_buf_detach(&ctx->bm, (ulong)vb2_buf->planes[0].dbuf);
 		dstbuf->aml_buf = NULL;
 	}
@@ -3356,6 +3352,16 @@ static int is_vdec_core_fmt(u32 fmt)
 	return false;
 }
 
+static bool is_dynamic_mode(struct aml_vcodec_ctx *ctx)
+{
+	if (ctx->enable_di_post &&
+		ctx->picinfo.field != V4L2_FIELD_NONE &&
+		is_vdec_core_fmt(ctx->output_pix_fmt))
+		return true;
+
+	return false;
+}
+
 /* called when it is beyong AML_STATE_PROBE */
 static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type)
 {
@@ -4016,8 +4022,7 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 				(tw_mode != DM_INVALID) ? q_data->sizeimage_tw[i] :
 				q_data->sizeimage[i];
 
-			if (ctx->enable_di_post && is_vdec_core_fmt(ctx->output_pix_fmt) &&
-				ctx->picinfo.field != V4L2_FIELD_NONE)
+			if (is_dynamic_mode(ctx))
 				sizes[i] = PAGE_SIZE;
 
 			if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
@@ -4084,8 +4089,7 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 
 	q_data = aml_vdec_get_q_data(ctx, vb->vb2_queue->type);
 
-	if (!(ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
-		is_vdec_core_fmt(ctx->output_pix_fmt))) {
+	if (!is_dynamic_mode(ctx)) {
 		for (i = 0; i < q_data->fmt->num_planes; i++) {
 			if (vb2_plane_size(vb, i) < q_data->sizeimage[i] &&
 				vb2_plane_size(vb, i) != PAGE_SIZE) {
@@ -4666,7 +4670,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		struct sg_table *sgt;
 		ulong pyh_addr;
 
-		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && is_dynamic_mode(ctx)) {
 			sgt = vb2_dma_sg_plane_desc(vb, 0);
 			pyh_addr = sg_dma_address(sgt->sgl);
 
@@ -4878,8 +4882,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	config.enable_extbuf	= true;
 	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
-	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
-		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
+	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 
 	config.memory_mode	= vb->vb2_queue->memory;
 	config.planes		= V4L2_TYPE_IS_MULTIPLANAR(vb->vb2_queue->type) ? 2 : 1;
@@ -5173,7 +5176,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		for (i = 0; i < buf_num; ++i) {
 			vb2_v4l2 = to_vb2_v4l2_buffer(q->bufs[i]);
 			buf = container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
-			if (buf->aml_buf && !(ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE)) {
+			if (buf->aml_buf && !is_dynamic_mode(ctx)) {
 				buf->aml_buf->state	= FB_ST_FREE;
 				memset(&buf->aml_buf->vframe,
 					0, sizeof(struct vframe_s));

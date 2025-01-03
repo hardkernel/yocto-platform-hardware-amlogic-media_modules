@@ -37,6 +37,18 @@ static inline void aml_buf_configure(struct aml_buf_mgr_s *bm,
 }
 
 /*
+ * aml_buf_is_dynamic_mode_init() - Interface used to determine dynamic_mode.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Interface used to determine dynamic_mode.
+ */
+static inline bool aml_buf_is_dynamic_mode_init(struct aml_buf_mgr_s *bm)
+{
+	return bm->bc.is_dynamic_mode_init(&bm->bc);
+}
+
+/*
  * aml_buf_attach() - Use to attach buffers that need to be managed.
  *
  * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.

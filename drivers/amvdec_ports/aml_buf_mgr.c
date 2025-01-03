@@ -128,7 +128,7 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 
 	dmabuf_set_vframe(buf->planes[0].dbuf, &buf->vframe, VF_SRC_DECODER);
 
-	if (bm->config.dynamic_mode) {
+	if (buf->dma && bc->is_dynamic_mode_init(bc)) {
 		dmabuf = (struct dma_buf *)buf->dma->dmabuf;
 		file = dmabuf->file;
 		buffer = (struct codec_mm_heap_buffer *)dmabuf->priv;
@@ -138,10 +138,10 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 		file = buf->planes[0].dbuf->file;
 
 	ret = buf_mgr_dq_checkin(bm->vpp_handle, file);
-	if (bm->config.dynamic_mode && !ret)
+	if (buf->dma && bc->is_dynamic_mode_init(bc) && !ret)
 		bc->buf_ops.get_dma_ref(bc, entry->phy_addr, false);
 
-	if (bm->config.dynamic_mode)
+	if (buf->dma && bc->is_dynamic_mode_init(bc))
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), ret: %d\n",
 			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, ret);
@@ -948,6 +948,16 @@ static void aml_buf_free(struct buf_core_mgr_s *bc,
 	vfree(buf);
 }
 
+static bool aml_buf_is_dynamic_mode_init(struct buf_core_mgr_s *bc)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+
+	if (!bm->config.dynamic_mode || !bc->dma_num)
+		return false;
+
+	return true;
+}
+
 static void aml_buf_configure(struct buf_core_mgr_s *bc, void *cfg)
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
@@ -1249,6 +1259,7 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 	bm->bc.status_walk	= aml_buf_walk;
 	bm->bc.box_init		= aml_buf_box_init;
 	bm->bc.reconfigure_planes	= aml_buf_reconfigure_planes_v4l;
+	bm->bc.is_dynamic_mode_init	= aml_buf_is_dynamic_mode_init;
 
 	kref_init(&bm->ref);
 
