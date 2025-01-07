@@ -991,7 +991,6 @@ struct vdec_h264_hw_s {
 	struct mutex fence_mutex;
 	u32 no_decoder_buffer_flag;
 	u32 video_signal_type;
-	bool need_free_aux_data;
 	u32 error_proc_policy;
 	struct trace_decoder_name trace;
 	bool high_bandwidth_flag;
@@ -4199,13 +4198,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			PR_INFO(hw->id);
 		}
 
-		if ((hw->buffer_spec[buffer_index].aux_data_size == 0) &&
-			(frame->slice_type == I_SLICE) &&
-			(atomic_read(&hw->vf_pre_count) == 1)) {
-			hw->need_free_aux_data = true;
-		}
-
-		if (!hw->need_free_aux_data) {
+		if (hw->buffer_spec[buffer_index].aux_data_size) {
 			if (!hw->discard_dv_data)
 				v4l2_ctx->aux_infos.bind_dv_buffer(v4l2_ctx,
 					&vf->src_fmt.comp_buf,
