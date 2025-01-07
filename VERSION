@@ -1,10 +1,20 @@
 #Developing Version
 Major_V=6
-Minor_V=15
-DevelopingChangeId=I494c265133ff9ff6dbf554a8159dad487ddfa1e1
+Minor_V=16
+DevelopingChangeId=If8e75963ca6b8845dbfcd02198500cd06c43415a
 LTS_FLAG=
 
 #history version
+#V6.16 Release Notes
+#AVBCD wrapper (SW decoding)
+#    Optimize pipeline for memory usage in CTS data comparison scenarios
+#    Provide a standardized M2M interface for AVBCD scenarios
+#    Enhance maintainability with user-space AVBCD mode for easier management
+#Secure memory mmu (Single instance)
+#    Reduce memory usage based on actual resolution rather than fixed TVP memory pool
+#    Optimize first frame output time base on pre-allocation mechanism
+#Error recovery in fence mode
+#    Decoder error recovery optimization on cloud games &&  projection screen
 #V6.14 pre-test Notes
 #DTV H264 MMU development
 #
