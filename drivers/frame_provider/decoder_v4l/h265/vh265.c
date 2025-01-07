@@ -12868,20 +12868,6 @@ force_output:
 				max_decoding_time = process_time;
 		}
 
-		if (input_stream_based(vdec) && (hevc->slice_count != 0) && (hevc->param.p.slice_segment_address == 0)) {
-			if (hevc->cur_pic)
-				hevc->cur_pic->error_mark = 1;
-			hevc->stream_multi_frame_flag = 1;
-			hevc->dec_result = DEC_RESULT_AGAIN;
-
-			hevc_print(hevc, H265_DEBUG_BUFMGR, "%s: one run muti-slice offset 0x%x/0x%x\n",
-					__func__, hevc->last_slice_offset, READ_VREG(HEVC_SHIFT_BYTE_COUNT));
-			vh265_buf_ref_process_for_exception(hevc);
-			vdec_schedule_work(&hevc->work);
-			return IRQ_HANDLED;
-		}
-		hevc->last_slice_offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);//Record the last slice offset
-
 		hevc->error_watchdog_count = 0;
 		if (hevc->pic_list_init_flag == 2) {
 			hevc->pic_list_init_flag = 3;
@@ -12942,6 +12928,21 @@ force_output:
 					hevc->param.p.vui_time_scale_hi,
 					hevc->param.p.vui_time_scale_lo);
 			}
+
+			if (input_stream_based(vdec) && (hevc->slice_count != 0) && (hevc->param.p.slice_segment_address == 0)) {
+				if (hevc->cur_pic)
+					hevc->cur_pic->error_mark = 1;
+				hevc->stream_multi_frame_flag = 1;
+				hevc->dec_result = DEC_RESULT_AGAIN;
+
+				hevc_print(hevc, H265_DEBUG_BUFMGR, "%s: one run muti-slice offset 0x%x/0x%x\n",
+						__func__, hevc->last_slice_offset, READ_VREG(HEVC_SHIFT_BYTE_COUNT));
+				vh265_buf_ref_process_for_exception(hevc);
+				vdec_schedule_work(&hevc->work);
+				return IRQ_HANDLED;
+			}
+
+			hevc->last_slice_offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);//Record the last slice offset
 
 			if (hevc->param.p.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR
 				|| hevc->param.p.m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP
