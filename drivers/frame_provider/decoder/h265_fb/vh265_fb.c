@@ -14881,12 +14881,12 @@ static s32 vh265_init(struct hevc_state_s *hevc)
 		get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 		hevc->enable_ucode_swap);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 #ifdef NEW_FB_CODE
 	if (hevc->front_back_mode == 1 || hevc->front_back_mode == 3) {
-		fw_back = fw_firmare_s_creat(fw_size);
+		fw_back = fw_firmware_s_creat(fw_size);
 		if (!fw_back) {
 			vfree(fw);
 			return -ENOMEM;

@@ -2734,7 +2734,7 @@ static s32 vmmpeg4_init(struct vdec_mpeg4_hw_s *hw)
 	int size = -1, fw_size = 0x1000 * 16;
 	struct firmware_s *fw = NULL;
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

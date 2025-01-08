@@ -1095,7 +1095,7 @@ static s32 vmjpeg_init(struct vdec_s *vdec)
 	struct vdec_mjpeg_hw_s *hw =
 		(struct vdec_mjpeg_hw_s *)vdec->private;
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

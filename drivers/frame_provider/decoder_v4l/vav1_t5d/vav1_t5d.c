@@ -9627,7 +9627,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 		get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 		hw->enable_ucode_swap);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

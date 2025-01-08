@@ -9012,12 +9012,12 @@ static s32 vavs3_init(struct vdec_s *vdec)
 
 	vdec_set_vframe_comm(vdec, DRIVER_NAME);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 #ifdef NEW_FB_CODE
 	if (dec->front_back_mode == 1 || dec->front_back_mode == 3) {
-		fw_back = fw_firmare_s_creat(fw_size);
+		fw_back = fw_firmware_s_creat(fw_size);
 		if (!fw_back) {
 			vfree(fw);
 			return -ENOMEM;

@@ -4073,7 +4073,7 @@ static s32 vmpeg12_init(struct vdec_mpeg12_hw_s *hw)
 
 	vmpeg12_local_init(hw);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

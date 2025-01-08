@@ -7263,7 +7263,7 @@ static s32 vavs2_init(struct vdec_s *vdec)
 	avs2_dec->decode_idx = 0;
 	vdec_set_vframe_comm(vdec, DRIVER_NAME);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

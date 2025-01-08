@@ -9429,7 +9429,7 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 		get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 		hevc->enable_ucode_swap);
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 

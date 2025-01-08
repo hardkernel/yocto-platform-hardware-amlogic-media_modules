@@ -8674,7 +8674,7 @@ void rdma_back_end_work(dma_addr_t back_ddr_phy_addr, u32 size)
 }
 EXPORT_SYMBOL(rdma_back_end_work);
 
-struct firmware_s *fw_firmare_s_creat(int fw_size)
+struct firmware_s *fw_firmware_s_creat(int fw_size)
 {
 	struct firmware_s *fw = NULL;
 
@@ -8686,7 +8686,7 @@ struct firmware_s *fw_firmare_s_creat(int fw_size)
 
 	return fw;
 }
-EXPORT_SYMBOL(fw_firmare_s_creat);
+EXPORT_SYMBOL(fw_firmware_s_creat);
 
 RESERVEDMEM_OF_DECLARE(vdec, "amlogic, vdec-memory", vdec_mem_setup);
 /*

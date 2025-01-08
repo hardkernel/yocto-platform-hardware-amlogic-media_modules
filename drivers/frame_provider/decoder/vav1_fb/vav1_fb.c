@@ -11037,7 +11037,7 @@ static s32 vav1_init_back(struct AV1HW_s *hw)
 	}
 	copy_loopbufs_ptr(&pbi->next_bk[pbi->fb_wr_pos], &pbi->fr);
 
-	fw_back = fw_firmare_s_creat(fw_size);
+	fw_back = fw_firmware_s_creat(fw_size);
 	if (!fw_back)
 		return -ENOMEM;
 
@@ -11118,7 +11118,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 				hw->enable_ucode_swap);
 	}
 
-	fw = fw_firmare_s_creat(fw_size);
+	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
 		return -ENOMEM;
 
