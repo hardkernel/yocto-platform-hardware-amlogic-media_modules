@@ -159,6 +159,11 @@ enum ResResult {
 #define IDC_6_1      0x61
 #define IDC_6_2      0x62
 
+/* others */
+/* t6d dos clk license bit */
+#define OTP_LIC02 (0xfe440048)
+#define LIC_DOS_HIGHER_SPEED_BIT  BIT(20)
+
 /* dos hardware feature define. */
 struct dos_of_dev_s {
 	enum AM_MESON_CPU_MAJOR_ID chip_id;

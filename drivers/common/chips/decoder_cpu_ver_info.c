@@ -517,6 +517,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 	[AM_MESON_CPU_MAJOR_ID_T6D - MAJOR_ID_START] = {
 		.chip_id = AM_MESON_CPU_MAJOR_ID_T6D,
 		.reg_compat = NULL,
+		/* 576M or 667M*/
 		.max_vdec_clock  = 576,
 		.max_hevcf_clock = 576,
 		.max_hevcb_clock = 576,
@@ -856,6 +857,38 @@ static int dos_device_search_data(int id, int sub_id)
 		return -ENODEV;
 }
 
+static void dos_platform_ext_setup(struct dos_of_dev_s *dos)
+{
+	if (!dos)
+		return;
+
+	if (dos->chip_id == AM_MESON_CPU_MAJOR_ID_T6D) {
+		void __iomem *reg;
+		int lic, package;
+
+		package = get_meson_cpu_version(MESON_CPU_VERSION_LVL_PACK);
+		if (package == 2) {
+			dos->max_vdec_clock = 667;
+			dos->max_hevcf_clock = 667;
+			dos->max_hevcb_clock = 667;
+			return;
+		}
+
+		reg = ioremap(OTP_LIC02, sizeof(unsigned int));
+		if (!reg) {
+			pr_err("%s, t6d lic reg ioremap failed\n", __func__);
+			return;
+		}
+		lic = readl(reg);
+		if (lic & LIC_DOS_HIGHER_SPEED_BIT) {
+			dos->max_vdec_clock = 667;
+			dos->max_hevcf_clock = 667;
+			dos->max_hevcb_clock = 667;
+		}
+		iounmap(reg);
+	}
+}
+
 struct platform_device *initial_dos_device(void)
 {
 	struct platform_device *pdev = NULL;
@@ -888,6 +921,8 @@ struct platform_device *initial_dos_device(void)
 
 	if (pdev && of_dev_data)
 		dos_register_probe(pdev, of_dev_data->reg_compat);
+
+	dos_platform_ext_setup(of_dev_data);
 
 	pr_info("initial_dos_device end, chip %d(%d)\n",
 		cpu_ver_id, cpu_sub_id);
