@@ -13061,6 +13061,8 @@ force_output:
 					vdec_v4l_set_ps_infos(ctx, &ps);
 					ctx->decoder_status_info.frame_height = ps.visible_height;
 					ctx->decoder_status_info.frame_width = ps.visible_width;
+					hevc->frame_width = ps.visible_width;
+					hevc->frame_height = ps.visible_height;
 					v4l_hevc_collect_stream_info(vdec, hevc);
 					ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 					hevc->v4l_params_parsed = true;

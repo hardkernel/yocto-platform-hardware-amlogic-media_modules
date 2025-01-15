@@ -11928,6 +11928,9 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 						}
 						vdec_v4l_set_ps_infos(ctx, &ps);
 						ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
+
+						hw->frame_width = ps.visible_width;
+						hw->frame_height = ps.visible_height;
 						v4l_vmh264_collect_stream_info(vdec, hw);
 						if (hw->res_ch_flag) {
 							hw->res_ch_flag = 0;

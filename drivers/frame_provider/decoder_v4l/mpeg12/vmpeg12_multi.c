@@ -2631,6 +2631,9 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 				if (vdec_frame_based(vdec)) {
 					cal_chunk_offset_and_size(hw);
 				}
+
+				hw->frame_width = ps.visible_width;
+				hw->frame_height = ps.visible_height;
 				v4l_mpeg12_collect_stream_info(vdec, hw);
 				ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 				userdata_pushed_drop(hw);
