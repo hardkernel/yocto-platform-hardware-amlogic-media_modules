@@ -182,8 +182,8 @@ void __exit enc_mem_exit(void)
     platform_driver_unregister(&mbd_vce_driver);
 }
 
-module_param(vcmd_supported, uint, 0664);
-MODULE_PARM_DESC(vcmd_supported, "\n vcmd_supported\n");
+/*module_param(vcmd_supported, uint, 0664);
+MODULE_PARM_DESC(vcmd_supported, "\n vcmd_supported\n");*/
 
 module_init(enc_mem_init);
 module_exit(enc_mem_exit);

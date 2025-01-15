@@ -153,9 +153,9 @@ static s32 memalloc_major; /* dynamic */
 static s32 s_register_flag;
 
 /* module_param(name, type, perm) */
-module_param(alloc_size, uint, 0);
-module_param(alloc_base, ulong, 0);
-module_param(addr_transl, ulong, 0);
+/* module_param(alloc_size, uint, 0); */
+/* module_param(alloc_base, ulong, 0); */
+/* module_param(addr_transl, ulong, 0); */
 
 static DEFINE_SPINLOCK(mem_lock);
 

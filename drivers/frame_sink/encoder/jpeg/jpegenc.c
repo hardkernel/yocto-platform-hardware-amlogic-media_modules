@@ -96,12 +96,6 @@
 
 /* #define EXTERN_QUANT_TABLE */
 
-/*######### DEBUG-BRINGUP#########*/
-static u32 manual_clock;
-static u32 manual_irq_num = 2;
-static u32 manual_interrupt = 0;
-/*################################*/
-
 static s32 jpegenc_device_major;
 static struct device *jpegenc_dev;
 static u32 jpegenc_print_level = LOG_ERROR;
@@ -114,7 +108,6 @@ static u32 use_quality=1;
 static u32 legacy_load=0;
 
 static u32 dumpmem_line = 0;
-static u32 pointer = 0;
 
 static u32 clock_level = 1;
 static u16 gQuantTable[2][DCTSIZE2];
@@ -5095,6 +5088,7 @@ static s32 jpegenc_probe(struct platform_device *pdev)
     }
 
     if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T7)  || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5)) {
+        #if 0
         switch (manual_irq_num) {
             case 0:
                 res_irq = platform_get_irq_byname(pdev, "dos_mbox_slow_irq0");
@@ -5114,6 +5108,10 @@ static s32 jpegenc_probe(struct platform_device *pdev)
                 jenc_pr(LOG_INFO, "[%s:%d] get irq dos_mbox_slow_irq0, res_irq=%d\n", __FUNCTION__, __LINE__, res_irq);
                 break;
         }
+        #else
+        res_irq = platform_get_irq_byname(pdev, "dos_mbox_slow_irq2");
+        jenc_pr(LOG_INFO, "[%s:%d] get irq dos_mbox_slow_irq2, res_irq=%d\n", __FUNCTION__, __LINE__, res_irq);
+        #endif
     } else {
         res_irq = platform_get_irq(pdev, 0);
     }
@@ -5122,7 +5120,7 @@ static s32 jpegenc_probe(struct platform_device *pdev)
         jenc_pr(LOG_ERROR, "[%s] get irq error!", __func__);
         return -EINVAL;
     } else
-        jenc_pr(LOG_DEBUG, "[%s] get irq success: %d!, manual_irq_num=%d\n", __func__, res_irq, manual_irq_num);
+        jenc_pr(LOG_DEBUG, "[%s] get irq success: %d!\n", __func__, res_irq);
 
     gJpegenc.irq_num = res_irq;
 
@@ -5222,65 +5220,68 @@ static s32 __init jpegenc_mem_setup(struct reserved_mem *rmem)
     return 0;
 }
 
-module_param(simulation_enable, uint, 0664);
+MEDIA_PARAM(simulation_enable, uint, 0664);
 MODULE_PARM_DESC(simulation_enable, "\n simulation_enable\n");
 
-module_param(g_block_mode, uint, 0664);
+MEDIA_PARAM(g_block_mode, uint, 0664);
 MODULE_PARM_DESC(g_block_mode, "\n g_block_mode\n");
 
-module_param(g_canv0_stride, uint, 0664);
+MEDIA_PARAM(g_canv0_stride, uint, 0664);
 MODULE_PARM_DESC(g_canv0_stride, "\n g_canv0_stride\n");
 
-module_param(g_canv1_stride, uint, 0664);
+MEDIA_PARAM(g_canv1_stride, uint, 0664);
 MODULE_PARM_DESC(g_canv1_stride, "\n g_canv1_stride\n");
 
-module_param(g_canv2_stride, uint, 0664);
+MEDIA_PARAM(g_canv2_stride, uint, 0664);
 MODULE_PARM_DESC(g_canv2_stride, "\n g_canv2_stride\n");
 
-module_param(g_canvas_height, uint, 0664);
+MEDIA_PARAM(g_canvas_height, uint, 0664);
 MODULE_PARM_DESC(g_canvas_height, "\n g_canvas_height\n");
 
-module_param(clock_level, uint, 0664);
+MEDIA_PARAM(clock_level, uint, 0664);
 MODULE_PARM_DESC(clock_level, "\n clock_level\n");
 
-module_param(jpegenc_print_level, uint, 0664);
+MEDIA_PARAM(jpegenc_print_level, uint, 0664);
 MODULE_PARM_DESC(jpegenc_print_level, "\n jpegenc_print_level\n");
 
-module_param(reg_offset, int, 0664);
+MEDIA_PARAM(reg_offset, int, 0664);
 MODULE_PARM_DESC(reg_offset, "\n reg_offset\n");
 
-module_param(use_dma_io, uint, 0664);
-MODULE_PARM_DESC(use_dma_io, "\n use dma io or not\n");
-
-module_param(use_quality, uint, 0664);
+MEDIA_PARAM(use_quality, uint, 0664);
 MODULE_PARM_DESC(use_quality, "\n use_quality\n");
 
-module_param(legacy_load, uint, 0664);
+MEDIA_PARAM(legacy_load, uint, 0664);
 MODULE_PARM_DESC(legacy_load, "\n legacy_load\n");
 
-module_param(dumpmem_line, uint, 0664);
+MEDIA_PARAM(dumpmem_line, uint, 0664);
 MODULE_PARM_DESC(dumpmem_line, "\n dumpmem_line\n");
 
-module_param(pointer, uint, 0664);
-MODULE_PARM_DESC(pointer, "\n pointer\n");
+MEDIA_PARAM(dump_input, uint, 0664);
+MODULE_PARM_DESC(dump_input, "\n dump_input\n");
 
-/*######### DEBUG-BRINGUP#########*/
-module_param(manual_clock, uint, 0664);
-MODULE_PARM_DESC(manual_clock, "\n manual_clock\n");
-
-module_param(manual_irq_num, uint, 0664);
-MODULE_PARM_DESC(manual_irq_num, "\n manual_irq_num\n");
-
-module_param(manual_interrupt, uint, 0664);
-MODULE_PARM_DESC(manual_interrupt, "\n manual_interrupt\n");
-/*################################*/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry jpegenc_params[] = {
+    PARAM_UINT(simulation_enable),
+    PARAM_UINT(g_block_mode),
+    PARAM_UINT(g_canv0_stride),
+    PARAM_UINT(g_canv1_stride),
+    PARAM_UINT(g_canv2_stride),
+    PARAM_UINT(g_canvas_height),
+    PARAM_UINT(clock_level),
+    PARAM_UINT(jpegenc_print_level),
+    PARAM_INT(reg_offset),
+    PARAM_UINT(use_quality),
+    PARAM_UINT(legacy_load),
+    PARAM_UINT(dumpmem_line),
+    PARAM_UINT(dump_input),
+    { /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &jpegenc_params, 0644);
+#endif
 
 module_init(jpegenc_driver_init_module);
 module_exit(jpegenc_driver_remove_module);
 RESERVEDMEM_OF_DECLARE(jpegenc, "amlogic, jpegenc-memory", jpegenc_mem_setup);
-
-module_param(dump_input, uint, 0664);
-MODULE_PARM_DESC(dump_input, "\n dump_input\n");
 
 MODULE_DESCRIPTION("AMLOGIC JPEG Encoder Driver");
 MODULE_LICENSE("GPL");

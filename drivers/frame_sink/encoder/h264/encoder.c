@@ -128,7 +128,6 @@ static u32 no_timeout;
 static int nr_mode = -1;
 static u32 qp_table_debug;
 static u32 use_reset_control;
-static u32 use_ge2d;
 static u32 dump_input;
 static unsigned int enc_canvas_offset;
 
@@ -5384,167 +5383,248 @@ static s32 enc_free_buffers(struct file *filp)
 	return 0;
 }
 
-module_param(fixed_slice_cfg, uint, 0664);
+MEDIA_PARAM(fixed_slice_cfg, uint, 0664);
 MODULE_PARM_DESC(fixed_slice_cfg, "\n fixed_slice_cfg\n");
 
-module_param(clock_level, uint, 0664);
+MEDIA_PARAM(clock_level, uint, 0664);
 MODULE_PARM_DESC(clock_level, "\n clock_level\n");
 
-module_param(encode_print_level, uint, 0664);
+MEDIA_PARAM(encode_print_level, uint, 0664);
 MODULE_PARM_DESC(encode_print_level, "\n encode_print_level\n");
 
-module_param(no_timeout, uint, 0664);
+MEDIA_PARAM(no_timeout, uint, 0664);
 MODULE_PARM_DESC(no_timeout, "\n no_timeout flag for process request\n");
 
-module_param(nr_mode, int, 0664);
+MEDIA_PARAM(nr_mode, int, 0664);
 MODULE_PARM_DESC(nr_mode, "\n nr_mode option\n");
 
-module_param(qp_table_debug, uint, 0664);
+MEDIA_PARAM(qp_table_debug, uint, 0664);
 MODULE_PARM_DESC(qp_table_debug, "\n print qp table\n");
 
-module_param(use_reset_control, uint, 0664);
+MEDIA_PARAM(use_reset_control, uint, 0664);
 MODULE_PARM_DESC(use_reset_control, "\n use_reset_control\n");
 
-module_param(use_ge2d, uint, 0664);
-MODULE_PARM_DESC(use_ge2d, "\n use_ge2d\n");
-
-module_param(dump_input, uint, 0664);
+MEDIA_PARAM(dump_input, uint, 0664);
 MODULE_PARM_DESC(dump_input, "\n dump_input\n");
 
 #ifdef H264_ENC_SVC
-module_param(svc_enable, uint, 0664);
+MEDIA_PARAM(svc_enable, uint, 0664);
 MODULE_PARM_DESC(svc_enable, "\n svc enable\n");
-module_param(svc_ref_conf, uint, 0664);
+MEDIA_PARAM(svc_ref_conf, uint, 0664);
 MODULE_PARM_DESC(svc_ref_conf, "\n svc reference duration config\n");
 #endif
 
 #ifdef MORE_MODULE_PARAM
-module_param(me_mv_merge_ctl, uint, 0664);
+MEDIA_PARAM(me_mv_merge_ctl, uint, 0664);
 MODULE_PARM_DESC(me_mv_merge_ctl, "\n me_mv_merge_ctl\n");
 
-module_param(me_step0_close_mv, uint, 0664);
+MEDIA_PARAM(me_step0_close_mv, uint, 0664);
 MODULE_PARM_DESC(me_step0_close_mv, "\n me_step0_close_mv\n");
 
-module_param(me_f_skip_sad, uint, 0664);
+MEDIA_PARAM(me_f_skip_sad, uint, 0664);
 MODULE_PARM_DESC(me_f_skip_sad, "\n me_f_skip_sad\n");
 
-module_param(me_f_skip_weight, uint, 0664);
+MEDIA_PARAM(me_f_skip_weight, uint, 0664);
 MODULE_PARM_DESC(me_f_skip_weight, "\n me_f_skip_weight\n");
 
-module_param(me_mv_weight_01, uint, 0664);
+MEDIA_PARAM(me_mv_weight_01, uint, 0664);
 MODULE_PARM_DESC(me_mv_weight_01, "\n me_mv_weight_01\n");
 
-module_param(me_mv_weight_23, uint, 0664);
+MEDIA_PARAM(me_mv_weight_23, uint, 0664);
 MODULE_PARM_DESC(me_mv_weight_23, "\n me_mv_weight_23\n");
 
-module_param(me_sad_range_inc, uint, 0664);
+MEDIA_PARAM(me_sad_range_inc, uint, 0664);
 MODULE_PARM_DESC(me_sad_range_inc, "\n me_sad_range_inc\n");
 
-module_param(me_sad_enough_01, uint, 0664);
+MEDIA_PARAM(me_sad_enough_01, uint, 0664);
 MODULE_PARM_DESC(me_sad_enough_01, "\n me_sad_enough_01\n");
 
-module_param(me_sad_enough_23, uint, 0664);
+MEDIA_PARAM(me_sad_enough_23, uint, 0664);
 MODULE_PARM_DESC(me_sad_enough_23, "\n me_sad_enough_23\n");
 
-module_param(y_tnr_mc_en, uint, 0664);
+MEDIA_PARAM(y_tnr_mc_en, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mc_en, "\n y_tnr_mc_en option\n");
-module_param(y_tnr_txt_mode, uint, 0664);
+MEDIA_PARAM(y_tnr_txt_mode, uint, 0664);
 MODULE_PARM_DESC(y_tnr_txt_mode, "\n y_tnr_txt_mode option\n");
-module_param(y_tnr_mot_sad_margin, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_sad_margin, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_sad_margin, "\n y_tnr_mot_sad_margin option\n");
-module_param(y_tnr_mot_cortxt_rate, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_cortxt_rate, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_cortxt_rate, "\n y_tnr_mot_cortxt_rate option\n");
-module_param(y_tnr_mot_distxt_ofst, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_distxt_ofst, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_distxt_ofst, "\n y_tnr_mot_distxt_ofst option\n");
-module_param(y_tnr_mot_distxt_rate, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_distxt_rate, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_distxt_rate, "\n y_tnr_mot_distxt_rate option\n");
-module_param(y_tnr_mot_dismot_ofst, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_dismot_ofst, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_dismot_ofst, "\n y_tnr_mot_dismot_ofst option\n");
-module_param(y_tnr_mot_frcsad_lock, uint, 0664);
+MEDIA_PARAM(y_tnr_mot_frcsad_lock, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot_frcsad_lock, "\n y_tnr_mot_frcsad_lock option\n");
-module_param(y_tnr_mot2alp_frc_gain, uint, 0664);
+MEDIA_PARAM(y_tnr_mot2alp_frc_gain, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot2alp_frc_gain, "\n y_tnr_mot2alp_frc_gain option\n");
-module_param(y_tnr_mot2alp_nrm_gain, uint, 0664);
+MEDIA_PARAM(y_tnr_mot2alp_nrm_gain, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot2alp_nrm_gain, "\n y_tnr_mot2alp_nrm_gain option\n");
-module_param(y_tnr_mot2alp_dis_gain, uint, 0664);
+MEDIA_PARAM(y_tnr_mot2alp_dis_gain, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot2alp_dis_gain, "\n y_tnr_mot2alp_dis_gain option\n");
-module_param(y_tnr_mot2alp_dis_ofst, uint, 0664);
+MEDIA_PARAM(y_tnr_mot2alp_dis_ofst, uint, 0664);
 MODULE_PARM_DESC(y_tnr_mot2alp_dis_ofst, "\n y_tnr_mot2alp_dis_ofst option\n");
-module_param(y_tnr_alpha_min, uint, 0664);
+MEDIA_PARAM(y_tnr_alpha_min, uint, 0664);
 MODULE_PARM_DESC(y_tnr_alpha_min, "\n y_tnr_alpha_min option\n");
-module_param(y_tnr_alpha_max, uint, 0664);
+MEDIA_PARAM(y_tnr_alpha_max, uint, 0664);
 MODULE_PARM_DESC(y_tnr_alpha_max, "\n y_tnr_alpha_max option\n");
-module_param(y_tnr_deghost_os, uint, 0664);
+MEDIA_PARAM(y_tnr_deghost_os, uint, 0664);
 MODULE_PARM_DESC(y_tnr_deghost_os, "\n y_tnr_deghost_os option\n");
 
-module_param(c_tnr_mc_en, uint, 0664);
+MEDIA_PARAM(c_tnr_mc_en, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mc_en, "\n c_tnr_mc_en option\n");
-module_param(c_tnr_txt_mode, uint, 0664);
+MEDIA_PARAM(c_tnr_txt_mode, uint, 0664);
 MODULE_PARM_DESC(c_tnr_txt_mode, "\n c_tnr_txt_mode option\n");
-module_param(c_tnr_mot_sad_margin, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_sad_margin, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_sad_margin, "\n c_tnr_mot_sad_margin option\n");
-module_param(c_tnr_mot_cortxt_rate, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_cortxt_rate, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_cortxt_rate, "\n c_tnr_mot_cortxt_rate option\n");
-module_param(c_tnr_mot_distxt_ofst, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_distxt_ofst, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_distxt_ofst, "\n c_tnr_mot_distxt_ofst option\n");
-module_param(c_tnr_mot_distxt_rate, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_distxt_rate, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_distxt_rate, "\n c_tnr_mot_distxt_rate option\n");
-module_param(c_tnr_mot_dismot_ofst, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_dismot_ofst, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_dismot_ofst, "\n c_tnr_mot_dismot_ofst option\n");
-module_param(c_tnr_mot_frcsad_lock, uint, 0664);
+MEDIA_PARAM(c_tnr_mot_frcsad_lock, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot_frcsad_lock, "\n c_tnr_mot_frcsad_lock option\n");
-module_param(c_tnr_mot2alp_frc_gain, uint, 0664);
+MEDIA_PARAM(c_tnr_mot2alp_frc_gain, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot2alp_frc_gain, "\n c_tnr_mot2alp_frc_gain option\n");
-module_param(c_tnr_mot2alp_nrm_gain, uint, 0664);
+MEDIA_PARAM(c_tnr_mot2alp_nrm_gain, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot2alp_nrm_gain, "\n c_tnr_mot2alp_nrm_gain option\n");
-module_param(c_tnr_mot2alp_dis_gain, uint, 0664);
+MEDIA_PARAM(c_tnr_mot2alp_dis_gain, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot2alp_dis_gain, "\n c_tnr_mot2alp_dis_gain option\n");
-module_param(c_tnr_mot2alp_dis_ofst, uint, 0664);
+MEDIA_PARAM(c_tnr_mot2alp_dis_ofst, uint, 0664);
 MODULE_PARM_DESC(c_tnr_mot2alp_dis_ofst, "\n c_tnr_mot2alp_dis_ofst option\n");
-module_param(c_tnr_alpha_min, uint, 0664);
+MEDIA_PARAM(c_tnr_alpha_min, uint, 0664);
 MODULE_PARM_DESC(c_tnr_alpha_min, "\n c_tnr_alpha_min option\n");
-module_param(c_tnr_alpha_max, uint, 0664);
+MEDIA_PARAM(c_tnr_alpha_max, uint, 0664);
 MODULE_PARM_DESC(c_tnr_alpha_max, "\n c_tnr_alpha_max option\n");
-module_param(c_tnr_deghost_os, uint, 0664);
+MEDIA_PARAM(c_tnr_deghost_os, uint, 0664);
 MODULE_PARM_DESC(c_tnr_deghost_os, "\n c_tnr_deghost_os option\n");
 
-module_param(y_snr_err_norm, uint, 0664);
+MEDIA_PARAM(y_snr_err_norm, uint, 0664);
 MODULE_PARM_DESC(y_snr_err_norm, "\n y_snr_err_norm option\n");
-module_param(y_snr_gau_bld_core, uint, 0664);
+MEDIA_PARAM(y_snr_gau_bld_core, uint, 0664);
 MODULE_PARM_DESC(y_snr_gau_bld_core, "\n y_snr_gau_bld_core option\n");
-module_param(y_snr_gau_bld_ofst, int, 0664);
+MEDIA_PARAM(y_snr_gau_bld_ofst, int, 0664);
 MODULE_PARM_DESC(y_snr_gau_bld_ofst, "\n y_snr_gau_bld_ofst option\n");
-module_param(y_snr_gau_bld_rate, uint, 0664);
+MEDIA_PARAM(y_snr_gau_bld_rate, uint, 0664);
 MODULE_PARM_DESC(y_snr_gau_bld_rate, "\n y_snr_gau_bld_rate option\n");
-module_param(y_snr_gau_alp0_min, uint, 0664);
+MEDIA_PARAM(y_snr_gau_alp0_min, uint, 0664);
 MODULE_PARM_DESC(y_snr_gau_alp0_min, "\n y_snr_gau_alp0_min option\n");
-module_param(y_snr_gau_alp0_max, uint, 0664);
+MEDIA_PARAM(y_snr_gau_alp0_max, uint, 0664);
 MODULE_PARM_DESC(y_snr_gau_alp0_max, "\n y_snr_gau_alp0_max option\n");
-module_param(y_bld_beta2alp_rate, uint, 0664);
+MEDIA_PARAM(y_bld_beta2alp_rate, uint, 0664);
 MODULE_PARM_DESC(y_bld_beta2alp_rate, "\n y_bld_beta2alp_rate option\n");
-module_param(y_bld_beta_min, uint, 0664);
+MEDIA_PARAM(y_bld_beta_min, uint, 0664);
 MODULE_PARM_DESC(y_bld_beta_min, "\n y_bld_beta_min option\n");
-module_param(y_bld_beta_max, uint, 0664);
+MEDIA_PARAM(y_bld_beta_max, uint, 0664);
 MODULE_PARM_DESC(y_bld_beta_max, "\n y_bld_beta_max option\n");
 
-module_param(c_snr_err_norm, uint, 0664);
+MEDIA_PARAM(c_snr_err_norm, uint, 0664);
 MODULE_PARM_DESC(c_snr_err_norm, "\n c_snr_err_norm option\n");
-module_param(c_snr_gau_bld_core, uint, 0664);
+MEDIA_PARAM(c_snr_gau_bld_core, uint, 0664);
 MODULE_PARM_DESC(c_snr_gau_bld_core, "\n c_snr_gau_bld_core option\n");
-module_param(c_snr_gau_bld_ofst, int, 0664);
+MEDIA_PARAM(c_snr_gau_bld_ofst, int, 0664);
 MODULE_PARM_DESC(c_snr_gau_bld_ofst, "\n c_snr_gau_bld_ofst option\n");
-module_param(c_snr_gau_bld_rate, uint, 0664);
+MEDIA_PARAM(c_snr_gau_bld_rate, uint, 0664);
 MODULE_PARM_DESC(c_snr_gau_bld_rate, "\n c_snr_gau_bld_rate option\n");
-module_param(c_snr_gau_alp0_min, uint, 0664);
+MEDIA_PARAM(c_snr_gau_alp0_min, uint, 0664);
 MODULE_PARM_DESC(c_snr_gau_alp0_min, "\n c_snr_gau_alp0_min option\n");
-module_param(c_snr_gau_alp0_max, uint, 0664);
+MEDIA_PARAM(c_snr_gau_alp0_max, uint, 0664);
 MODULE_PARM_DESC(c_snr_gau_alp0_max, "\n c_snr_gau_alp0_max option\n");
-module_param(c_bld_beta2alp_rate, uint, 0664);
+MEDIA_PARAM(c_bld_beta2alp_rate, uint, 0664);
 MODULE_PARM_DESC(c_bld_beta2alp_rate, "\n c_bld_beta2alp_rate option\n");
-module_param(c_bld_beta_min, uint, 0664);
+MEDIA_PARAM(c_bld_beta_min, uint, 0664);
 MODULE_PARM_DESC(c_bld_beta_min, "\n c_bld_beta_min option\n");
-module_param(c_bld_beta_max, uint, 0664);
+MEDIA_PARAM(c_bld_beta_max, uint, 0664);
 MODULE_PARM_DESC(c_bld_beta_max, "\n c_bld_beta_max option\n");
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry encoder_params[] = {
+	PARAM_UINT(fixed_slice_cfg),
+	PARAM_UINT(clock_level),
+	PARAM_UINT(encode_print_level),
+	PARAM_UINT(no_timeout),
+	PARAM_INT(nr_mode),
+	PARAM_UINT(qp_table_debug),
+	PARAM_UINT(use_reset_control),
+	PARAM_UINT(dump_input),
+
+#ifdef H264_ENC_SVC
+	PARAM_UINT(svc_enable),
+	PARAM_UINT(svc_ref_conf),
+#endif
+
+#ifdef MORE_MODULE_PARAM
+	PARAM_UINT(me_mv_merge_ctl),
+	PARAM_UINT(me_step0_close_mv),
+	PARAM_UINT(me_f_skip_sad),
+	PARAM_UINT(me_f_skip_weight),
+	PARAM_UINT(me_mv_weight_01),
+	PARAM_UINT(me_mv_weight_23),
+	PARAM_UINT(me_sad_range_inc),
+	PARAM_UINT(me_sad_enough_01),
+	PARAM_UINT(me_sad_enough_23),
+
+	PARAM_UINT(y_tnr_mc_en),
+	PARAM_UINT(y_tnr_txt_mode),
+	PARAM_UINT(y_tnr_mot_sad_margin),
+	PARAM_UINT(y_tnr_mot_cortxt_rate),
+	PARAM_UINT(y_tnr_mot_distxt_ofst),
+	PARAM_UINT(y_tnr_mot_distxt_rate),
+	PARAM_UINT(y_tnr_mot_dismot_ofst),
+	PARAM_UINT(y_tnr_mot_frcsad_lock),
+	PARAM_UINT(y_tnr_mot2alp_frc_gain),
+	PARAM_UINT(y_tnr_mot2alp_nrm_gain),
+	PARAM_UINT(y_tnr_mot2alp_dis_gain),
+	PARAM_UINT(y_tnr_mot2alp_dis_ofst),
+	PARAM_UINT(y_tnr_alpha_min),
+	PARAM_UINT(y_tnr_alpha_max),
+	PARAM_UINT(y_tnr_deghost_os),
+
+	PARAM_UINT(c_tnr_mc_en),
+	PARAM_UINT(c_tnr_txt_mode),
+	PARAM_UINT(c_tnr_mot_sad_margin),
+	PARAM_UINT(c_tnr_mot_cortxt_rate),
+	PARAM_UINT(c_tnr_mot_distxt_ofst),
+	PARAM_UINT(c_tnr_mot_distxt_rate),
+	PARAM_UINT(c_tnr_mot_dismot_ofst),
+	PARAM_UINT(c_tnr_mot_frcsad_lock),
+	PARAM_UINT(c_tnr_mot2alp_frc_gain),
+	PARAM_UINT(c_tnr_mot2alp_nrm_gain),
+	PARAM_UINT(c_tnr_mot2alp_dis_gain),
+	PARAM_UINT(c_tnr_mot2alp_dis_ofst),
+	PARAM_UINT(c_tnr_alpha_min),
+	PARAM_UINT(c_tnr_alpha_max),
+	PARAM_UINT(c_tnr_deghost_os),
+
+	PARAM_UINT(y_snr_err_norm),
+	PARAM_UINT(y_snr_gau_bld_core),
+	PARAM_INT(y_snr_gau_bld_ofst),
+	PARAM_UINT(y_snr_gau_bld_rate),
+	PARAM_UINT(y_snr_gau_alp0_min),
+	PARAM_UINT(y_snr_gau_alp0_max),
+	PARAM_UINT(y_bld_beta2alp_rate),
+	PARAM_UINT(y_bld_beta_min),
+	PARAM_UINT(y_bld_beta_max),
+
+	PARAM_UINT(c_snr_err_norm),
+	PARAM_UINT(c_snr_gau_bld_core),
+	PARAM_INT(c_snr_gau_bld_ofst),
+	PARAM_UINT(c_snr_gau_bld_rate),
+	PARAM_UINT(c_snr_gau_alp0_min),
+	PARAM_UINT(c_snr_gau_alp0_max),
+	PARAM_UINT(c_bld_beta2alp_rate),
+	PARAM_UINT(c_bld_beta_min),
+	PARAM_UINT(c_bld_beta_max),
+#endif
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &encoder_params, 0644);
 #endif
 
 module_init(amvenc_avc_driver_init_module);

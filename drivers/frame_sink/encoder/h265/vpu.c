@@ -2868,20 +2868,32 @@ static s32 __init hevc_mem_setup(struct reserved_mem *rmem)
 	return 0;
 }
 
-module_param(print_level, uint, 0664);
+MEDIA_PARAM(print_level, uint, 0664);
 MODULE_PARM_DESC(print_level, "\n print_level\n");
 
-module_param(clock_level, uint, 0664);
+MEDIA_PARAM(clock_level, uint, 0664);
 MODULE_PARM_DESC(clock_level, "\n clock_level\n");
 
-module_param(wave_clocka, uint, 0664);
+MEDIA_PARAM(wave_clocka, uint, 0664);
 MODULE_PARM_DESC(wave_clocka, "\n wave_clocka\n");
 
-module_param(wave_clockb, uint, 0664);
+MEDIA_PARAM(wave_clockb, uint, 0664);
 MODULE_PARM_DESC(wave_clockb, "\n wave_clockb\n");
 
-module_param(wave_clockc, uint, 0664);
+MEDIA_PARAM(wave_clockc, uint, 0664);
 MODULE_PARM_DESC(wave_clockc, "\n wave_clockc\n");
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry vpu_params[] = {
+	PARAM_UINT(print_level),
+	PARAM_UINT(clock_level),
+	PARAM_UINT(wave_clocka),
+	PARAM_UINT(wave_clockb),
+	PARAM_UINT(wave_clockc),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &vpu_params, 0644);
+#endif
 
 MODULE_AUTHOR("Amlogic using C&M VPU, Inc.");
 MODULE_DESCRIPTION("VPU linux driver");

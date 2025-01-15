@@ -95,7 +95,6 @@
 	} while (0)
 
 static s32 print_level = LOG_ERROR;
-static s32 clock_level = 4;
 static s32 clock_gate_count = 0;
 static u32 set_clock_freq = 0;
 
@@ -3538,32 +3537,44 @@ static s32 __init multienc_mem_setup(struct reserved_mem *rmem)
 	return 0;
 }
 
-module_param(print_level, uint, 0664);
+MEDIA_PARAM(print_level, uint, 0664);
 MODULE_PARM_DESC(print_level, "\n print_level\n");
 
-module_param(clock_level, uint, 0664);
-MODULE_PARM_DESC(clock_level, "\n clock_level\n");
-
-module_param(clock_gate_count, uint, 0664);
+MEDIA_PARAM(clock_gate_count, uint, 0664);
 MODULE_PARM_DESC(clock_gate_count, "\n clock_gate_count\n");
 
-module_param(set_clock_freq, uint, 0664);
+MEDIA_PARAM(set_clock_freq, uint, 0664);
 MODULE_PARM_DESC(set_clock_freq, "\n set clk freq\n");
 
-module_param(clock_a, uint, 0664);
+MEDIA_PARAM(clock_a, uint, 0664);
 MODULE_PARM_DESC(clock_a, "\n clock_a\n");
 
-module_param(clock_b, uint, 0664);
+MEDIA_PARAM(clock_b, uint, 0664);
 MODULE_PARM_DESC(clock_b, "\n clock_b\n");
 
-module_param(clock_c, uint, 0664);
+MEDIA_PARAM(clock_c, uint, 0664);
 MODULE_PARM_DESC(clock_c, "\n clock_c\n");
 
-module_param(dump_input, uint, 0664);
+MEDIA_PARAM(dump_input, uint, 0664);
 MODULE_PARM_DESC(dump_input, "\n dump_input\n");
 
-module_param(dump_es, uint, 0664);
+MEDIA_PARAM(dump_es, uint, 0664);
 MODULE_PARM_DESC(dump_es, "\n dump_es\n");
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+static struct param_entry vpu_multi_params[] = {
+	PARAM_UINT(print_level),
+	PARAM_UINT(clock_gate_count),
+	PARAM_UINT(set_clock_freq),
+	PARAM_UINT(clock_a),
+	PARAM_UINT(clock_b),
+	PARAM_UINT(clock_c),
+	PARAM_UINT(dump_input),
+	PARAM_UINT(dump_es),
+	{ /* sentinel */ }
+};
+module_param_cb(params, &key_value_param_ops, &vpu_multi_params, 0644);
+#endif
 
 MODULE_AUTHOR("Amlogic Inc.");
 MODULE_DESCRIPTION("VPU linux driver");

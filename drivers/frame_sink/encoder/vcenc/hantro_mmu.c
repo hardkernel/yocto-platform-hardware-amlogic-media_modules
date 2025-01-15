@@ -193,8 +193,8 @@ unsigned int simple_map;
 unsigned int map_shift;
 
 /* module_param(name, type, perm) */
-module_param(simple_map, uint, 0);
-module_param(map_shift, uint, 0);
+/*module_param(simple_map, uint, 0);*/
+/*module_param(map_shift, uint, 0);*/
 
 enum MMURegion {
     MMU_REGION_IN,
