@@ -745,15 +745,16 @@ static int v4l_res_change(struct vdec_vc1_hw_s *hw)
 
 			vvc1_get_ps_info(hw, &ps);
 			vdec_v4l_set_ps_infos(ctx, &ps);
+			ctx->v4l_resolution_change = 1;
 			vdec_v4l_res_ch_event(ctx);
 			ctx->decoder_status_info.frame_height = ps.visible_height;
 			ctx->decoder_status_info.frame_width = ps.visible_width;
 
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
-			ctx->v4l_resolution_change = 1;
 			flush_output(hw);
 			notify_v4l_eos();
+			ctx->vdec_configure_update(ctx);
 			ret = 1;
 		}
 	}

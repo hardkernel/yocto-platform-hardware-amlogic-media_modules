@@ -2388,13 +2388,14 @@ static int v4l_res_change(struct vdec_mpeg12_hw_s *hw, int width, int height, bo
 				height);
 			vmpeg2_get_ps_info(hw, width, height, frame_prog, &ps);
 			vdec_v4l_set_ps_infos(ctx, &ps);
+			ctx->v4l_resolution_change = 1;
 			vdec_v4l_res_ch_event(ctx);
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
-			ctx->v4l_resolution_change = 1;
 			flush_output(hw);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hw));
+			ctx->vdec_configure_update(ctx);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 
 			ret = 1;

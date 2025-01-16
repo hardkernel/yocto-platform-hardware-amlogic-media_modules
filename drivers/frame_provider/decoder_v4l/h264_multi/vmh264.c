@@ -11783,6 +11783,7 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 			flush_dpb(p_H264_Dpb);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hw));
+			ctx->vdec_configure_update(ctx);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 			ret = 1;
 		}

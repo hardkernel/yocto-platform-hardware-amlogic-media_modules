@@ -248,6 +248,9 @@ static void buf_core_init_dma(struct buf_core_mgr_s *bc)
 	if (!bm->config.dynamic_mode)
 		goto out;
 
+	if (bc->is_dynamic_mode_init(bc))
+		goto out;
+
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = vzalloc(sizeof(struct buf_core_dma));
 		if (dma == NULL) {
@@ -363,7 +366,7 @@ out:
 
 static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 {
-	struct buf_core_dma *dma = NULL, *tmp;
+	struct buf_core_dma *dma = NULL;
 	int i, j;
 
 	mutex_lock(&bc->dma_mutex);
@@ -377,35 +380,23 @@ static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 		for (j = 0; j < FIELD_NUM; j++) {
 			if (dma->uvm_dma[j] == uvm_dma) {
 				dma->uvm_dma[j] = 0;
+				if (!dma->uvm_dma[0] && !dma->uvm_dma[1] && !dma->uvm_dma[2]) {
+					while (bc->dma[i]->dma_ref) {
+						v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+						"%s, uvmdmabuf:%lx, idmabuf:%lx dma release!\n",__func__,uvm_dma, dma->dmabuf);
+						dma_buf_put((struct dma_buf *)dma->dmabuf);
+						dma->dma_ref--;
+					}
+					dma->dmabuf = 0;
+					dma->phy_addr = 0;
+					dma->used = 0;
+					dma->inited = 0;
+					atomic_set(&bc->dma[i]->ref, 0);
+				}
 				break;
 			}
 		}
-
-		if (dma->inited) {
-			if (!dma->uvm_dma[0] && !dma->uvm_dma[1] && !dma->uvm_dma[2]) {
-				while (bc->dma[i]->dma_ref) {
-					v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-					"%s, idmabuf:%lx \n", __func__, dma->dmabuf);
-					dma_buf_put((struct dma_buf *)dma->dmabuf);
-					dma->dma_ref--;
-				}
-				dma->dmabuf = 0;
-				dma->phy_addr = 0;
-				dma->used = 0;
-				dma->inited = 0;
-				atomic_set(&bc->dma[i]->ref, 0);
-			}
-			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-					"%s, uvmdmabuf:%lx idmabuf:%lx \n",
-					__func__,uvm_dma, dma->dmabuf);
-		}
 	}
-
-	list_for_each_entry_safe(dma, tmp, &bc->dma_free_que, node) {
-		list_del(&dma->node);
-	}
-
-	bc->dma_free_num = 0;
 
 out:
 	mutex_unlock(&bc->dma_mutex);
@@ -593,12 +584,57 @@ out:
 	mutex_unlock(&bc->dma_mutex);
 }
 
+static void buf_core_clean_dma(struct buf_core_mgr_s *bc)
+{
+	struct buf_core_dma *dma = NULL, *tmp;
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bc->is_dynamic_mode_init(bc))
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		dma = bc->dma[i];
+		if (!dma->dmabuf)
+			continue;
+
+		if (dma->inited) {
+			while (bc->dma[i]->dma_ref) {
+				v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s, idmabuf:%lx \n", __func__, dma->dmabuf);
+				dma_buf_put((struct dma_buf *)dma->dmabuf);
+				dma->dma_ref--;
+			}
+
+			dma->uvm_dma[0] = 0;
+			dma->uvm_dma[1] = 0;
+			dma->uvm_dma[2] = 0;
+			dma->dmabuf = 0;
+			dma->phy_addr = 0;
+			dma->used = 0;
+			dma->inited = 0;
+			atomic_set(&bc->dma[i]->ref, 0);
+		}
+	}
+
+	if (!list_empty(&bc->dma_free_que)) {
+		list_for_each_entry_safe(dma, tmp, &bc->dma_free_que, node)
+			list_del(&dma->node);
+	}
+
+	bc->dma_free_num = 0;
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
 static void buf_core_free_que(struct buf_core_mgr_s *bc,
 			     struct buf_core_entry *entry)
 {
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
 		__func__,
+		entry,
 		entry->user,
 		entry->key,
 		entry->phy_addr,
@@ -665,8 +701,10 @@ static void buf_core_get(struct buf_core_mgr_s *bc,
 	}
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
-		__func__, user,
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		__func__,
+		entry,
+		user,
 		entry->key,
 		entry->phy_addr,
 		entry->index,
@@ -835,8 +873,9 @@ static void buf_core_get_ref(struct buf_core_mgr_s *bc,
 	buf_core_update_holder(bc, entry, BUF_USER_DEC, BUF_GET);
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
 		__func__,
+		entry,
 		entry->user,
 		entry->key,
 		entry->phy_addr,
@@ -879,8 +918,9 @@ static void buf_core_put_ref(struct buf_core_mgr_s *bc,
 	}
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
 		__func__,
+		entry,
 		entry->user,
 		entry->key,
 		entry->phy_addr,
@@ -929,8 +969,10 @@ static int buf_core_done(struct buf_core_mgr_s *bc,
 
 out:
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
-		__func__, user,
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		__func__,
+		entry,
+		user,
 		entry->key,
 		entry->phy_addr,
 		entry->index,
@@ -979,8 +1021,10 @@ static void buf_core_fill(struct buf_core_mgr_s *bc,
 		entry = entry->master_entry;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
-		__func__, user,
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+		__func__,
+		entry,
+		user,
 		entry->key,
 		entry->phy_addr,
 		entry->index,
@@ -1238,8 +1282,9 @@ static int buf_core_attach(struct buf_core_mgr_s *bc, ulong key,
 		}
 	}
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d, %d), free:%d\n",
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d, %d), free:%d\n",
 		__func__,
+		entry,
 		entry->user,
 		entry->key,
 		entry->phy_addr,
@@ -1266,8 +1311,9 @@ static void buf_core_detach(struct buf_core_mgr_s *bc, ulong key)
 	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
 		if (key == entry->key) {
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-				"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+				"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
 				__func__,
+				entry,
 				entry->user,
 				entry->key,
 				entry->phy_addr,
@@ -1539,6 +1585,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->buf_ops.release_dma	= buf_core_release_dma;
 	bc->buf_ops.init_dma	= buf_core_init_dma;
 	bc->buf_ops.deinit_dma	= buf_core_deinit_dma;
+	bc->buf_ops.clean_dma	= buf_core_clean_dma;
 	bc->buf_ops.dmabuf_slot_occupied = buf_core_dmabuf_slot_occupied;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);

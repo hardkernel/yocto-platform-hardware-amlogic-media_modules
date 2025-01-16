@@ -965,6 +965,14 @@ static void aml_buf_configure(struct buf_core_mgr_s *bc, void *cfg)
 	bm->config = *(struct aml_buf_config *)cfg;
 }
 
+static void aml_buf_get_cfg(struct buf_core_mgr_s *bc, void *cfg)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	struct aml_buf_config *config = (struct aml_buf_config *)cfg;
+
+	*config = bm->config;
+}
+
 static void aml_external_process(struct buf_core_mgr_s *bc,
 				struct buf_core_entry *entry)
 {
@@ -1110,13 +1118,14 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 	ulong bucket;
 	struct aml_buf *buf;
 
-	*entry = NULL;
 	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
+	*entry = NULL;
 	hash_for_each_safe(bc->buf_table, bucket, h_tmp, entry1, h_node) {
 		if (entry1->unbind) {
 			v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-				"%s, user:%d, key:%lx, st:(%d, %d), ref:(%d, %d), free:%d\n",
+				"%s(entry %px), user:%d, key:%lx, st:(%d, %d), ref:(%d, %d), free:%d\n",
 				__func__,
+				entry,
 				entry1->user,
 				entry1->key,
 				entry1->state,
@@ -1131,6 +1140,7 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 			entry1->pair_state = 0;
 			entry1->inited = 0;
 			entry1->unbind = false;
+			atomic_set(&entry1->ref, 1);
 
 			buf = entry_to_aml_buf(entry1);
 			buf->is_delay_allocated = false;
@@ -1138,12 +1148,12 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 			buf->pair = 0;
 			buf->pair_state = 0;
 			buf->inited = 0;
-			bc->buf_ops.get_ref(bc, entry1);
 
 			*entry = entry1;
 			break;
 		}
 	}
+	mutex_unlock(&bc->mutex);
 }
 
 static void aml_set_unbind_dmabuf(struct buf_core_mgr_s *bc, ulong key)
@@ -1155,9 +1165,10 @@ static void aml_set_unbind_dmabuf(struct buf_core_mgr_s *bc, ulong key)
 	hash_for_each_possible_safe(bc->buf_table, entry, tmp, h_node, key) {
 		if (key == entry->key) {
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-				"%s, user:%d, key:%lx, phy:%lx idx:%d, "
+				"%s(entry %px), user:%d, key:%lx, phy:%lx idx:%d, "
 				"st:(%d, %d), ref:(%d, %d, %d), free:%d\n",
 				__func__,
+				entry,
 				entry->user,
 				entry->key,
 				entry->phy_addr,
@@ -1245,6 +1256,7 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 	bm->get_fbc_info	= aml_buf_get_fbc_info;
 
 	bm->bc.config		= aml_buf_configure;
+	bm->bc.get_config	= aml_buf_get_cfg;
 	bm->bc.prepare		= aml_buf_prepare;
 	bm->bc.input		= aml_buf_input;
 	bm->bc.output		= aml_buf_output;

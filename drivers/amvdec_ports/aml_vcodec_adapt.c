@@ -42,6 +42,7 @@
 #include "aml_vcodec_ts.h"
 #include <linux/crc32.h>
 #include "../common/media_utils/media_utils.h"
+#include "../frame_provider/decoder/utils/aml_buf_helper.h"
 
 #define DEFAULT_VIDEO_BUFFER_SIZE		(1024 * 1024 * 3)
 #define DEFAULT_VIDEO_BUFFER_SIZE_4K		(1024 * 1024 * 6)
@@ -549,9 +550,11 @@ int aml_codec_reset(struct aml_vdec_adapt *ada_ctx, int *mode)
 	int ret = 0;
 
 	if (vdec) {
-		if (ada_ctx->ctx->v4l_resolution_change)
+		if (ada_ctx->ctx->v4l_resolution_change) {
 			*mode = V4L_RESET_MODE_LIGHT;
-		else
+			aml_buf_init_dma(&ada_ctx->ctx->bm);
+			aml_buf_clean_dma(&ada_ctx->ctx->bm);
+		} else
 			vdec_set_eos(vdec, false);
 
 		v4l_dbg(ada_ctx->ctx, V4L_DEBUG_CODEC_PRINFO,

@@ -277,6 +277,7 @@ struct buf_core_ops {
 	void 	(*get_dma_ref)(struct buf_core_mgr_s *, ulong, u32);
 	int 	(*alloc_dma)(struct buf_core_mgr_s *, struct buf_core_dma **);
 	void 	(*release_dma)(struct buf_core_mgr_s *, ulong);
+	void 	(*clean_dma)(struct buf_core_mgr_s *);
 	void 	(*init_dma)(struct buf_core_mgr_s *);
 	void 	(*deinit_dma)(struct buf_core_mgr_s *);
 	bool 	(*dmabuf_slot_occupied)(struct buf_core_mgr_s *);
@@ -377,6 +378,7 @@ struct buf_core_mgr_s {
 	struct buf_core_dma 	*dma[DAMBUF_POOL];
 
 	void	(*config)(struct buf_core_mgr_s *, void *);
+	void	(*get_config)(struct buf_core_mgr_s *, void *);
 	int	(*attach)(struct buf_core_mgr_s *, ulong, ulong, void *);
 	void	(*detach)(struct buf_core_mgr_s *, ulong);
 	void	(*reset)(struct buf_core_mgr_s *);

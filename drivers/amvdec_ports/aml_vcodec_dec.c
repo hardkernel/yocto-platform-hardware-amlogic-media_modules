@@ -743,7 +743,7 @@ static u32 v4l_buf_size_decision(struct aml_vcodec_ctx *ctx)
 	return total_size;
 }
 
-static void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
+void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 {
 	struct aml_buf_config config = {0};
 	struct vb2_queue * que = v4l2_m2m_get_dst_vq(ctx->m2m_ctx);
@@ -830,6 +830,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 
 	v4l_buf_size_decision(ctx);
 
+	aml_buf_get_configure(&ctx->bm, &config);
 	config.enable_extbuf	= true;
 	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
@@ -842,7 +843,8 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	config.dw_mode			= dw;
 	config.tw_mode			= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
-	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
+	if (!ctx->v4l_resolution_change)
+		config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 
 	aml_buf_configure(&ctx->bm, &config);
 
@@ -2855,6 +2857,7 @@ void aml_vcodec_dec_release(struct aml_vcodec_ctx *ctx)
 
 	vdec_if_deinit(ctx);
 	aml_buf_release_avbcd_buf(&ctx->bm);
+	aml_buf_clean_dma(&ctx->bm);
 }
 
 void aml_vcodec_dec_set_default_params(struct aml_vcodec_ctx *ctx)

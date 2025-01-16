@@ -1083,6 +1083,7 @@ struct aml_vcodec_ctx {
 	struct aml_vpp_cfg_infos 	vpp_cfg;
 	void (*vdec_pic_info_update)(struct aml_vcodec_ctx *ctx);
 	int (*aml_avbc_decode)(struct avbc_output *, struct avbc_input *, u32);
+	void (*vdec_configure_update)(struct aml_vcodec_ctx *ctx);
 	bool				vpp_is_need;
 	struct list_head		task_chain_pool;
 	struct meta_info		meta_infos;

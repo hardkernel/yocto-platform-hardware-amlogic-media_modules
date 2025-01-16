@@ -161,6 +161,7 @@ static int fops_vcodec_open(struct file *file)
 	ctx->cal_compress_buff_info = cal_compress_buff_info;
 	ctx->fbc_transcode_and_set_vf = fbc_transcode_and_set_vf;
 	ctx->aml_avbc_decode = aml_avbc_decode;
+	ctx->vdec_configure_update = aml_buf_configure_update;
 	aml_vcodec_dec_set_default_params(ctx);
 	ctx->is_stream_off = true;
 	ctx->set_ext_buf_flg = false;

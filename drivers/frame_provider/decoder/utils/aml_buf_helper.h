@@ -37,15 +37,33 @@ static inline void aml_buf_configure(struct aml_buf_mgr_s *bm,
 }
 
 /*
+ * aml_buf_get_configure() - Interface for parameter configuration.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @cfg		: Parameter configuration structure.
+ *
+ * Interface for parameter configuration.
+ */
+static inline void aml_buf_get_configure(struct aml_buf_mgr_s *bm,
+				    struct aml_buf_config *cfg)
+{
+	bm->bc.get_config(&bm->bc, cfg);
+}
+
+/*
  * aml_buf_is_dynamic_mode_init() - Interface used to determine dynamic_mode.
  *
  * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
  *
  * Interface used to determine dynamic_mode.
  */
-static inline bool aml_buf_is_dynamic_mode_init(struct aml_buf_mgr_s *bm)
+static inline bool aml_buf_is_dynamic_mode_inited(struct aml_buf_mgr_s *bm)
 {
-	return bm->bc.is_dynamic_mode_init(&bm->bc);
+	bool ret = false;
+
+	ret = bm->bc.is_dynamic_mode_init(&bm->bc);
+
+	return ret;
 }
 
 /*
@@ -345,6 +363,18 @@ static inline void aml_buf_reset_avbcd_buf(struct aml_buf_mgr_s *bm)
 static inline bool aml_buf_check_in_table(struct aml_buf_mgr_s *bm, ulong key)
 {
 	return bm->bc.check_in_table(&bm->bc, key);
+}
+
+/*
+ * aml_buf_deinit_dma() - Use to deinit dma context.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get deinit dma context.
+ */
+static inline void aml_buf_clean_dma(struct aml_buf_mgr_s *bm)
+{
+	bm->bc.buf_ops.clean_dma(&bm->bc);
 }
 
 /*
