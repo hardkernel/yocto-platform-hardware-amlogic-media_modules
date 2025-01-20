@@ -1034,6 +1034,7 @@ struct vdec_h264_hw_s {
 	struct res_info last_res_info;
 	struct res_info report_res_info;
 	u32 res_change_need_double_check;
+	u32 csd_info_count;
 };
 
 #define TIMEOUT_INIT 0
@@ -8537,6 +8538,10 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			return IRQ_HANDLED;
 		}
 
+		if (vdec_stream_based(vdec)) {
+			hw->csd_info_count++;
+		}
+
 		if (p_H264_Dpb->bitstream_restriction_flag !=
 			((p_H264_Dpb->dpb_param.l.data[SPS_FLAGS2] >> 3) & 0x1)) {
 			dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
@@ -9640,15 +9645,26 @@ static irqreturn_t vh264_isr(struct vdec_s *vdec, int irq)
 					p_H264_Dpb->dec_dpb_status, hw->status_report_count, READ_VREG(VLD_MEM_VIFIFO_RP));
 
 				if (hw->status_report_count) {
-					hw->dec_result = DEC_RESULT_DONE;  //drop dec_again header data;
-					vdec_schedule_work(&hw->work);
-					return IRQ_HANDLED;
+					if (p_H264_Dpb->dec_dpb_status == H264_CONFIG_REQUEST) { // not drop data when isr 0x11, because the slice header has been decoded partly
+						WRITE_VREG(DPB_STATUS_REG, H264_ACTION_CONFIG_DONE);
+						WRITE_VREG(AV_SCRATCH_0, (hw->max_reference_size<<24) |
+							(hw->dpb.mDPB.size<<16) | (hw->dpb.mDPB.size<<8));
+						start_process_time(hw);
+						return IRQ_HANDLED;
+					} else {
+						hw->dec_result = DEC_RESULT_DONE;  //drop dec_again header data;
+						vdec_schedule_work(&hw->work);
+						return IRQ_HANDLED;
+					}
 				}
 			}
 			hw->multi_frame_in_run = 0;
 		}
 		hw->status_report_count++;   //cur slice need count after clr status_report_count to 0
-	} else
+	} else if (p_H264_Dpb->dec_dpb_status == H264_PIC_DATA_DONE ||
+		p_H264_Dpb->dec_dpb_status == H264_DECODE_TIMEOUT ||
+		p_H264_Dpb->dec_dpb_status == H264_SEARCH_BUFEMPTY ||
+		p_H264_Dpb->dec_dpb_status == H264_DECODE_BUFEMPTY)
 		hw->status_report_count = 0;
 
 	if (p_H264_Dpb->dec_dpb_status == H264_WRRSP_REQUEST) {
@@ -11848,6 +11864,9 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 			}
 			vdec_v4l_res_ch_event(ctx);
 			hw->res_ch_flag = 1;
+			if (hw->csd_info_count > 1) {
+				hw->multi_frame_in_run = 1;
+			}
 			ctx->v4l_reqbuff_flag = false;
 			amvdec_stop();
 			if (hw->mmu_enable && !is_vdec_hevc_combine())
@@ -12794,6 +12813,9 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		hw->pre_parser_wr_ptr =
 			STBUF_READ(&vdec->vbuf, get_wp);
 		hw->next_again_flag = 0;
+		if (!hw->multi_frame_in_run)
+			hw->status_report_count = 0;
+		hw->csd_info_count = 0;
 	}
 
 	if (hw->reset_bufmgr_flag ||
