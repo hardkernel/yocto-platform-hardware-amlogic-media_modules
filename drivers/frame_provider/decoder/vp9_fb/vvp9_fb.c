@@ -14262,7 +14262,7 @@ static struct VP9Decoder_s *gHevc;
 static int amvdec_vp9_probe(struct platform_device *pdev)
 {
 	struct vdec_s *pdata = *(struct vdec_s **)pdev->dev.platform_data;
-	struct BUF_s BUF[MAX_BUF_NUM];
+	struct BUF_s *BUF;
 	struct VP9Decoder_s *pbi;
 	int ret;
 #ifndef MULTI_INSTANCE_SUPPORT
@@ -14284,10 +14284,17 @@ static int amvdec_vp9_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	BUF = aml_media_mem_alloc(sizeof(struct BUF_s) * MAX_BUF_NUM, GFP_KERNEL);
+	if (!BUF) {
+		vfree(pbi);
+		mutex_unlock(&vvp9_mutex);
+		return -ENOMEM;
+	}
 	gHevc = pbi;
 	memcpy(&BUF[0], &pbi->m_BUF[0], sizeof(struct BUF_s) * MAX_BUF_NUM);
 	memset(pbi, 0, sizeof(struct VP9Decoder_s));
 	memcpy(&pbi->m_BUF[0], &BUF[0], sizeof(struct BUF_s) * MAX_BUF_NUM);
+	aml_media_mem_free(BUF);
 
 	pbi->init_flag = 0;
 	pbi->first_sc_checked= 0;

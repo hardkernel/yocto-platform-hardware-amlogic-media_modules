@@ -993,13 +993,19 @@ static int vdec_write_nalu(struct vdec_av1_inst *inst,
 	bool is_no_head_mode = inst->ctx->config.parm.dec.cfg.low_latency_mode & 8;
 
 	if (need_prefix && !is_no_head_mode) {
-		u8 meta_buffer[1024] = {0};
+		u8 *meta_buffer = NULL;
 		u32 meta_size = 0;
 		u8 *src = buf;
 
 		data = vzalloc(size + 0x1000);
 		if (!data)
 			return -ENOMEM;
+
+		meta_buffer = vzalloc(1024);
+		if (!meta_buffer) {
+			vfree(data);
+			return -ENOMEM;
+		}
 
 		parser_frame(0, src, src + size, data, &length, meta_buffer, &meta_size);
 
@@ -1009,6 +1015,7 @@ static int vdec_write_nalu(struct vdec_av1_inst *inst,
 		else
 			ret = -1;
 
+		vfree(meta_buffer);
 		vfree(data);
 	} else {
 		ret = vdec_vframe_write(vdec, buf, size, ts, 0, free, NULL);
