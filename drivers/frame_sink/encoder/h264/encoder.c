@@ -1977,7 +1977,7 @@ static void ConvertTable2Risc(void *table, u32 len)
 }
 #endif
 
-static void avc_prot_init(struct encode_wq_s *wq,
+static s32 avc_prot_init(struct encode_wq_s *wq,
 	struct encode_request_s *request, u32 quant, bool IDR)
 {
 	u32 data32;
@@ -2017,9 +2017,30 @@ static void avc_prot_init(struct encode_wq_s *wq,
 	u32 ted_i16_weight = (0) >> 4;
 	u32 ted_i4_weight  = (1 * ted_lambda) >> 4 ;
 
-	u16 ted_mvd_bits[512];
-	u32 ted_mvd_weight[64];
-	u32 ted_v3_mv_sad[64];
+	/*For stack optimization*/
+	u16 *ted_mvd_bits = NULL;
+	u32 *ted_mvd_weight = NULL;
+	u32 *ted_v3_mv_sad = NULL;
+	ted_mvd_bits = (u16 *)kmalloc((512 * sizeof(u16)), GFP_KERNEL);
+	if (!ted_mvd_bits) {
+		enc_pr(LOG_ERROR, "ted_mvd_bits kmalloc err.\n");
+		return -ENOMEM;
+	}
+
+	ted_mvd_weight = (u32 *)kmalloc((64 * sizeof(u32)), GFP_KERNEL);
+	if (!ted_mvd_weight) {
+		enc_pr(LOG_ERROR, "ted_mvd_weight kmalloc err.\n");
+		kfree(ted_mvd_bits);
+		return -ENOMEM;
+	}
+
+	ted_v3_mv_sad = (u32 *)kmalloc((64 * sizeof(u32)), GFP_KERNEL);
+	if (!ted_v3_mv_sad) {
+		enc_pr(LOG_ERROR, "ted_v3_mv_sad kmalloc err.\n");
+		kfree(ted_mvd_bits);
+		kfree(ted_mvd_weight);
+		return -ENOMEM;
+	}
 	//u32 m = 0 ;
 	if (ted_i4_ipred_weight_most > 255) ted_i4_ipred_weight_most = 255 ;
 	if (ted_i4_ipred_weight_else > 255) ted_i4_ipred_weight_else = 255 ;
@@ -2828,6 +2849,12 @@ static void avc_prot_init(struct encode_wq_s *wq,
 
 	/* enable mailbox interrupt */
 	WRITE_HREG(HCODEC_IRQ_MBOX_MASK, 1);
+
+	/*For stack optimization*/
+	kfree(ted_mvd_bits);
+	kfree(ted_mvd_weight);
+	kfree(ted_v3_mv_sad);
+	return 0;
 }
 
 void amvenc_reset(void)
@@ -3512,9 +3539,13 @@ void amvenc_avc_start_cmd(struct encode_wq_s *wq,
 		avc_init_input_buffer(wq);
 		avc_init_output_buffer(wq);
 
-		avc_prot_init(
+		if (avc_prot_init(
 			wq, request, request->quant,
-			(request->cmd == ENCODER_IDR) ? true : false);
+			(request->cmd == ENCODER_IDR) ? true : false)) {
+			enc_pr(LOG_ERROR,
+				"avc_prot_init fail, wq:%p\n", (void *)wq);
+			return;
+		}
 
 		avc_init_assit_buffer(wq);
 
@@ -3645,6 +3676,7 @@ static u32 getbuffer(struct encode_wq_s *wq, u32 type)
 
 s32 amvenc_avc_start(struct encode_wq_s *wq, u32 clock)
 {
+	s32 r = 0;
 	const char *p = select_ucode(encode_manager.ucode_index);
 
 	avc_poweron(clock);
@@ -3664,7 +3696,12 @@ s32 amvenc_avc_start(struct encode_wq_s *wq, u32 clock)
 	avc_init_output_buffer(wq);  /* output stream buffer */
 
 	ie_me_mode = (0 & ME_PIXEL_MODE_MASK) << ME_PIXEL_MODE_SHIFT;
-	avc_prot_init(wq, NULL, wq->pic.init_qppicture, true);
+	r = avc_prot_init(wq, NULL, wq->pic.init_qppicture, true);
+	if (r) {
+		enc_pr(LOG_ERROR,
+			"avc_prot_init fail, wq:%p\n", (void *)wq);
+		return r;
+	}
 	if (request_irq(encode_manager.irq_num, enc_isr, IRQF_SHARED,
 		"enc-irq", (void *)&encode_manager) == 0)
 		encode_manager.irq_requested = true;
