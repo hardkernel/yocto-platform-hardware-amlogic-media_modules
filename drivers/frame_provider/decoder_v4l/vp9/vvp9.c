@@ -209,7 +209,7 @@ static s32 vvp9_init(struct vdec_s *vdec);
 static s32 vvp9_init(struct VP9Decoder_s *pbi);
 #endif
 static void vvp9_prot_init(struct VP9Decoder_s *pbi, u32 mask);
-static int vvp9_local_init(struct VP9Decoder_s *pbi);
+static int vvp9_local_init(struct VP9Decoder_s *pbi, bool reset_flag);
 static void vvp9_put_timer_func(struct timer_list *timer);
 static void dump_data(struct VP9Decoder_s *pbi, int size);
 static unsigned char get_data_check_sum
@@ -2990,9 +2990,6 @@ int vp9_bufmgr_init(struct VP9Decoder_s *pbi, struct BuffInfo_s *buf_spec_i,
 	pbi->work_space_buf = buf_spec_i;
 	if (!pbi->mmu_enable)
 		pbi->mc_buf = mc_buf_i;
-
-	pbi->rpm_addr = NULL;
-	pbi->lmem_addr = NULL;
 
 	pbi->use_cma_flag = 0;
 	pbi->decode_idx = 0;
@@ -6651,79 +6648,79 @@ static int alloc_lf_buf(struct VP9Decoder_s *pbi)
 	return 0;
 }
 
-static void vp9_local_uninit(struct VP9Decoder_s *pbi)
+static void vp9_local_uninit(struct VP9Decoder_s *pbi, bool reset_flags)
 {
-	pbi->rpm_ptr = NULL;
-	pbi->lmem_ptr = NULL;
-	if (pbi->rpm_addr) {
-		decoder_dma_free_coherent(pbi->rpm_mem_handle,
-					RPM_BUF_SIZE,
-					pbi->rpm_addr,
-					pbi->rpm_phy_addr);
-		pbi->rpm_addr = NULL;
-	}
-	if (pbi->lmem_addr) {
-		if (pbi->lmem_phy_addr)
-			decoder_dma_free_coherent(pbi->lmem_phy_handle,
-				LMEM_BUF_SIZE, pbi->lmem_addr,
-				pbi->lmem_phy_addr);
-		pbi->lmem_addr = NULL;
-	}
-	if (is_vp9_adapt_prob_hw_mode()) {
-		pbi->prob_buffer_phy_addr = 0;
-		pbi->count_buffer_phy_addr = 0;
-		pbi->prob_buffer_addr = NULL;
-		pbi->count_buffer_addr = NULL;
-	} else {
-		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
-			(vdec_secure(hw_to_vdec(pbi)))) {
-			tee_vp9_prob_free((u32)pbi->prob_buffer_phy_addr);
+	if (!reset_flags) {
+		pbi->rpm_ptr = NULL;
+		if (pbi->rpm_addr) {
+			decoder_dma_free_coherent(pbi->rpm_mem_handle,
+				RPM_BUF_SIZE, pbi->rpm_addr, pbi->rpm_phy_addr);
+			pbi->rpm_addr = NULL;
+		}
+		pbi->lmem_ptr = NULL;
+		if (pbi->lmem_addr) {
+			if (pbi->lmem_phy_addr)
+				decoder_dma_free_coherent(pbi->lmem_phy_handle,
+					LMEM_BUF_SIZE, pbi->lmem_addr, pbi->lmem_phy_addr);
+			pbi->lmem_addr = NULL;
+		}
+		if (is_vp9_adapt_prob_hw_mode()) {
 			pbi->prob_buffer_phy_addr = 0;
 			pbi->count_buffer_phy_addr = 0;
 			pbi->prob_buffer_addr = NULL;
 			pbi->count_buffer_addr = NULL;
 		} else {
-			if (pbi->prob_buffer_addr) {
-				if (pbi->prob_buffer_phy_addr)
-					decoder_dma_free_coherent(pbi->prob_buf_handle,
-						PROB_BUF_SIZE, pbi->prob_buffer_addr,
-						pbi->prob_buffer_phy_addr);
-
+			if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
+				(vdec_secure(hw_to_vdec(pbi)))) {
+				tee_vp9_prob_free((u32)pbi->prob_buffer_phy_addr);
+				pbi->prob_buffer_phy_addr = 0;
+				pbi->count_buffer_phy_addr = 0;
 				pbi->prob_buffer_addr = NULL;
-			}
-			if (pbi->count_buffer_addr) {
-				if (pbi->count_buffer_phy_addr)
-					decoder_dma_free_coherent(pbi->count_buf_handle,
-						COUNT_BUF_SIZE, pbi->count_buffer_addr,
-						pbi->count_buffer_phy_addr);
-
 				pbi->count_buffer_addr = NULL;
+			} else {
+				if (pbi->prob_buffer_addr) {
+					if (pbi->prob_buffer_phy_addr)
+						decoder_dma_free_coherent(pbi->prob_buf_handle,
+							PROB_BUF_SIZE, pbi->prob_buffer_addr,
+							pbi->prob_buffer_phy_addr);
+
+					pbi->prob_buffer_addr = NULL;
+				}
+				if (pbi->count_buffer_addr) {
+					if (pbi->count_buffer_phy_addr)
+						decoder_dma_free_coherent(pbi->count_buf_handle,
+							COUNT_BUF_SIZE, pbi->count_buffer_addr,
+							pbi->count_buffer_phy_addr);
+
+					pbi->count_buffer_addr = NULL;
+				}
 			}
 		}
-	}
-	if (pbi->mmu_enable) {
-		u32 mmu_map_size = vvp9_frame_mmu_map_size(pbi);
-		if (pbi->frame_mmu_map_addr) {
-			if (pbi->frame_mmu_map_phy_addr)
-				decoder_dma_free_coherent(pbi->frame_mmu_map_handle,
-					mmu_map_size,
-					pbi->frame_mmu_map_addr,
-					pbi->frame_mmu_map_phy_addr);
-			pbi->frame_mmu_map_addr = NULL;
+		if (pbi->mmu_enable) {
+			u32 mmu_map_size = vvp9_frame_mmu_map_size(pbi);
+			if (pbi->frame_mmu_map_addr) {
+				if (pbi->frame_mmu_map_phy_addr)
+					decoder_dma_free_coherent(pbi->frame_mmu_map_handle,
+						mmu_map_size,
+						pbi->frame_mmu_map_addr,
+						pbi->frame_mmu_map_phy_addr);
+				pbi->frame_mmu_map_addr = NULL;
+			}
 		}
-	}
 #ifdef SUPPORT_FB_DECODING
-	if (pbi->stage_mmu_map_addr) {
-		if (pbi->stage_mmu_map_phy_addr)
-			decoder_dma_free_coherent(pbi->stage_mmu_map_handle,
-				STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS,
-				pbi->stage_mmu_map_addr,
-					pbi->stage_mmu_map_phy_addr);
-		pbi->stage_mmu_map_addr = NULL;
+		if (pbi->stage_mmu_map_addr) {
+			if (pbi->stage_mmu_map_phy_addr)
+				decoder_dma_free_coherent(pbi->stage_mmu_map_handle,
+					STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS,
+					pbi->stage_mmu_map_addr,
+						pbi->stage_mmu_map_phy_addr);
+			pbi->stage_mmu_map_addr = NULL;
+		}
+
+		uninit_stage_buf(pbi);
+#endif
 	}
 
-	uninit_stage_buf(pbi);
-#endif
 
 #ifdef VP9_LPF_LVL_UPDATE
 	free_lf_buf(pbi);
@@ -6742,9 +6739,9 @@ static bool is_support_4k_vp9(void)
 	return false;
 }
 
-static int vp9_local_init(struct VP9Decoder_s *pbi)
+static int vp9_local_init(struct VP9Decoder_s *pbi, bool reset_flag)
 {
-	int ret = -1;
+	int ret = 0;
 	/*int losless_comp_header_size, losless_comp_body_size;*/
 
 	struct BuffInfo_s *cur_buf_info = NULL;
@@ -6850,92 +6847,99 @@ static int vp9_local_init(struct VP9Decoder_s *pbi)
 	pbi->pts_unstable = ((unsigned long)(pbi->vvp9_amstream_dec_info.param)
 		& 0x40) >> 6;
 
-	if ((debug & VP9_DEBUG_SEND_PARAM_WITH_REG) == 0) {
-		pbi->rpm_addr = decoder_dma_alloc_coherent(&pbi->rpm_mem_handle,
+	if (!reset_flag) {
+		if ((debug & VP9_DEBUG_SEND_PARAM_WITH_REG) == 0) {
+			pbi->rpm_addr = decoder_dma_alloc_coherent(&pbi->rpm_mem_handle,
 				RPM_BUF_SIZE, &pbi->rpm_phy_addr, "VP9_RPM_BUF");
-		if (pbi->rpm_addr == NULL) {
-			pr_err("%s: failed to alloc rpm buffer\n", __func__);
-			return -1;
+			if (pbi->rpm_addr == NULL) {
+				pr_err("%s: failed to alloc rpm buffer\n", __func__);
+				goto dma_alloc_fail;
+			}
+
+			pbi->rpm_ptr = pbi->rpm_addr;
 		}
 
-		pbi->rpm_ptr = pbi->rpm_addr;
-	}
-
-	pbi->lmem_addr = decoder_dma_alloc_coherent(&pbi->lmem_phy_handle,
+		pbi->lmem_addr = decoder_dma_alloc_coherent(&pbi->lmem_phy_handle,
 			LMEM_BUF_SIZE, &pbi->lmem_phy_addr, "VP9_LMEM_BUF");
-	if (pbi->lmem_addr == NULL) {
-		pr_err("%s: failed to alloc lmem buffer\n", __func__);
-		return -1;
-	}
-	pbi->lmem_ptr = pbi->lmem_addr;
+		if (pbi->lmem_addr == NULL) {
+			pr_err("%s: failed to alloc lmem buffer\n", __func__);
+			goto dma_alloc_fail;
+		}
+		pbi->lmem_ptr = pbi->lmem_addr;
 
-	if (is_vp9_adapt_prob_hw_mode()) {
-		pbi->prob_buffer_phy_addr = cur_buf_info->prob_buf.buf_start;
-		pbi->count_buffer_phy_addr = cur_buf_info->prob_cnt_buf.buf_start;
-		pbi->prob_buffer_addr = NULL;
-		pbi->count_buffer_addr = NULL;
-	} else {
-		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
-			(vdec_secure(hw_to_vdec(pbi)))) {
-			u32 prob_addr, id;
-			id = tee_vp9_prob_malloc(&prob_addr);
-			if (prob_addr <= 0)
-				pr_err("%s, tee[%d] malloc prob buf failed\n", __func__, id);
-			else {
-				pbi->prob_buffer_phy_addr = prob_addr;
-				pbi->count_buffer_phy_addr = pbi->prob_buffer_phy_addr + PROB_BUF_SIZE;
-			}
+		if (is_vp9_adapt_prob_hw_mode()) {
+			pbi->prob_buffer_phy_addr = cur_buf_info->prob_buf.buf_start;
+			pbi->count_buffer_phy_addr = cur_buf_info->prob_cnt_buf.buf_start;
 			pbi->prob_buffer_addr = NULL;
 			pbi->count_buffer_addr = NULL;
 		} else {
-			pbi->prob_buffer_addr = decoder_dma_alloc_coherent(&pbi->prob_buf_handle,
-						PROB_BUF_SIZE, &pbi->prob_buffer_phy_addr, "VP9_PROB_BUF");
-			if (pbi->prob_buffer_addr == NULL) {
-				pr_err("%s: failed to alloc prob_buffer\n", __func__);
-				return -1;
+			if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
+				(vdec_secure(hw_to_vdec(pbi)))) {
+				u32 prob_addr, id;
+				id = tee_vp9_prob_malloc(&prob_addr);
+				if (prob_addr <= 0) {
+					pr_err("%s, tee[%d] malloc prob buf failed\n", __func__, id);
+					goto dma_alloc_fail;
+				} else {
+					pbi->prob_buffer_phy_addr = prob_addr;
+					pbi->count_buffer_phy_addr = pbi->prob_buffer_phy_addr + PROB_BUF_SIZE;
+				}
+				pbi->prob_buffer_addr = NULL;
+				pbi->count_buffer_addr = NULL;
+			} else {
+				pbi->prob_buffer_addr = decoder_dma_alloc_coherent(&pbi->prob_buf_handle,
+					PROB_BUF_SIZE, &pbi->prob_buffer_phy_addr, "VP9_PROB_BUF");
+				if (pbi->prob_buffer_addr == NULL) {
+					pr_err("%s: failed to alloc prob_buffer\n", __func__);
+					goto dma_alloc_fail;
+				}
+				memset(pbi->prob_buffer_addr, 0, PROB_BUF_SIZE);
+				pbi->count_buffer_addr = decoder_dma_alloc_coherent(&pbi->count_buf_handle,
+					COUNT_BUF_SIZE, &pbi->count_buffer_phy_addr, "VP9_COUNT_BUF");
+				if (pbi->count_buffer_addr == NULL) {
+					pr_err("%s: failed to alloc count_buffer\n", __func__);
+					goto dma_alloc_fail;
+				}
+				memset(pbi->count_buffer_addr, 0, COUNT_BUF_SIZE);
 			}
-			memset(pbi->prob_buffer_addr, 0, PROB_BUF_SIZE);
-			pbi->count_buffer_addr = decoder_dma_alloc_coherent(&pbi->count_buf_handle,
-						COUNT_BUF_SIZE, &pbi->count_buffer_phy_addr, "VP9_COUNT_BUF");
-			if (pbi->count_buffer_addr == NULL) {
+		}
+
+		if (pbi->mmu_enable) {
+			u32 mmu_map_size = vvp9_frame_mmu_map_size(pbi);
+			pbi->frame_mmu_map_addr =
+				decoder_dma_alloc_coherent(&pbi->frame_mmu_map_handle,
+					mmu_map_size,
+					&pbi->frame_mmu_map_phy_addr, "VP9_MMU_BUF");
+			if (pbi->frame_mmu_map_addr == NULL) {
 				pr_err("%s: failed to alloc count_buffer\n", __func__);
-				return -1;
+				goto dma_alloc_fail;
 			}
-			memset(pbi->count_buffer_addr, 0, COUNT_BUF_SIZE);
+			memset(pbi->frame_mmu_map_addr, 0, mmu_map_size);
 		}
-	}
-
-	if (pbi->mmu_enable) {
-		u32 mmu_map_size = vvp9_frame_mmu_map_size(pbi);
-		pbi->frame_mmu_map_addr =
-			decoder_dma_alloc_coherent(&pbi->frame_mmu_map_handle,
-				mmu_map_size,
-				&pbi->frame_mmu_map_phy_addr, "VP9_MMU_BUF");
-		if (pbi->frame_mmu_map_addr == NULL) {
-			pr_err("%s: failed to alloc count_buffer\n", __func__);
-			return -1;
-		}
-		memset(pbi->frame_mmu_map_addr, 0, mmu_map_size);
-	}
 #ifdef SUPPORT_FB_DECODING
-	if (pbi->m_ins_flag && stage_buf_num > 0) {
-		pbi->stage_mmu_map_addr =
-			decoder_dma_alloc_coherent(&pbi->stage_mmu_map_handle,
-				STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS,
-				&pbi->stage_mmu_map_phy_addr, "VP9_STAGE_MMU_BUF");
-		if (pbi->stage_mmu_map_addr == NULL) {
-			pr_err("%s: failed to alloc count_buffer\n", __func__);
-			return -1;
+		if (pbi->m_ins_flag && stage_buf_num > 0) {
+			pbi->stage_mmu_map_addr =
+				decoder_dma_alloc_coherent(&pbi->stage_mmu_map_handle,
+					STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS,
+					&pbi->stage_mmu_map_phy_addr, "VP9_STAGE_MMU_BUF");
+			if (pbi->stage_mmu_map_addr == NULL) {
+				pr_err("%s: failed to alloc count_buffer\n", __func__);
+				goto dma_alloc_fail;
+			}
+			memset(pbi->stage_mmu_map_addr,
+				0, STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS);
+
+			init_stage_buf(pbi);
 		}
-		memset(pbi->stage_mmu_map_addr,
-			0, STAGE_MMU_MAP_SIZE * STAGE_MAX_BUFFERS);
-
-		init_stage_buf(pbi);
-	}
 #endif
+	}
 
-	ret = 0;
 	return ret;
+
+dma_alloc_fail:
+	vp9_local_uninit(pbi, reset_flag);
+	return -1;
+
 }
 
 /********************************************
@@ -10256,7 +10260,7 @@ static void vvp9_prot_init(struct VP9Decoder_s *pbi, u32 mask)
 #endif
 }
 
-static int vvp9_local_init(struct VP9Decoder_s *pbi)
+static int vvp9_local_init(struct VP9Decoder_s *pbi, bool reset_flag)
 {
 	int i;
 	int ret;
@@ -10327,7 +10331,7 @@ static int vvp9_local_init(struct VP9Decoder_s *pbi)
 	if (ctx->avbcd_work_mode)
 		aml_buf_reset_avbcd_buf(&ctx->bm);
 
-	ret = vp9_local_init(pbi);
+	ret = vp9_local_init(pbi, reset_flag);
 	if (ret < 0) {
 		vdec_v4l_post_error_event(ctx, DECODER_ERROR_ALLOC_BUFFER_FAIL);
 	}
@@ -10357,7 +10361,7 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 
 	pbi->stat |= STAT_TIMER_INIT;
 
-	if (vvp9_local_init(pbi) < 0)
+	if (vvp9_local_init(pbi, false) < 0)
 		return -EBUSY;
 
 	fw = fw_firmare_s_creat(fw_size);
@@ -10469,7 +10473,7 @@ static int vmvp9_stop(struct VP9Decoder_s *pbi)
 		pbi->stat &= ~STAT_TIMER_ARM;
 	}
 
-	vp9_local_uninit(pbi);
+	vp9_local_uninit(pbi, false);
 	reset_process_time(pbi);
 	cancel_work_sync(&pbi->work);
 	cancel_work_sync(&pbi->recycle_mmu_work);
@@ -11813,8 +11817,8 @@ static void reset(struct vdec_s *vdec)
 	reset_process_time(pbi);
 	vp9_reset_frame_buffer(pbi);
 
-	vp9_local_uninit(pbi);
-	if (vvp9_local_init(pbi) < 0)
+	vp9_local_uninit(pbi, true);
+	if (vvp9_local_init(pbi, true) < 0)
 		vp9_print(pbi, 0, "%s local_init failed \r\n", __func__);
 
 	vp9_decoder_ctx_reset(pbi);
@@ -12377,7 +12381,7 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 		pdata->sync = vdec_sync_get();
 		if (!pdata->sync) {
 			vp9_print(pbi, 0, "alloc fence timeline error\n");
-			vp9_local_uninit(pbi);
+			vp9_local_uninit(pbi, false);
 			uninit_mmu_buffers(pbi);
 			/* devm_kfree(&pdev->dev, (void *)pbi); */
 			vfree((void *)pbi);
@@ -12394,7 +12398,7 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 		pr_info("\namvdec_vp9 init failed.\n");
 		if (pbi->enable_fence)
 			vdec_timeline_put(pdata->sync);
-		vp9_local_uninit(pbi);
+		vp9_local_uninit(pbi, false);
 		uninit_mmu_buffers(pbi);
 		/* devm_kfree(&pdev->dev, (void *)pbi); */
 		vfree((void *)pbi);

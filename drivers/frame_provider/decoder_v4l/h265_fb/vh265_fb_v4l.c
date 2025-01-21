@@ -178,7 +178,7 @@ static s32 vh265_init(struct hevc_state_s *hevc);
 static int recycle_pending_vframe(struct hevc_state_s *hevc, struct vframe_s *vf);
 #endif
 static void vh265_prot_init(struct hevc_state_s *hevc);
-static int vh265_local_init(struct hevc_state_s *hevc);
+static int vh265_local_init(struct hevc_state_s *hevc, bool reset_flag);
 static void vh265_check_timer_func(struct timer_list *timer);
 static void config_decode_mode(struct hevc_state_s *hevc);
 static int h265_recycle_frame_buffer(struct hevc_state_s *hevc);
@@ -15036,7 +15036,7 @@ static void vh265_prot_init(struct hevc_state_s *hevc)
 	}
 }
 
-static int vh265_local_init(struct hevc_state_s *hevc)
+static int vh265_local_init(struct hevc_state_s *hevc, bool reset_flag)
 {
 	int i;
 	int ret = -1;
@@ -15100,7 +15100,7 @@ static int vh265_local_init(struct hevc_state_s *hevc)
 		kfifo_put(&hevc->newframe_q, vf);
 	}
 
-	if (!hevc->resolution_change)
+	if (!reset_flag)
 		ret = hevc_local_init(hevc);
 	else
 		ret = 0;
@@ -15144,7 +15144,7 @@ static s32 vh265_init(struct hevc_state_s *hevc)
 #endif
 	}
 
-	if (vh265_local_init(hevc) < 0)
+	if (vh265_local_init(hevc, false) < 0)
 		return -EBUSY;
 
 	mutex_init(&hevc->chunks_mutex);
@@ -18000,9 +18000,7 @@ static void reset(struct vdec_s *vdec)
 	hevc->pic_mv_buf_wait_alloc_done_flag = BUFFER_INIT;
 	h265_reset_frame_buffer(hevc);
 	aml_free_canvas(vdec);
-	if (!hevc->resolution_change)
-		hevc_local_uninit(hevc);
-	if (vh265_local_init(hevc) < 0)
+	if (vh265_local_init(hevc, true) < 0)
 		pr_debug(" %s local init fail\n", __func__);
 	for (i = 0; i < BUF_POOL_SIZE; i++) {
 		hevc->m_BUF[i].start_adr = 0;

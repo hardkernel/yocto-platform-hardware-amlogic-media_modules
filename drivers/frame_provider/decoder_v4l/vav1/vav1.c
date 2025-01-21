@@ -1951,9 +1951,6 @@ int aom_bufmgr_init(struct AV1HW_s *hw, struct BuffInfo_s *buf_spec_i,
 		hw->mc_buf = mc_buf_i;
 	}
 
-	hw->rpm_addr = NULL;
-	hw->lmem_addr = NULL;
-
 	hw->use_cma_flag = 0;
 	hw->decode_idx = 0;
 	hw->result_done_count = 0;
@@ -5491,9 +5488,6 @@ static void vav1_mmu_map_free(struct AV1HW_s *hw)
 
 static void av1_local_uninit(struct AV1HW_s *hw, bool reset_flag)
 {
-	hw->rpm_ptr = NULL;
-	hw->lmem_ptr = NULL;
-
 	if (!reset_flag) {
 		hw->fg_ptr = NULL;
 		if (hw->fg_addr) {
@@ -5501,47 +5495,46 @@ static void av1_local_uninit(struct AV1HW_s *hw, bool reset_flag)
 				codec_mm_dma_free_coherent(hw->fg_table_handle);
 			hw->fg_addr = NULL;
 		}
-	}
 
-	if (hw->rpm_addr) {
-		decoder_dma_free_coherent(hw->rpm_mem_handle,
-					RPM_BUF_SIZE,
-					hw->rpm_addr,
-					hw->rpm_phy_addr);
-		hw->rpm_addr = NULL;
-	}
-	if (hw->aux_addr) {
-		decoder_dma_free_coherent(hw->aux_mem_handle,
+		hw->rpm_ptr = NULL;
+		if (hw->rpm_addr) {
+			decoder_dma_free_coherent(hw->rpm_mem_handle,
+				RPM_BUF_SIZE, hw->rpm_addr, hw->rpm_phy_addr);
+			hw->rpm_addr = NULL;
+		}
+		if (hw->aux_addr) {
+			decoder_dma_free_coherent(hw->aux_mem_handle,
 				hw->prefix_aux_size + hw->suffix_aux_size, hw->aux_addr,
 					hw->aux_phy_addr);
-		hw->aux_addr = NULL;
-	}
+			hw->aux_addr = NULL;
+		}
 #if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
-	if (hw->ucode_log_addr) {
-		decoder_dma_free_coherent(hw->ucode_log_handle,
-				UCODE_LOG_BUF_SIZE, hw->ucode_log_addr,
-					hw->ucode_log_phy_addr);
-		hw->ucode_log_addr = NULL;
-	}
+		if (hw->ucode_log_addr) {
+			decoder_dma_free_coherent(hw->ucode_log_handle,
+				UCODE_LOG_BUF_SIZE, hw->ucode_log_addr, hw->ucode_log_phy_addr);
+			hw->ucode_log_addr = NULL;
+		}
 #endif
-	if (hw->lmem_addr) {
-		if (hw->lmem_phy_addr)
-			decoder_dma_free_coherent(hw->lmem_phy_handle,
-				LMEM_BUF_SIZE, hw->lmem_addr,
-				hw->lmem_phy_addr);
-		hw->lmem_addr = NULL;
-	}
+		hw->lmem_ptr = NULL;
+		if (hw->lmem_addr) {
+			if (hw->lmem_phy_addr)
+				decoder_dma_free_coherent(hw->lmem_phy_handle,
+					LMEM_BUF_SIZE, hw->lmem_addr,
+					hw->lmem_phy_addr);
+			hw->lmem_addr = NULL;
+		}
 
-	vav1_mmu_map_free(hw);
+		vav1_mmu_map_free(hw);
+	}
 
 #ifdef SWAP_HEVC_UCODE
-		if (!fw_tee_enabled() && hw->is_swap) {
-			if (hw->swap_virt_addr)
-				codec_mm_dma_free_coherent(hw->swap_mem_handle);
-			hw->swap_mem_handle = 0;
-			hw->swap_virt_addr = NULL;
-			hw->swap_phy_addr = 0;
-		}
+	if (!fw_tee_enabled() && hw->is_swap) {
+		if (hw->swap_virt_addr)
+			codec_mm_dma_free_coherent(hw->swap_mem_handle);
+		hw->swap_mem_handle = 0;
+		hw->swap_virt_addr = NULL;
+		hw->swap_phy_addr = 0;
+	}
 #endif
 
 	if (hw->gvs)
@@ -5551,7 +5544,7 @@ static void av1_local_uninit(struct AV1HW_s *hw, bool reset_flag)
 
 static int av1_local_init(struct AV1HW_s *hw, bool reset_flag)
 {
-	int ret = -1;
+	int ret = 0;
 
 	struct BuffInfo_s *cur_buf_info = NULL;
 
@@ -5618,45 +5611,44 @@ static int av1_local_init(struct AV1HW_s *hw, bool reset_flag)
 	hw->mv_buf_margin = mv_buf_margin;
 
 	hw->pts_unstable = ((unsigned long)(hw->vav1_amstream_dec_info.param)
-			& 0x40) >> 6;
-
-	if ((debug & AOM_AV1_DEBUG_SEND_PARAM_WITH_REG) == 0) {
-		hw->rpm_addr = decoder_dma_alloc_coherent(&hw->rpm_mem_handle,
-				RPM_BUF_SIZE,
-				&hw->rpm_phy_addr, "AV1_RPM_BUF");
-		if (hw->rpm_addr == NULL) {
-			pr_err("%s: failed to alloc rpm buffer\n", __func__);
-			return -1;
-		}
-		hw->rpm_ptr = hw->rpm_addr;
-	}
-
-	if (prefix_aux_buf_size > 0 ||
-		suffix_aux_buf_size > 0) {
-		u32 aux_buf_size;
-
-		hw->prefix_aux_size = AUX_BUF_ALIGN(prefix_aux_buf_size);
-		hw->suffix_aux_size = AUX_BUF_ALIGN(suffix_aux_buf_size);
-		aux_buf_size = hw->prefix_aux_size + hw->suffix_aux_size;
-		hw->aux_addr = decoder_dma_alloc_coherent(&hw->aux_mem_handle,
-				aux_buf_size, &hw->aux_phy_addr, "AV1_AUX_BUF");
-		if (hw->aux_addr == NULL) {
-			pr_err("%s: failed to alloc rpm buffer\n", __func__);
-			goto dma_alloc_fail;
-		}
-	}
-#if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
-	hw->ucode_log_addr = decoder_dma_alloc_coherent(&hw->ucode_log_handle,
-			UCODE_LOG_BUF_SIZE, &hw->ucode_log_phy_addr,  "UCODE_LOG_BUF");
-	if (hw->ucode_log_addr == NULL) {
-		hw->ucode_log_phy_addr = 0;
-	}
-	pr_debug("%s: alloc ucode log buffer %p\n",
-		__func__, hw->ucode_log_addr);
-#endif
+		& 0x40) >> 6;
 
 	if (!reset_flag) {
 		int alloc_num = 1;
+
+		if ((debug & AOM_AV1_DEBUG_SEND_PARAM_WITH_REG) == 0) {
+			hw->rpm_addr = decoder_dma_alloc_coherent(&hw->rpm_mem_handle,
+				RPM_BUF_SIZE, &hw->rpm_phy_addr, "AV1_RPM_BUF");
+			if (hw->rpm_addr == NULL) {
+				pr_err("%s: failed to alloc rpm buffer\n", __func__);
+				return -1;
+			}
+			hw->rpm_ptr = hw->rpm_addr;
+		}
+
+		if (prefix_aux_buf_size > 0 ||
+			suffix_aux_buf_size > 0) {
+			u32 aux_buf_size;
+
+			hw->prefix_aux_size = AUX_BUF_ALIGN(prefix_aux_buf_size);
+			hw->suffix_aux_size = AUX_BUF_ALIGN(suffix_aux_buf_size);
+			aux_buf_size = hw->prefix_aux_size + hw->suffix_aux_size;
+			hw->aux_addr = decoder_dma_alloc_coherent(&hw->aux_mem_handle,
+				aux_buf_size, &hw->aux_phy_addr, "AV1_AUX_BUF");
+			if (hw->aux_addr == NULL) {
+				pr_err("%s: failed to alloc rpm buffer\n", __func__);
+				goto dma_alloc_fail;
+			}
+		}
+#if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
+		hw->ucode_log_addr = decoder_dma_alloc_coherent(&hw->ucode_log_handle,
+			UCODE_LOG_BUF_SIZE, &hw->ucode_log_phy_addr,  "UCODE_LOG_BUF");
+		if (hw->ucode_log_addr == NULL) {
+			hw->ucode_log_phy_addr = 0;
+		}
+		pr_debug("%s: alloc ucode log buffer %p\n",
+			__func__, hw->ucode_log_addr);
+#endif
 		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2) ||
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3) ||
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T7) ||
@@ -5666,13 +5658,26 @@ static int av1_local_init(struct AV1HW_s *hw, bool reset_flag)
 			alloc_num = FRAME_BUFFERS;
 		}
 		hw->fg_addr = codec_mm_dma_alloc_coherent(&hw->fg_table_handle,
-				(ulong *)&hw->fg_phy_addr,FGS_TABLE_SIZE * alloc_num, MEM_NAME);
+			(ulong *)&hw->fg_phy_addr,FGS_TABLE_SIZE * alloc_num, MEM_NAME);
 		if (hw->fg_addr == NULL) {
 			pr_err("%s: failed to alloc fg buffer\n", __func__);
 		}
 		hw->fg_ptr = hw->fg_addr;
 		pr_debug("%s, alloc fg table addr %lx, size 0x%x\n", __func__,
 			(ulong)hw->fg_phy_addr, FGS_TABLE_SIZE * alloc_num);
+
+		hw->lmem_addr = decoder_dma_alloc_coherent(&hw->lmem_phy_handle,
+			LMEM_BUF_SIZE, &hw->lmem_phy_addr, "LMEM_BUF");
+		if (hw->lmem_addr == NULL) {
+			pr_err("%s: failed to alloc lmem buffer\n", __func__);
+			goto dma_alloc_fail;
+		}
+		hw->lmem_ptr = hw->lmem_addr;
+
+		vdec_set_vframe_comm(hw_to_vdec(hw), DRIVER_NAME);
+		ret = vav1_mmu_map_alloc(hw);
+		if (ret < 0)
+			goto dma_alloc_fail;
 	}
 	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3) ||
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T7) ||
@@ -5681,20 +5686,6 @@ static int av1_local_init(struct AV1HW_s *hw, bool reset_flag)
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X)) {
 		cur_buf_info->fgs_table.buf_start = hw->fg_phy_addr;
 	}
-
-	hw->lmem_addr = decoder_dma_alloc_coherent(&hw->lmem_phy_handle,
-			LMEM_BUF_SIZE,
-			&hw->lmem_phy_addr, "LMEM_BUF");
-	if (hw->lmem_addr == NULL) {
-		pr_err("%s: failed to alloc lmem buffer\n", __func__);
-		goto dma_alloc_fail;
-	}
-	hw->lmem_ptr = hw->lmem_addr;
-
-	vdec_set_vframe_comm(hw_to_vdec(hw), DRIVER_NAME);
-	ret = vav1_mmu_map_alloc(hw);
-	if (ret < 0)
-		goto dma_alloc_fail;
 
 	return ret;
 
@@ -8310,10 +8301,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 				}
 #endif
 			}
-
+#if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
 #ifdef DEBUG_CRC_ERROR
 			if (crc_debug_flag & 0x40)
 				mv_buffer_fill_zero(hw, &cm->cur_frame->buf);
+#endif
 #endif
 		} else {
 			ret = 0;
@@ -9499,9 +9491,11 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 					ATRACE_COUNTER(hw->trace.decode_time_name, DECODER_ISR_THREAD_EDN);
 					av1_work_implement(hw);
 				} else {
+#if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
 #ifdef DEBUG_CRC_ERROR
 					if ((crc_debug_flag & 0x40) && cm->cur_frame)
 						dump_mv_buffer(hw, &cm->cur_frame->buf);
+#endif
 #endif
 					WRITE_VREG(HEVC_DEC_STATUS_REG, AOM_AV1_SEARCH_HEAD);
 					av1_print(hw, AOM_DEBUG_HW_MORE,
@@ -9514,9 +9508,11 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			} else {
 				hw->data_size = 0;
 				hw->data_offset = 0;
+#if (defined DEBUG_UCODE_LOG) || (defined DEBUG_CMD)
 #ifdef DEBUG_CRC_ERROR
 				if ((crc_debug_flag & 0x40) && cm->cur_frame)
 					dump_mv_buffer(hw, &cm->cur_frame->buf);
+#endif
 #endif
 				hw->dec_result = DEC_RESULT_DONE;
 				amhevc_stop();
