@@ -7524,6 +7524,8 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 		ref_total_num = read_ref_pic_set(hevc, &hevc->param, hevc->curr_POC, &rps_data);
 		if (ref_total_num > hevc->param.p.sps_max_dec_pic_buffering_minus1_0)
 			hevc->param.p.sps_max_dec_pic_buffering_minus1_0 = ref_total_num;
+		else if (hevc->param.p.sps_max_dec_pic_buffering_minus1_0 == hevc->param.p.sps_num_reorder_pics_0)
+			hevc->param.p.sps_max_dec_pic_buffering_minus1_0 += 2;
 
 		hevc->RefNum_L0 =
 			(rpm_param->p.num_ref_idx_l0_active > MAX_REF_ACTIVE) ?
@@ -7699,6 +7701,8 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 		ref_total_num = read_ref_pic_set(hevc, &hevc->param, hevc->curr_POC, &rps_data);
 		if (ref_total_num > hevc->param.p.sps_max_dec_pic_buffering_minus1_0)
 			hevc->param.p.sps_max_dec_pic_buffering_minus1_0 = ref_total_num;
+		else if (hevc->param.p.sps_max_dec_pic_buffering_minus1_0 == hevc->param.p.sps_num_reorder_pics_0)
+			hevc->param.p.sps_max_dec_pic_buffering_minus1_0 += 2;
 
 		if (hevc->wait_buf == 1) {
 			pic_list_process(hevc);
