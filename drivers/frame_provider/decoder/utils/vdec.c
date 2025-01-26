@@ -7554,7 +7554,7 @@ static ssize_t level_idc_show(KV_CLASS_CONST struct class *class, KV_CLASS_ATTR_
 static ssize_t dos_dev_info_show(KV_CLASS_CONST struct class *class,
 	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
-	pr_dos_infos();
+	pr_dos_infos();   //dos_info_debug();
 
 	return 0;
 }

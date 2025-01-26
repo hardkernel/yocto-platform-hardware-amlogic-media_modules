@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "../register/register.h"
-#include <linux/amlogic/media/utils/vformat.h>
+#include "chips.h"
 
 /* majoy chip id define */
 #define MAJOY_ID_MASK (0x000000ff)
@@ -119,46 +119,6 @@ enum ResResult {
 	RES_RET_OVERSIZE = 2
 };
 
-/* fmt_support */
-//vdec
-#define FMT_MPEG2    BIT(VFORMAT_MPEG12)
-#define FMT_MPEG4    BIT(VFORMAT_MPEG4)
-#define FMT_H264     BIT(VFORMAT_H264)
-#define FMT_MJPEG    BIT(VFORMAT_MJPEG)
-#define FMT_VC1      BIT(VFORMAT_VC1)
-#define FMT_AVS      BIT(VFORMAT_AVS)
-#define FMT_MVC      BIT(VFORMAT_H264MVC)
-//hevc
-#define FMT_HEVC     BIT(VFORMAT_HEVC)
-#define FMT_VP9      BIT(VFORMAT_VP9)
-#define FMT_AVS2     BIT(VFORMAT_AVS2)
-#define FMT_AV1      BIT(VFORMAT_AV1)
-#define FMT_AVS3     BIT(VFORMAT_AVS3)
-#define FMT_H266     BIT(VFORMAT_H266)
-
-//hcodec
-#define FMT_H264_ENC BIT(VFORMAT_H264_ENC)
-#define FMT_JPEG_ENC BIT(VFORMAT_JPEG_ENC)
-
-//frequently-used combination
-#define FMT_VDEC_ALL               (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC | FMT_AVS)
-#define FMT_VDEC_NO_AVS            (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC)
-
-#define FMT_HEVC_VP9_AV1           (FMT_HEVC | FMT_VP9 | FMT_AV1)
-#define FMT_HEVC_VP9_AVS2          (FMT_HEVC | FMT_VP9 | FMT_AVS2)
-#define FMT_HEVC_VP9_AVS2_AV1      (FMT_AV1  | FMT_HEVC_VP9_AVS2)
-#define FMT_HEVC_VP9_AVS2_AV1_AVS3 (FMT_AVS3 | FMT_HEVC_VP9_AVS2_AV1)
-
-//level_idc
-#define IDC_4        0x40
-#define IDC_4_1      0x41
-#define IDC_5        0x50
-#define IDC_5_1      0x51
-#define IDC_5_2      0x52
-#define IDC_6        0x60
-#define IDC_6_1      0x61
-#define IDC_6_2      0x62
-
 /* others */
 /* t6d dos clk license bit */
 #define OTP_LIC02 (0xfe440048)
@@ -196,21 +156,28 @@ struct dos_of_dev_s {
 	bool is_support_triple_write;
 	bool is_support_rdma;
 	bool is_support_mmu_copy;
-	int hevc_stream_extra_shift;
-	bool is_vcpu_clk_set;
+
 	bool is_vp9_adapt_prob_hw_mode;
-	bool is_vdec_hevc_combine;
+	bool is_vdec_hevc_combine;  /* vdec merged in hevc */
+
+	bool is_support_monitor;    /* hevc path monitor */
+	bool is_support_bandwidth_msr; /* bandwidth measure in path monitor */
+
+	int hevc_stream_extra_shift;  /* extra shift bytes in hevc parser */
+	bool is_vcpu_clk_set;    /* amrisc clk off in frame idle */
+
 
 	bool is_support_axi_ctrl;  /*dos pipeline ctrl by dos or dmc */
 	bool is_support_fb_axi;
 	bool is_support_hevc_arb;
-	bool is_support_34bit;
+
+	bool is_support_34bit;  /* 34bit axi, 34bit addr, 16G addr */
 
 	u32 fmt_support_flags;
-	u32 support_h265_level_idc;
-	bool is_support_monitor;
-	bool is_support_bandwidth_msr;
-	bool is_support_avbc_wrapper;
+
+	struct profile_level_t profile_level_idc;
+
+	bool is_support_avbc_wrapper;  /**/
 };
 
 
@@ -296,7 +263,7 @@ inline bool is_support_hevc_arb(void);
 
 inline bool is_support_format(int format);
 
-inline int get_h265_idc_level(void);
+inline int get_codec_support_level(int format);
 
 inline int get_hevc_stream_extra_shift_bytes(void);
 

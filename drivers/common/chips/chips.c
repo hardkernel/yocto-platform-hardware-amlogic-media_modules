@@ -23,174 +23,12 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/device.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
 
-#include <linux/amlogic/media/utils/vformat.h>
-#include <linux/amlogic/media/registers/cpu_version.h>
-#include "../../stream_input/amports/amports_priv.h"
-#include "../../frame_provider/decoder/utils/vdec.h"
 #include "chips.h"
-#include <linux/amlogic/media/utils/log.h>
 #include "decoder_cpu_ver_info.h"
+#include "../register/register.h"
+#include <linux/amlogic/media/utils/vformat.h>
 
-#define VIDEO_FIRMWARE_FATHER_NAME "video"
-
-/*
- *#define MESON_CPU_MAJOR_ID_M6		0x16
- *#define MESON_CPU_MAJOR_ID_M6TV		0x17
- *#define MESON_CPU_MAJOR_ID_M6TVL	0x18
- *#define MESON_CPU_MAJOR_ID_M8		0x19
- *#define MESON_CPU_MAJOR_ID_MTVD		0x1A
- *#define MESON_CPU_MAJOR_ID_M8B		0x1B
- *#define MESON_CPU_MAJOR_ID_MG9TV	0x1C
- *#define MESON_CPU_MAJOR_ID_M8M2		0x1D
- *#define MESON_CPU_MAJOR_ID_GXBB		0x1F
- *#define MESON_CPU_MAJOR_ID_GXTVBB		0x20
- *#define MESON_CPU_MAJOR_ID_GXL		0x21
- *#define MESON_CPU_MAJOR_ID_GXM		0x22
- *#define MESON_CPU_MAJOR_ID_TXL		0x23
- */
-struct type_name {
-
-	int type;
-
-	const char *name;
-};
-static const struct type_name cpu_type_name[] = {
-	{AM_MESON_CPU_MAJOR_ID_M6, "m6"},
-	{AM_MESON_CPU_MAJOR_ID_M6TV, "m6tv"},
-	{AM_MESON_CPU_MAJOR_ID_M6TVL, "m6tvl"},
-	{AM_MESON_CPU_MAJOR_ID_M8, "m8"},
-	{AM_MESON_CPU_MAJOR_ID_MTVD, "mtvd"},
-	{AM_MESON_CPU_MAJOR_ID_M8B, "m8b"},
-	{AM_MESON_CPU_MAJOR_ID_MG9TV, "mg9tv"},
-	{AM_MESON_CPU_MAJOR_ID_M8M2, "m8"},
-	{AM_MESON_CPU_MAJOR_ID_GXBB, "gxbb"},
-	{AM_MESON_CPU_MAJOR_ID_GXTVBB, "gxtvbb"},
-	{AM_MESON_CPU_MAJOR_ID_GXL, "gxl"},
-	{AM_MESON_CPU_MAJOR_ID_GXM, "gxm"},
-	{AM_MESON_CPU_MAJOR_ID_TXL, "txl"},
-	{AM_MESON_CPU_MAJOR_ID_TXLX, "txlx"},
-	{AM_MESON_CPU_MAJOR_ID_GXLX, "gxlx"},
-	{AM_MESON_CPU_MAJOR_ID_G12A, "g12a"},
-	{AM_MESON_CPU_MAJOR_ID_G12B, "g12b"},
-	{AM_MESON_CPU_MAJOR_ID_SM1, "sm1"},
-	{AM_MESON_CPU_MAJOR_ID_TL1, "tl1"},
-	{AM_MESON_CPU_MAJOR_ID_TM2, "tm2"},
-	{AM_MESON_CPU_MAJOR_ID_SC2, "sc2"},
-	{AM_MESON_CPU_MAJOR_ID_T5, "t5"},
-	{AM_MESON_CPU_MAJOR_ID_T5D, "t5d"},
-	{AM_MESON_CPU_MAJOR_ID_T7, "t7"},
-	{AM_MESON_CPU_MAJOR_ID_S4, "s4"},
-	{AM_MESON_CPU_MAJOR_ID_T3, "t3"},
-	{AM_MESON_CPU_MAJOR_ID_P1, "p1"},
-	{AM_MESON_CPU_MAJOR_ID_S4D, "s4d"},
-	{AM_MESON_CPU_MAJOR_ID_T5W, "t5w"},
-	{AM_MESON_CPU_MAJOR_ID_S5, "s5"},
-	{AM_MESON_CPU_MAJOR_ID_GXLX3, "gxlx3"},
-	{AM_MESON_CPU_MAJOR_ID_T5M, "t5m"},
-	{AM_MESON_CPU_MAJOR_ID_T3X, "t3x"},
-	{AM_MESON_CPU_MAJOR_ID_TXHD2, "txhd2"},
-	{AM_MESON_CPU_MAJOR_ID_S1A, "s1a"},
-	{AM_MESON_CPU_MAJOR_ID_S7, "s7"},
-	{AM_MESON_CPU_MAJOR_ID_S7D, "s7d"},
-	{AM_MESON_CPU_MAJOR_ID_S6, "s6"},
-	{AM_MESON_CPU_MAJOR_ID_T6D, "t6d"},
-	{0, NULL},
-};
-
-static const char *get_type_name(const struct type_name *typename, int size,
-	int type)
-{
-
-	const char *name = "unknown";
-
-	int i;
-
-	for (i = 0; i < size; i++) {
-
-		if (type == typename[i].type)
-
-			name = typename[i].name;
-
-	}
-
-	return name;
-}
-
-const char *get_cpu_type_name(void)
-{
-
-	return get_type_name(cpu_type_name,
-		sizeof(cpu_type_name) / sizeof(struct type_name),
-		get_cpu_major_id());
-}
-EXPORT_SYMBOL(get_cpu_type_name);
-
-/*
- *enum vformat_e {
- *	VFORMAT_MPEG12 = 0,
- *	VFORMAT_MPEG4,
- *	VFORMAT_H264,
- *	VFORMAT_MJPEG,
- *	VFORMAT_REAL,
- *	VFORMAT_JPEG,
- *	VFORMAT_VC1,
- *	VFORMAT_AVS,
- *	VFORMAT_YUV,
- *	VFORMAT_H264MVC,
- *	VFORMAT_H264_4K2K,
- *	VFORMAT_HEVC,
- *	VFORMAT_H264_ENC,
- *	VFORMAT_JPEG_ENC,
- *	VFORMAT_VP9,
- *	VFORMAT_AVS2,
- *	VFORMAT_AV1,
- *	VFORMAT_AVS3,
- *	VFORMAT_MAX
- *};
- */
-static const struct type_name vformat_type_name[] = {
-	{VFORMAT_MPEG12, "mpeg12"},
-	{VFORMAT_MPEG4, "mpeg4"},
-	{VFORMAT_H264, "h264"},
-	{VFORMAT_MJPEG, "mjpeg"},
-	{VFORMAT_REAL, "real"},
-	{VFORMAT_JPEG, "jpeg"},
-	{VFORMAT_VC1, "vc1"},
-	{VFORMAT_AVS, "avs"},
-	{VFORMAT_YUV, "yuv"},
-	{VFORMAT_H264MVC, "h264mvc"},
-	{VFORMAT_H264_4K2K, "h264_4k"},
-	{VFORMAT_HEVC, "hevc"},
-	{VFORMAT_H264_ENC, "h264_enc"},
-	{VFORMAT_JPEG_ENC, "jpeg_enc"},
-	{VFORMAT_VP9, "vp9"},
-	{VFORMAT_AVS2, "avs2"},
-	{VFORMAT_AV1, "av1"},
-	{VFORMAT_AVS3, "avs3"},
-	{VFORMAT_H266, "h266"},
-	{VFORMAT_YUV, "yuv"},
-	{0, NULL},
-};
-
-const char *get_video_format_name(enum vformat_e type)
-{
-
-	return get_type_name(vformat_type_name,
-		sizeof(vformat_type_name) / sizeof(struct type_name), type);
-}
-EXPORT_SYMBOL(get_video_format_name);
-
-static struct chip_vdec_info_s current_chip_info;
-
-struct chip_vdec_info_s *get_current_vdec_chip(void)
-{
-
-	return &current_chip_info;
-}
-EXPORT_SYMBOL(get_current_vdec_chip);
 
 bool check_efuse_chip(int vformat)
 {
@@ -210,4 +48,133 @@ bool check_efuse_chip(int vformat)
 	return false;
 }
 EXPORT_SYMBOL(check_efuse_chip);
+
+
+
+static int codec_profile_desc_init(char *desc, int format)
+{
+	const char *vformat_profile[] = {
+		"MPEG-1, MPEG-2 MP/HL",
+		"MPEG-4 ASP",
+		"H.264 AVC HP",
+		"MJPEG unlimited pixel resolution",
+		"Real Softdec",
+		"JPEG unlimited pixel resolution",
+		"WMV/VC-1 SP/MP/AP",
+		"AVS-P16(AVS+)/AVS-P2 JiZhun Profile",
+		"YUV Softdec",
+		"H.264(MVC) AVC HP",
+		"H.264(4K/2K) AVC HP",
+		"H.265 HEVC MP-10",
+		"",
+		"",
+		"VP9 Profile-2",
+		"AVS2 P2 Profile",
+		"AV1 MP-10",
+		"AVS3 Phase1",
+		"H.266 VVC main10",
+		"Unknown Format",
+	};
+
+	strncpy(desc, vformat_profile[format], PRO_LEVEL_LEN);
+
+	return strlen(desc);
+}
+
+static int codec_level_idc_init(int format)
+{
+	u32 i, cpu, sub;
+	const u32 chip_level[][1 + VFORMAT_MAX] = {
+		/* chip,                     mp2, mp4, 264, mjpg, real, jpg, vc1, avs, yuv, mvc, 2k4k, 265, 264enc, jpenc, vp9, avs2, av1, avs3, vvc*/
+		{AM_MESON_CPU_MAJOR_ID_G12A,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_G12B,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_GXLX2, 0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_SM1,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_TL1,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_TM2,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_SC2,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T5,    0,   5,   50,  0,    0,    0,   0,   0,   0,   50,  50,  51,  0,      0,     0,   0,    0,   0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T5D,   0,   5,   50,  0,    0,    0,   0,   0,   0,   50,  50,  41,  0,      0,     0,   0,    41,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T7,    0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    60,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S4,    0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T3,    0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    60,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S4D,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T5W,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S5,    0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  61,  0,      0,     61,  0,    61,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_GXLX3, 0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    0,   0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T5M,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_T3X,   0,   5,   52,  0,    0,    0,   0,   0,   0,   52,  52,  60,  0,      0,     0,   0,    60,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_TXHD2, 0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  50,  0,      0,     0,   0,    0,   0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S1A,   0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  41,  0,      0,     0,   0,    0,   0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S7,    0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S7D,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MAJOR_ID_S6,    0,   5,   52,  0,    0,    0,   0,   0,   0,   52,  52,  52,  0,      0,     0,   0,    52,  0,    52},
+		{AM_MESON_CPU_MAJOR_ID_T6D,   0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  41,  0,      0,     0,   0,    41,  0,    0},
+	};
+	const u32 sub_chip_level[][1 + VFORMAT_MAX] = {
+		/* chip,                          mp2, mp4, 264, mjpg, real, jpg, vc1, avs, yuv, mvc, 2k4k, 265, 264enc, jpenc, vp9, avs2, av1, avs3, vvc*/
+		{AM_MESON_CPU_MINOR_ID_REVB_G12B,  0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,     0,  0,    0},
+		{AM_MESON_CPU_MINOR_ID_REVB_TM2,   0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    51,  0,    0},
+		{AM_MESON_CPU_MINOR_ID_S4_S805X2,  0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  41,  0,      0,     0,   0,    41,  0,    0},
+		{AM_MESON_CPU_MINOR_ID_T7C,        0,   5,   51,  0,    0,    0,   0,   0,   0,   51,  51,  51,  0,      0,     0,   0,    60,  0,    0},
+		{AM_MESON_CPU_MINOR_ID_S7_S805X3,  0,   5,   42,  0,    0,    0,   0,   0,   0,   42,  42,  41,  0,      0,     0,   0,    41,  0,    0},
+	};
+
+	cpu = get_cpu_major_id();
+	sub = get_cpu_sub_id();
+	if (sub) {
+		cpu |= (sub << 8);
+		for (i = 0; i < sizeof(sub_chip_level)/((VFORMAT_MAX + 1) * sizeof(u32)); i++) {
+			if (cpu == chip_level[i][0]) {
+				return chip_level[i][1 + format];
+			}
+		}
+	} else {
+		for (i = 0; i < sizeof(chip_level)/((VFORMAT_MAX + 1) * sizeof(u32)); i++) {
+			if (cpu == chip_level[i][0]) {
+				return chip_level[i][1 + format];
+			}
+		}
+	}
+
+	return 0;
+}
+
+void vcodec_profile_level_init(struct profile_level_t *plt)
+{
+	u32 i, len;
+	char *desc;
+
+	for (i = 0; i < VFORMAT_MAX; i++) {
+		desc = &plt->profile_level_desc[i][0];
+
+		if (!is_support_format(i))
+			continue;
+
+		len = codec_profile_desc_init(desc, i);
+
+		plt->fmt_level[i] = codec_level_idc_init(i);
+		if (plt->fmt_level[i]) {
+			if (plt->fmt_level[i] > 9) {
+				snprintf(desc + len, PRO_LEVEL_LEN - len,
+					"@L%d.%d ", plt->fmt_level[i]/10, plt->fmt_level[i]%10);
+			} else {
+				snprintf(desc + len, PRO_LEVEL_LEN - len,
+					"@L%d ", plt->fmt_level[i]);
+			}
+		}
+	}
+}
+
+void show_profile_level_idc(struct profile_level_t *plt)
+{
+	u32 i;
+
+	pr_info("vdec profile & level:");
+	for (i = 0; i < VFORMAT_MAX; i++) {
+		if (is_support_format(i))
+			pr_info("\t%s\n", plt->profile_level_desc[i]);
+	}
+}
+
 

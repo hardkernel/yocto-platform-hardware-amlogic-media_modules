@@ -46,6 +46,14 @@
 
 static int clock_source_wxhxfps_saved[VDEC_MAX + 1];
 
+static struct chip_vdec_info_s current_chip_info;
+
+struct chip_vdec_info_s *get_current_vdec_chip(void)
+{
+	return &current_chip_info;
+}
+EXPORT_SYMBOL(get_current_vdec_chip);
+
 #define IF_HAVE_RUN(p, fn)\
 	do {\
 		if (p && p->fn)\

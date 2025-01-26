@@ -39,4 +39,18 @@ struct chip_vdec_clk_s {
 	void (*clock_off)(void);
 	void (*clock_prepare_switch)(void);
 };
+
+struct chip_vdec_info_s {
+
+	int cpu_type;
+
+	struct video_firmware_s *firmware;
+
+	struct chip_vdec_clk_s *clk_mgr[VDEC_MAX];
+
+	struct clk_set_setting *clk_setting_array;
+};
+
+struct chip_vdec_info_s *get_current_vdec_chip(void);
+
 #endif

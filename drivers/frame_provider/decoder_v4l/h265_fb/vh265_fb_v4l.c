@@ -3114,11 +3114,11 @@ static void restore_decode_state(struct hevc_state_s *hevc)
 
 static int get_support_slice_num(void)
 {
-	int level_idc = get_h265_idc_level();
+	int level_idc = get_codec_support_level(VFORMAT_HEVC);
 
-	if (level_idc < IDC_5)
+	if (level_idc < 50)
 		return SLICE_NUM_LEVEL_IDC_4_x;
-	else if (level_idc < IDC_6)
+	else if (level_idc < 60)
 		return SLICE_NUM_LEVEL_IDC_5_x;
 	else
 		return SLICE_NUM_LEVEL_IDC_6_x;

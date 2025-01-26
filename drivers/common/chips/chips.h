@@ -17,26 +17,60 @@
  *
  * Description:
  */
-#ifndef UCODE_MANAGER_HEADER
-#define UCODE_MANAGER_HEADER
-#include "../media_clock/clk/clk_priv.h"
+#ifndef DOS_CHIP_PLATFORM_HEADER
+#define DOS_CHIP_PLATFORM_HEADER
 
-struct chip_vdec_info_s {
+#include <linux/amlogic/media/utils/vformat.h>
 
-	int cpu_type;
-
-	struct video_firmware_s *firmware;
-
-	struct chip_vdec_clk_s *clk_mgr[VDEC_MAX];
-
-	struct clk_set_setting *clk_setting_array;
-};
-
-const char *get_cpu_type_name(void);
-const char *get_video_format_name(enum vformat_e type);
-
-struct chip_vdec_info_s *get_current_vdec_chip(void);
+/* g12a ~ sc2 */
+#define	EFUSE_LIC0	(0xc)
+#define	EFUSE_LIC1	(0xd)
+#define	EFUSE_LIC2	(0xe)
+#define	EFUSE_LIC3	(0xf)
 
 bool check_efuse_chip(int vformat);
+
+/* fmt_support */
+//vdec
+#define FMT_MPEG2    BIT(VFORMAT_MPEG12)
+#define FMT_MPEG4    BIT(VFORMAT_MPEG4)
+#define FMT_H264     BIT(VFORMAT_H264)
+#define FMT_MJPEG    BIT(VFORMAT_MJPEG)
+#define FMT_VC1      BIT(VFORMAT_VC1)
+#define FMT_AVS      BIT(VFORMAT_AVS)
+#define FMT_MVC      BIT(VFORMAT_H264MVC)
+//hevc
+#define FMT_HEVC     BIT(VFORMAT_HEVC)
+#define FMT_VP9      BIT(VFORMAT_VP9)
+#define FMT_AVS2     BIT(VFORMAT_AVS2)
+#define FMT_AV1      BIT(VFORMAT_AV1)
+#define FMT_AVS3     BIT(VFORMAT_AVS3)
+#define FMT_H266     BIT(VFORMAT_H266)
+
+//hcodec
+#define FMT_H264_ENC BIT(VFORMAT_H264_ENC)
+#define FMT_JPEG_ENC BIT(VFORMAT_JPEG_ENC)
+
+//frequently-used combination
+#define FMT_VDEC_ALL               (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC | FMT_AVS)
+#define FMT_VDEC_NO_AVS            (FMT_MPEG2 | FMT_MPEG4 | FMT_H264 | FMT_MJPEG | FMT_VC1 | FMT_MVC)
+
+#define FMT_HEVC_VP9_AV1           (FMT_HEVC | FMT_VP9 | FMT_AV1)
+#define FMT_HEVC_VP9_AVS2          (FMT_HEVC | FMT_VP9 | FMT_AVS2)
+#define FMT_HEVC_VP9_AVS2_AV1      (FMT_AV1  | FMT_HEVC_VP9_AVS2)
+#define FMT_HEVC_VP9_AVS2_AV1_AVS3 (FMT_AVS3 | FMT_HEVC_VP9_AVS2_AV1)
+
+
+/* profile & level description */
+#define PRO_LEVEL_LEN  64
+
+struct profile_level_t {
+	u32 fmt_level[VFORMAT_MAX];
+	char profile_level_desc[VFORMAT_MAX][PRO_LEVEL_LEN];
+};
+
+void vcodec_profile_level_init(struct profile_level_t *plt);
+
+void show_profile_level_idc(struct profile_level_t *plt);
 
 #endif
