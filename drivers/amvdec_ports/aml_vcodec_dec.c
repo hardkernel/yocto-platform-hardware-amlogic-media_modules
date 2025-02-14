@@ -392,6 +392,7 @@ static void vidioc_vdec_g_parm_ext(struct v4l2_ctrl *, struct aml_vcodec_ctx *);
 static int is_vdec_core_fmt(u32 fmt);
 static bool is_dynamic_mode(struct aml_vcodec_ctx *ctx);
 static bool is_game_mode(u32 mode);
+static void aml_ubuf_queue_del(struct aml_vcodec_ctx *ctx);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
 {
@@ -4516,24 +4517,18 @@ static void aml_ubuf_queue_add(struct aml_vcodec_ctx *ctx, struct aml_uvm_buff_r
 	mutex_unlock(&ctx->ubuf_lock);
 }
 
-static void aml_ubuf_queue_del(struct aml_vcodec_ctx *ctx, struct aml_uvm_buff_ref *ubuf)
+static void aml_ubuf_queue_del(struct aml_vcodec_ctx *ctx)
 {
 	struct aml_uvm_buff_ref *ubuf0, *tmp;
-
-	if (!ctx->bm.config.dynamic_mode)
-		return;
 
 	mutex_lock(&ctx->ubuf_lock);
 	if (!list_empty(&ctx->ubuf_que)) {
 		list_for_each_entry_safe(ubuf0, tmp, &ctx->ubuf_que, node) {
-			if (ubuf == ubuf0) {
 				list_del(&ubuf0->node);
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 				"uvm buffer del, ubuf:%px vb:%d, dbuf:%px, addr:%lx ino:%lu\n",
-				ubuf, ubuf->index, ubuf->dbuf, ubuf->addr,
-				file_inode(ubuf->dbuf->file)->i_ino);
-				break;
-			}
+				ubuf0, ubuf0->index, ubuf0->dbuf, ubuf0->addr,
+				file_inode(ubuf0->dbuf->file)->i_ino);
 		}
 	}
 	mutex_unlock(&ctx->ubuf_lock);
@@ -4547,11 +4542,10 @@ static void aml_uvm_buf_free(void *arg)
 		= container_of(ubuf->ref, struct aml_vcodec_ctx, ctx_ref);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, vb:%d, dbuf:%px, ino:%lu\n",
-		__func__, ubuf->index, ubuf->dbuf,
+		"%s, ubuf %px, vb:%d, dbuf:%px, ino:%lu\n",
+		__func__, ubuf, ubuf->index, ubuf->dbuf,
 		file_inode(ubuf->dbuf->file)->i_ino);
 
-	aml_ubuf_queue_del(ctx, ubuf);
 	aml_buf_release_dma(&ctx->bm, (ulong)ubuf->dbuf);
 	aml_buf_detach(&ctx->bm, (ulong)ubuf->dbuf);
 
@@ -4699,6 +4693,12 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 					aml_buf_put_ref(&ctx->bm, buf_pair);
 				}
 			}
+		}
+
+		if (aml_buf == NULL) {
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+				"Buf is NULL! Preview resolution buf, ignore!\n");
+			return;
 		}
 
 		if (aml_buf->vb != vb) {
@@ -5159,6 +5159,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			(vdec_frame_number(ctx->ada_ctx) > 0) &&
 			(ctx->state < AML_STATE_ACTIVE)) {
 			vdec_tracing(&ctx->vtr, VTRACE_V4L_ST_0, ctx->state);
+			if (ctx->v4l_resolution_change)
+				aml_ubuf_queue_del(ctx);
 			ctx->v4l_resolution_change = false;
 			ctx->reset_flag = V4L_RESET_MODE_NORMAL;
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
@@ -5196,6 +5198,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 				q->bufs[i]->index, q->bufs[i]->state);*/
 		}
 
+		if (ctx->v4l_resolution_change)
+			aml_ubuf_queue_del(ctx);
 		aml_buf_reset(&ctx->bm);
 		aml_codec_connect(ctx->ada_ctx); /* for resolution change */
 		aml_compressed_info_show(ctx, NULL);

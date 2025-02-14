@@ -36,6 +36,9 @@
 
 #define IS_VPP_POST(bm)	(bm->vpp_work_mode == VPP_WORK_MODE_DI_POST)
 
+static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm);
+static void aml_buf_vpp_mgr_release(struct aml_buf_mgr_s *bm);
+
 void aml_buf_ref_recycle_worker(struct work_struct *work)
 {
 	struct buf_core_entry *entry =
@@ -159,6 +162,7 @@ static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc)
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int ret = -1;
+	int dec_type = DEC_TYPE_V4L_DEC;
 
 	ret = buf_mgr_reset(bm->vpp_handle);
 
@@ -166,23 +170,28 @@ static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc)
 		"%s, ret:%d\n",
 		__func__, ret);
 
+	if (bm->config.dynamic_mode)
+		dec_type = DEC_TYPE_VDEC_CORE_I;
+	if (bm->dec_type != dec_type) {
+		aml_buf_vpp_mgr_release(bm);
+		aml_buf_vpp_mgr_init(bm);
+	}
+
 	return ret;
 }
 
 static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm)
 {
-	int dec_type;
-
 	if (!IS_VPP_POST(bm))
 		return 0;
 
 	if (!bm->vpp_handle) {
 		if (bm->config.dynamic_mode)
-			dec_type = DEC_TYPE_VDEC_CORE_I;
+			bm->dec_type = DEC_TYPE_VDEC_CORE_I;
 		else
-			dec_type = DEC_TYPE_V4L_DEC;
+			bm->dec_type = DEC_TYPE_V4L_DEC;
 
-		bm->vpp_handle = buf_mgr_creat(dec_type,
+		bm->vpp_handle = buf_mgr_creat(bm->dec_type,
 					      bm->bc.id,
 					      &bm->bc,
 					      aml_buf_vpp_callback);
@@ -196,6 +205,8 @@ static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm)
 		bm->bc.vpp_que	= aml_buf_vpp_que;
 		bm->bc.vpp_dque = aml_buf_vpp_dque;
 		bm->bc.vpp_reset = aml_buf_vpp_reset;
+		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
+			"%s success! dec_type %d.\n", __func__, bm->dec_type);
 	}
 
 	return 0;
@@ -205,6 +216,10 @@ static void aml_buf_vpp_mgr_release(struct aml_buf_mgr_s *bm)
 {
 	if (bm->vpp_handle)
 		buf_mgr_release(bm->vpp_handle);
+
+	bm->vpp_handle = NULL;
+	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
+			"%s success!\n", __func__);
 }
 #endif
 

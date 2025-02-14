@@ -373,6 +373,8 @@ static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 	if (!bc->is_dynamic_mode_init(bc))
 		goto out;
 
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+						"%s, enter!\n",__func__);
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = bc->dma[i];
 		if (!dma->dmabuf)
@@ -398,6 +400,8 @@ static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 		}
 	}
 
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+						"%s, exit!\n",__func__);
 out:
 	mutex_unlock(&bc->dma_mutex);
 }
@@ -1308,6 +1312,7 @@ static void buf_core_detach(struct buf_core_mgr_s *bc, ulong key)
 
 	mutex_lock(&bc->mutex);
 
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s, enter!\n",__func__);
 	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
 		if (key == entry->key) {
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
@@ -1332,6 +1337,7 @@ static void buf_core_detach(struct buf_core_mgr_s *bc, ulong key)
 			break;
 		}
 	}
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s, exit!\n",__func__);
 
 	mutex_unlock(&bc->mutex);
 }

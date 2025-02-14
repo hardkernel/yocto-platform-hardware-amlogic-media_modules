@@ -2760,6 +2760,7 @@ int recycle_frame_buffer(struct h264_dpb_stru *p_H264_Dpb, int buf_spec_num,
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)p_H264_Dpb->vdec->private;
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	struct aml_buf *aml_buf = (struct aml_buf *)hw->buffer_spec[buf_spec_num].cma_alloc_addr;
+	struct aml_buf_config config = { 0 };
 
 	if (ctx->avbcd_work_mode)
 		return 0;
@@ -2776,7 +2777,8 @@ int recycle_frame_buffer(struct h264_dpb_stru *p_H264_Dpb, int buf_spec_num,
 		buf_spec_num > 0 ? hw->buffer_spec[buf_spec_num].used : 0,
 	hw->buffer_spec[buf_spec_num].buf_adr);
 
-	if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+	aml_buf_get_configure(&ctx->bm, &config);
+	if (config.dynamic_mode) {
 		aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
 		if (!p_H264_Dpb->mDPB.fs[frame_index]->show_frame)
 			aml_buf_put_ref(&ctx->bm, aml_buf);

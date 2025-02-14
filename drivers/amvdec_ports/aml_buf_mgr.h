@@ -234,6 +234,7 @@ struct aml_buf_mgr_s {
 	void				*vpp_handle;
 	u32				frm_cnt;
 	int				vpp_work_mode;
+	int				dec_type;
 };
 
 /*
