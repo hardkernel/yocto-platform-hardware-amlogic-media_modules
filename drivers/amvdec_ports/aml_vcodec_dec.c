@@ -3721,11 +3721,12 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	return 0;
 S_FMT_ERROR:
 #ifdef CONFIG_AMLOGIC_MEDIA_PROXY
-	if (ctx->k_producer_session)
+	if (ctx->k_producer_session) {
 		media_proxy_produce_deinit(ctx->k_producer_session);
+		ctx->k_producer_session = NULL;
+	}
 #endif
 	return -EINVAL;
-
 }
 
 static int vidioc_enum_framesizes(struct file *file, void *priv,
