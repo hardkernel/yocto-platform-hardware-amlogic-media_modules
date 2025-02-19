@@ -1037,6 +1037,7 @@ struct vdec_h264_hw_s {
 	struct res_info report_res_info;
 	u32 res_change_need_double_check;
 	u32 csd_info_count;
+	bool v4l_report_ud_flag;
 };
 
 #define TIMEOUT_INIT 0
@@ -10875,7 +10876,7 @@ static void vmh264_reset_user_data_buf(void)
 #endif
 
 static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
-	struct h264_dpb_stru *p_H264_Dpb, u8 *sei_data_buf, u32 data_len)
+	struct h264_dpb_stru *p_H264_Dpb, u8 *sei_data_buf, u32 data_len, struct userdata_meta_info_t *meta_info)
 {
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
@@ -10908,6 +10909,28 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 		}
 	}
 
+	usd_rep.data_size = data_len;
+	usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
+	if (dpb_is_debug(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL)) {
+		dpb_print(DECODE_ID(hw), 0, "%s: data_len %d\n", __func__, data_len);
+		for (i = 0; i < data_len; i++) {
+			dpb_print_cont(DECODE_ID(hw), 0, "%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
+			if (((i + 1) & 0xf) == 0)
+				dpb_print_cont(DECODE_ID(hw), 0, "\n");
+		}
+		dpb_print_cont(DECODE_ID(hw), 0, "\n");
+	}
+
+	usd_rep.meta_data.timestamp = p_H264_Dpb->mVideo.dec_picture->timestamp;
+	usd_rep.meta_data.poc_number = meta_info->poc_number;
+	usd_rep.meta_data.video_format = VFORMAT_H264;
+	usd_rep.meta_data.vpts = meta_info->vpts;
+	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
+	usd_rep.meta_data.pic_struct = (meta_info->flags >> 12) & 0x3;
+	usd_rep.meta_data.duration = meta_info->duration;
+	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,	"%s: poc %d vpts %d\n",
+			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
+
 	if (is_afd_data(tmp_buf)) {
 		if (kfifo_is_full(&ctx->dec_intf.afd_done)) {
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,
@@ -10915,28 +10938,8 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 			vfree(tmp_buf);
 			return;
 		}
-		usd_rep.data_size = data_len;
-		usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
-		if (dpb_is_debug(DECODE_ID(hw),
-			PRINT_FLAG_SEI_DETAIL)) {
-			dpb_print(DECODE_ID(hw), 0, "%s: data_len %d\n", __func__, data_len);
-			for (i = 0; i < data_len; i++) {
-				dpb_print_cont(DECODE_ID(hw), 0,
-					"%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
-				if (((i + 1) & 0xf) == 0)
-					dpb_print_cont(
-					DECODE_ID(hw), 0, "\n");
-			}
-			dpb_print_cont(DECODE_ID(hw), 0, "\n");
-		}
-		usd_rep.meta_data.timestamp = p_H264_Dpb->mVideo.dec_picture->timestamp;
-		usd_rep.meta_data.vpts_valid = 1;
-		usd_rep.meta_data.video_format = VFORMAT_H264;
-		usd_rep.meta_data.poc_number = p_H264_Dpb->mVideo.dec_picture->poc;
-		usd_rep.meta_data.frame_type = p_H264_Dpb->mVideo.dec_picture->slice_type;
-		usd_rep.meta_data.flags |= p_H264_Dpb->mVideo.dec_picture->pic_struct;
-		usd_rep.meta_data.records_in_que =
-			kfifo_len(&ctx->dec_intf.afd_done) + 1; /* +1 : current one's */
+
+		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.afd_done) + 1; /* +1 : current one's */
 		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_AFD, &usd_rep);
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,
 				"%s, AFD ready event report\n", __func__);
@@ -10948,26 +10951,7 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 			return;
 		}
 
-		usd_rep.data_size = data_len;
-		usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
-		if (dpb_is_debug(DECODE_ID(hw),
-			PRINT_FLAG_SEI_DETAIL)) {
-			dpb_print(DECODE_ID(hw), 0, "%s: data_len %d\n", __func__, data_len);
-			for (i = 0; i < data_len; i++) {
-				dpb_print_cont(DECODE_ID(hw), 0,
-					"%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
-				if (((i + 1) & 0xf) == 0)
-					dpb_print_cont(
-					DECODE_ID(hw), 0, "\n");
-			}
-			dpb_print_cont(DECODE_ID(hw), 0, "\n");
-		}
-		usd_rep.meta_data.timestamp = p_H264_Dpb->mVideo.dec_picture->timestamp;
-		usd_rep.meta_data.vpts_valid = 1;
-		usd_rep.meta_data.video_format = VFORMAT_H264;
-		usd_rep.meta_data.poc_number = p_H264_Dpb->mVideo.dec_picture->poc;
-		usd_rep.meta_data.records_in_que =
-			kfifo_len(&ctx->dec_intf.cc_done) + 1; /* +1 : current one's */
+		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.cc_done) + 1; /* +1 : current one's */
 		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_CC, &usd_rep);
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,
 				"%s, CC ready event report\n", __func__);
@@ -11000,6 +10984,12 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 #ifdef MH264_USERDATA_ENABLE
 	struct userdata_meta_info_t meta_info;
 	memset(&meta_info, 0, sizeof(meta_info));
+	meta_info.duration = hw->frame_dur;
+	meta_info.flags |= (VFORMAT_H264 << 3);
+	meta_info.vpts = vpts;
+	meta_info.vpts_valid = vpts_valid;
+	meta_info.poc_number = p_H264_Dpb->mVideo.dec_picture->poc;
+	meta_info.flags |= p_H264_Dpb->mVideo.dec_picture->pic_struct << 12;
 #endif
 
 	if ((get_cur_slice_picture_struct(p_H264_Dpb) == FRAME)
@@ -11056,71 +11046,61 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 			hw->sei_itu_data_len, p_H264_Dpb->mVideo.dec_picture->poc);
 #endif
 
-	v4l_vmh264_fill_userdata(hw, p_H264_Dpb, (u8 *)hw->sei_itu_data_buf,
-		hw->sei_itu_data_len);
+	if (hw->v4l_report_ud_flag == true)
+		v4l_vmh264_fill_userdata(hw, p_H264_Dpb, (u8 *)hw->sei_itu_data_buf,
+			hw->sei_itu_data_len, &meta_info);
+	else {
+		pdata = (u8 *)hw->sei_user_data_buffer + hw->sei_user_data_wp;
+		pmax_sei_data_buffer = (u8 *)hw->sei_user_data_buffer + USER_DATA_SIZE;
+		sei_data_buf = (u8 *)hw->sei_itu_data_buf;
+		for (i = 0; i < hw->sei_itu_data_len; i++) {
+			*pdata++ = sei_data_buf[i];
+			if (pdata >= pmax_sei_data_buffer)
+				pdata = (u8 *)hw->sei_user_data_buffer;
+		}
 
-	pdata = (u8 *)hw->sei_user_data_buffer + hw->sei_user_data_wp;
-	pmax_sei_data_buffer = (u8 *)hw->sei_user_data_buffer + USER_DATA_SIZE;
-	sei_data_buf = (u8 *)hw->sei_itu_data_buf;
-	for (i = 0; i < hw->sei_itu_data_len; i++) {
-		*pdata++ = sei_data_buf[i];
-		if (pdata >= pmax_sei_data_buffer)
-			pdata = (u8 *)hw->sei_user_data_buffer;
-	}
-
-	hw->sei_user_data_wp = (hw->sei_user_data_wp
-		+ hw->sei_itu_data_len) % USER_DATA_SIZE;
-	hw->sei_itu_data_len = 0;
+		hw->sei_user_data_wp = (hw->sei_user_data_wp
+			+ hw->sei_itu_data_len) % USER_DATA_SIZE;
 
 #ifdef MH264_USERDATA_ENABLE
-	meta_info.duration = hw->frame_dur;
-	meta_info.flags |= (VFORMAT_H264 << 3);
+		wp = hw->sei_user_data_wp;
 
-	meta_info.vpts = vpts;
-	meta_info.vpts_valid = vpts_valid;
-	meta_info.poc_number =
-		p_H264_Dpb->mVideo.dec_picture->poc;
+		if (hw->sei_user_data_wp > hw->userdata_info.last_wp)
+			data_length = wp - hw->userdata_info.last_wp;
+		else
+			data_length = wp + hw->userdata_info.buf_len
+				- hw->userdata_info.last_wp;
 
+		if (data_length & 0x7)
+			data_length = (((data_length + 8) >> 3) << 3);
 
-	wp = hw->sei_user_data_wp;
+		p_userdata_rec = &hw->ud_record;
+		p_userdata_rec->meta_info = meta_info;
+		p_userdata_rec->rec_start = hw->userdata_info.last_wp;
+		p_userdata_rec->rec_len = data_length;
+		hw->userdata_info.last_wp = wp;
 
-	if (hw->sei_user_data_wp > hw->userdata_info.last_wp)
-		data_length = wp - hw->userdata_info.last_wp;
-	else
-		data_length = wp + hw->userdata_info.buf_len
-			- hw->userdata_info.last_wp;
+		mutex_lock(&hw->userdata_mutex);
 
-	if (data_length & 0x7)
-		data_length = (((data_length + 8) >> 3) << 3);
+		hw->userdata_info.records[hw->userdata_info.write_index]
+			= hw->ud_record;
 
-	p_userdata_rec = &hw->ud_record;
-	p_userdata_rec->meta_info = meta_info;
-	p_userdata_rec->rec_start = hw->userdata_info.last_wp;
-	p_userdata_rec->rec_len = data_length;
-	hw->userdata_info.last_wp = wp;
+		hw->userdata_info.write_index++;
+		if (hw->userdata_info.write_index >= USERDATA_FIFO_NUM)
+			hw->userdata_info.write_index = 0;
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL, "%s: poc %d, rec_len %d, vpts %llu, vpts_valid %d, write_index %d\n",
+			__func__, hw->ud_record.meta_info.poc_number, p_userdata_rec->rec_len, hw->ud_record.meta_info.vpts,
+			hw->ud_record.meta_info.vpts_valid, hw->userdata_info.write_index);
 
-	p_userdata_rec->meta_info.flags |=
-		p_H264_Dpb->mVideo.dec_picture->pic_struct << 12;
-
-	mutex_lock(&hw->userdata_mutex);
-
-	hw->userdata_info.records[hw->userdata_info.write_index]
-		= hw->ud_record;
-
-	hw->userdata_info.write_index++;
-	if (hw->userdata_info.write_index >= USERDATA_FIFO_NUM)
-		hw->userdata_info.write_index = 0;
-	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL, "%s: poc %d, rec_len %d, vpts %llu, vpts_valid %d, write_index %d\n",
-		__func__, hw->ud_record.meta_info.poc_number, p_userdata_rec->rec_len, hw->ud_record.meta_info.vpts,
-		hw->ud_record.meta_info.vpts_valid, hw->userdata_info.write_index);
-
-	mutex_unlock(&hw->userdata_mutex);
+		mutex_unlock(&hw->userdata_mutex);
 
 #ifdef DUMP_USERDATA_RECORD
-	dump_userdata_record(hw, &hw->ud_record);
+		dump_userdata_record(hw, &hw->ud_record);
 #endif
-	vdec_wakeup_userdata_poll(hw_to_vdec(hw));
+		vdec_wakeup_userdata_poll(hw_to_vdec(hw));
 #endif
+	}
+	hw->sei_itu_data_len = 0;
 }
 
 static int vmh264_user_data_read(struct vdec_s *vdec,
@@ -13566,6 +13546,11 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 				hw->error_proc_policy = v4l_error_policy; //default
 			} else {
 				hw->error_proc_policy = error_proc_policy;
+			}
+			if (config_val & VDEC_CFG_FLAG_V4L_REPORT_USERDATA) {
+				hw->v4l_report_ud_flag = true;
+				dpb_print(DECODE_ID(hw), 0, "%s v4l_report_ud_flag %d\n",
+							__func__, hw->v4l_report_ud_flag);
 			}
 		} else {
 			hw->discard_dv_data = 1; //default

@@ -302,7 +302,15 @@ struct v4l_userdata_meta_data_t {
     /* how many records left in queue waiting to be read*/
     __u32 records_in_que;
     unsigned long long priv_data;
-    __u32 padding_data[64];
+    /* bit 0-1:picture_struct, used for h264,h265
+	 * 0: Invalid
+     * 1: TOP_FIELD_PICTURE
+     * 2: BOT_FIELD_PICTURE
+     * 3: FRAME_PICTURE
+     */
+    __u32 pic_struct;
+    __u32 duration;
+    __u32 padding_data[62];
 };
 
 struct sei_usd_param_s {
@@ -584,6 +592,7 @@ struct aml_vdec_cfg_infos {
 	u32 low_latency_mode;
 	u32 uvm_hook_type;
 	/*
+	 * bit 24	: v4l report userdata flag.
 	 * bit 23	: avbcd mode flag.
 	 * bit 22	: disable mmu copy.
 	 * bit 21	: buffer alloc flag. 0: dma heap, 1: ion heap.

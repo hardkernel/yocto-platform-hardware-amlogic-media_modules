@@ -2023,6 +2023,7 @@ struct hevc_state_s {
 	bool time_bandwidth_flag;
 	u32 last_slice_offset;
 	u32 stream_multi_frame_flag;
+	bool v4l_report_ud_flag;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -8655,7 +8656,7 @@ static void vh265_wakeup_userdata_poll(struct vdec_s *vdec)
 }
 
 static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
-	u8 *sei_data_buf, u32 data_len)
+	u8 *sei_data_buf, u32 data_len, struct userdata_meta_info_t *meta_info)
 {
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
@@ -8687,6 +8688,29 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 		}
 	}
 
+	usd_rep.data_size = data_len;
+	usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
+	if (get_dbg_flag(hevc) & H265_DEBUG_PRINT_SEI) {
+		hevc_print(hevc, 0, "%s userdata: (size %d)\n", __func__, data_len);
+		for (i = 0; i < data_len; i++) {
+			hevc_print_cont(hevc, 0, "%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
+			if (((i + 1) & 0xf) == 0)
+				hevc_print_cont(hevc, 0, "\n");
+		}
+		hevc_print_cont(hevc, 0, "\n");
+	}
+
+	usd_rep.meta_data.timestamp = hevc->cur_pic->timestamp;
+	usd_rep.meta_data.poc_number = meta_info->poc_number;
+	usd_rep.meta_data.video_format = VFORMAT_HEVC;
+	usd_rep.meta_data.frame_type = (meta_info->flags >> 7) & 0x7;
+	usd_rep.meta_data.vpts = meta_info->vpts;
+	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
+	usd_rep.meta_data.pic_struct = (meta_info->flags >> 12) & 0x3;
+	usd_rep.meta_data.duration = meta_info->duration;
+	hevc_print(hevc, H265_DEBUG_PRINT_SEI,"%s: poc %d vpts %d\n", __func__,
+				usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
+
 	if (is_afd_data(tmp_buf)) {
 		if (kfifo_is_full(&ctx->dec_intf.afd_done)) {
 			hevc_print(hevc, H265_DEBUG_PRINT_SEI,
@@ -8695,27 +8719,7 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 			return;
 		}
 
-		usd_rep.data_size = data_len;
-		usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
-		if (get_dbg_flag(hevc) & H265_DEBUG_PRINT_SEI) {
-			hevc_print(hevc, 0,
-				"%s AFD data: (size %d)\n", __func__,
-				data_len);
-			for (i = 0; i < data_len; i++) {
-				hevc_print_cont(hevc, 0, "%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
-				if (((i + 1) & 0xf) == 0)
-					hevc_print_cont(hevc, 0, "\n");
-			}
-			hevc_print_cont(hevc, 0, "\n");
-		}
-
-		usd_rep.meta_data.timestamp = hevc->cur_pic->timestamp;
-		usd_rep.meta_data.vpts_valid = 1;
-		usd_rep.meta_data.video_format = VFORMAT_HEVC;
-		usd_rep.meta_data.poc_number = hevc->curr_POC;
-		usd_rep.meta_data.frame_type = hevc->cur_pic->slice_type;
-		usd_rep.meta_data.records_in_que =
-			kfifo_len(&ctx->dec_intf.afd_done) + 1; /* +1 : current one's */
+		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.afd_done) + 1; /* +1 : current one's */
 		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_AFD, &usd_rep);
 		hevc_print(hevc, H265_DEBUG_PRINT_SEI,
 				"%s, AFD ready event report\n", __func__);
@@ -8727,26 +8731,7 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 			return;
 		}
 
-		usd_rep.data_size = data_len;
-		usd_rep.v_addr = (u64)((uintptr_t)tmp_buf);
-		if (get_dbg_flag(hevc) & H265_DEBUG_PRINT_SEI) {
-			hevc_print(hevc, 0,
-				"%s CC data: (size %d)\n", __func__,
-				data_len);
-			for (i = 0; i < data_len; i++) {
-				hevc_print_cont(hevc, 0, "%02x ", (BYTE_PTR_CONVERT(usd_rep.v_addr))[i]);
-				if (((i + 1) & 0xf) == 0)
-					hevc_print_cont(hevc, 0, "\n");
-			}
-			hevc_print_cont(hevc, 0, "\n");
-		}
-
-		usd_rep.meta_data.timestamp = hevc->cur_pic->timestamp;
-		usd_rep.meta_data.vpts_valid = 1;
-		usd_rep.meta_data.video_format = VFORMAT_HEVC;
-		usd_rep.meta_data.poc_number = hevc->curr_POC;
-		usd_rep.meta_data.records_in_que =
-			kfifo_len(&ctx->dec_intf.cc_done) + 1; /* +1 : current one's */
+		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.cc_done) + 1; /* +1 : current one's */
 		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_CC, &usd_rep);
 		hevc_print(hevc, H265_DEBUG_PRINT_SEI,
 				"%s, CC ready event report\n", __func__);
@@ -8774,21 +8759,7 @@ static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
 	if (hevc->sei_itu_data_len <= 0)
 		return;
 	sei_data_buf = hevc->sei_itu_data_buf;
-	pdata = hevc->sei_user_data_buffer + hevc->sei_user_data_wp;
-	pmax_sei_data_buffer = hevc->sei_user_data_buffer + USER_DATA_SIZE;
 	memset(&meta_info, 0, sizeof(meta_info));
-
-	for (i = 0; i < hevc->sei_itu_data_len; i++) {
-		*pdata++ = sei_data_buf[i];
-		if (pdata >= pmax_sei_data_buffer)
-			pdata = hevc->sei_user_data_buffer;
-	}
-
-	v4l_vh265_fill_userdata(hevc, sei_data_buf, hevc->sei_itu_data_len);
-	hevc->sei_user_data_wp = (hevc->sei_user_data_wp
-		+ hevc->sei_itu_data_len) % USER_DATA_SIZE;
-	hevc->sei_itu_data_len = 0;
-
 	meta_info.duration = hevc->frame_dur;
 	meta_info.flags |= (VFORMAT_HEVC << 3);
 	meta_info.flags |= (hevc->cur_pic->pic_struct << 12);
@@ -8796,36 +8767,53 @@ static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
 	meta_info.vpts_valid = pts_valid;
 	meta_info.poc_number = poc;
 
-	/*pr_info("one record ready pts %d, poc %d\n", vpts, meta_info.poc_number);*/
-	wp = hevc->sei_user_data_wp;
-	if (hevc->sei_user_data_wp > hevc->userdata_info.last_wp)
-		data_length = wp - hevc->userdata_info.last_wp;
-	else
-		data_length = wp + hevc->userdata_info.buf_len
-			- hevc->userdata_info.last_wp;
+	if (hevc->v4l_report_ud_flag == true)
+		v4l_vh265_fill_userdata(hevc, sei_data_buf, hevc->sei_itu_data_len, &meta_info);
+	else {
+		pdata = hevc->sei_user_data_buffer + hevc->sei_user_data_wp;
+		pmax_sei_data_buffer = hevc->sei_user_data_buffer + USER_DATA_SIZE;
+		for (i = 0; i < hevc->sei_itu_data_len; i++) {
+			*pdata++ = sei_data_buf[i];
+			if (pdata >= pmax_sei_data_buffer)
+				pdata = hevc->sei_user_data_buffer;
+		}
 
-	if (data_length & 0x7)
-		data_length = (((data_length + 8) >> 3) << 3);
+		hevc->sei_user_data_wp = (hevc->sei_user_data_wp
+			+ hevc->sei_itu_data_len) % USER_DATA_SIZE;
 
-	p_rec = &hevc->ud_record;
-	p_rec->meta_info = meta_info;
-	p_rec->rec_start = hevc->userdata_info.last_wp;
-	p_rec->rec_len = data_length;
-	hevc->userdata_info.last_wp = wp;
+		/*pr_info("one record ready pts %d, poc %d\n", vpts, meta_info.poc_number);*/
+		wp = hevc->sei_user_data_wp;
+		if (hevc->sei_user_data_wp > hevc->userdata_info.last_wp)
+			data_length = wp - hevc->userdata_info.last_wp;
+		else
+			data_length = wp + hevc->userdata_info.buf_len
+				- hevc->userdata_info.last_wp;
 
-	hevc->wait_for_udr_send = 1;
+		if (data_length & 0x7)
+			data_length = (((data_length + 8) >> 3) << 3);
 
-	/* notify userdata ready */
-	mutex_lock(&hevc->userdata_mutex);
-	hevc->userdata_info.records[hevc->userdata_info.write_index]
-		= hevc->ud_record;
-	hevc->userdata_info.write_index++;
-	if (hevc->userdata_info.write_index >= USERDATA_FIFO_NUM)
-		hevc->userdata_info.write_index = 0;
-	mutex_unlock(&hevc->userdata_mutex);
+		p_rec = &hevc->ud_record;
+		p_rec->meta_info = meta_info;
+		p_rec->rec_start = hevc->userdata_info.last_wp;
+		p_rec->rec_len = data_length;
+		hevc->userdata_info.last_wp = wp;
 
-	vdec_wakeup_userdata_poll(hw_to_vdec(hevc));
-	hevc->wait_for_udr_send = 0;
+		hevc->wait_for_udr_send = 1;
+
+		/* notify userdata ready */
+		mutex_lock(&hevc->userdata_mutex);
+		hevc->userdata_info.records[hevc->userdata_info.write_index]
+			= hevc->ud_record;
+		hevc->userdata_info.write_index++;
+		if (hevc->userdata_info.write_index >= USERDATA_FIFO_NUM)
+			hevc->userdata_info.write_index = 0;
+		mutex_unlock(&hevc->userdata_mutex);
+
+		vdec_wakeup_userdata_poll(hw_to_vdec(hevc));
+		hevc->wait_for_udr_send = 0;
+	}
+
+	hevc->sei_itu_data_len = 0;
 }
 
 #endif
@@ -16920,6 +16908,12 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 
 			if (config_val & VDEC_CFG_FLAG_DIS_ERR_POLICY) {
 				hevc->nal_skip_policy = nal_skip_policy;
+			}
+
+			if (config_val & VDEC_CFG_FLAG_V4L_REPORT_USERDATA) {
+				hevc->v4l_report_ud_flag = true;
+				hevc_print(hevc, 0, "%s: v4l_report_ud_flag %d\n",
+							__func__, hevc->v4l_report_ud_flag);
 			}
 
 			hevc->high_bandwidth_flag = config_val & VDEC_CFG_FLAG_HIGH_BANDWIDTH;
