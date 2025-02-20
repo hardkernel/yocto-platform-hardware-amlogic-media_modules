@@ -965,7 +965,7 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 		decbuf_start, decbuf_uv_start,
 		canvas_width, canvas_height);
 
-	if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+	if (aml_buf_is_dynamic_mode_inited(&ctx->bm))
 		aml_buf_get_dmabuf_ref(&ctx->bm,hw->pics[i].cma_alloc_addr, true);
 	aml_buf_get_ref(&ctx->bm, aml_buf);
 	if ((ctx->vpp_is_need || ctx->enable_di_post) &&

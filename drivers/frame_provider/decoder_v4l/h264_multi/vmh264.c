@@ -2609,7 +2609,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 		v4l->aux_infos.bind_sei_buffer(v4l, &pic->aux_data_buf,
 			&pic->aux_data_size, &pic->ctx_buf_idx);
 		if (!v4l->avbcd_work_mode) {
-			if (((v4l->enable_di_post && v4l->picinfo.field == V4L2_FIELD_INTERLACED) ||
+			if ((aml_buf_is_dynamic_mode_inited(&v4l->bm) ||
 				v4l->vpp_is_need) &&
 				p_H264_Dpb->mVideo.dec_picture) {
 				pic_struct = p_H264_Dpb->mVideo.dec_picture->pic_struct;
@@ -2630,7 +2630,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 
 			aml_buf_get_ref(&v4l->bm, hw->aml_buf);
 		}
-		if (v4l->enable_di_post && v4l->picinfo.field == V4L2_FIELD_INTERLACED)
+		if (aml_buf_is_dynamic_mode_inited(&v4l->bm))
 			aml_buf_get_dmabuf_ref(&v4l->bm, pic->buf_adr, true);
 		hw->aml_buf = NULL;
 
@@ -2711,7 +2711,7 @@ int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags)
 		pic = &hw->buffer_spec[i];
 
 		if (pic->cma_alloc_addr) {
-			if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+			if (aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
 				if (!reset_flags)
 					aml_buf_put_free_dmabuf(&ctx->bm, pic->buf_adr, 0, true);
 				while (pic->vf_ref) {
@@ -3587,8 +3587,8 @@ static int post_prepare_process(struct vdec_s *vdec, struct FrameStore *frame)
 	/* SWPL-18973 96000/15=6400, less than 15fps check */
 	if ((!hw->duration_from_pts_done) && (hw->frame_dur > 6400ULL)) {
 		if ((check_force_interlace(hw, hw->frame_width, hw->frame_height) ||
-			((ctx->vpp_is_need || ctx->enable_di_post) &&
-			(ctx->picinfo.field == V4L2_FIELD_INTERLACED))) &&
+			(aml_buf_is_dynamic_mode_inited(&ctx->bm) ||
+			(ctx->vpp_is_need && (ctx->picinfo.field == V4L2_FIELD_INTERLACED)))) &&
 			(frame->slice_type == I_SLICE) &&
 			(hw->pts_outside)) {
 			if ((!hw->h264_pts_count) || (!hw->h264pts1)) {
@@ -3715,7 +3715,8 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		vf_count = 2;
 
 	bForceInterlace = check_force_interlace(hw, hw->frame_width, hw->frame_height);
-	if ((v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post) && (picinfo->field == V4L2_FIELD_INTERLACED)) {
+	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm) ||
+		(v4l2_ctx->vpp_is_need && (picinfo->field == V4L2_FIELD_INTERLACED))) {
 		bForceInterlace = 1;
 	}
 	if (bForceInterlace)
@@ -3762,7 +3763,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 	}
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
-	if (v4l2_ctx->enable_di_post && picinfo->field != V4L2_FIELD_NONE
+	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm)
 		&& vf_count == 2 && frame->show_frame)
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
 
@@ -4223,7 +4224,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 
 		if (without_display_mode == 0) {
 			if (v4l2_ctx->is_stream_off && ((!v4l2_ctx->avbcd_work_mode &&
-					!(v4l2_ctx->enable_di_post && picinfo->field != V4L2_FIELD_NONE)) ||
+					!aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm)) ||
 					(v4l2_ctx->avbcd_work_mode && atomic_read(&hw->vf_pre_count) > 1))) {
 				vh264_vf_put(vh264_vf_get(vdec), vdec);
 				frame->pre_output = 1;
@@ -7932,7 +7933,7 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 				hw->buffer_spec[buf_spec_num].cma_alloc_addr, hw->buffer_spec[buf_spec_num].buf_adr);
 
 		if (!ctx->avbcd_work_mode) {
-			if ((ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED) ||
+			if (aml_buf_is_dynamic_mode_inited(&ctx->bm) ||
 				ctx->vpp_is_need) {//frame_mbs_only_flag
 				if (pic_struct == PIC_TOP_BOT ||
 					pic_struct == PIC_BOT_TOP ||
@@ -7968,7 +7969,7 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 			hw->buffer_spec[buf_spec_num].cma_alloc_addr = 0;
 			hw->buffer_spec[buf_spec_num].buf_adr = 0;
 		}
-		if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+		if (aml_buf_is_dynamic_mode_inited(&ctx->bm))
 			aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
 
 		hw->buffer_spec[buf_spec_num].used = 0;
