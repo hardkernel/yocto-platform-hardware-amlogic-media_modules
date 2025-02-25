@@ -9278,6 +9278,8 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 		}
 		if (pic->sei_present_flag & SEI_HDR10PLUS_MASK) {
 			u32 data;
+			if (((vf->signal_type >> 8) & 0xFF) == 0x12)
+				vf->ext_signal_type |= (1 << 3);
 			data = vf->signal_type;
 			data = data & 0xFFFF00FF;
 			data = data | (0x30<<8);

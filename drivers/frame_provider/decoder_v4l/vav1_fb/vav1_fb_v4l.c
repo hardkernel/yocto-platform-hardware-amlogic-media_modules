@@ -6112,6 +6112,8 @@ void parse_metadata(struct AV1HW_s *hw, struct vframe_s *vf, struct PIC_BUFFER_C
 						p[0] == 0xB5 && p[1] == 0x00 && p[2] == 0x3C &&
 						p[3] == 0x00 && p[4] == 0x01 && p[5] == 0x04) {
 						u32 data;
+						if (((hw->video_signal_type >> 8) & 0xFF) == 0x12)
+							vf->ext_signal_type |= (1 << 3);
 						data = hw->video_signal_type;
 						data = data & 0xFFFF00FF;
 						data = data | (0x30<<8);
