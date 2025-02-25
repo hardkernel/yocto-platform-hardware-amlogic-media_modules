@@ -9622,13 +9622,14 @@ static void h265_recycle_dec_resource(void *priv,
 	ATRACE_COUNTER(hevc->trace.put_canvas0_addr, vf->canvas0Addr);
 #endif
 
-	spin_lock_irqsave(&h265_lock, flags);
-
-	if (hevc->enable_fence && vf->fence) {
-		vdec_fence_put(vf->fence);
-		vf->fence = NULL;
+	if (hevc->enable_fence) {
+		spin_lock_irqsave(&h265_lock, flags);
+		if (vf->fence) {
+			vdec_fence_put(vf->fence);
+			vf->fence = NULL;
+		}
+		spin_unlock_irqrestore(&h265_lock, flags);
 	}
-	spin_unlock_irqrestore(&h265_lock, flags);
 
 	return;
 }
