@@ -365,6 +365,19 @@ static inline bool aml_buf_check_in_table(struct aml_buf_mgr_s *bm, ulong key)
 	return bm->bc.check_in_table(&bm->bc, key);
 }
 
+ /*
+ * aml_buf_check_dma_buf() - Use to Check whether dmabuf is in the bc->dma array.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @dmabuf	: The information of dma buffer or physic address.
+ *
+ * Use to Check whether dmabuf is in the bc->dma array.
+ */
+static inline bool aml_buf_check_dma_buf(struct aml_buf_mgr_s *bm, ulong dmabuf)
+{
+	return bm->bc.check_in_dma_array(&bm->bc, dmabuf);
+}
+
 /*
  * aml_buf_deinit_dma() - Use to deinit dma context.
  *

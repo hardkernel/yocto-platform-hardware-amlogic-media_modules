@@ -1237,10 +1237,12 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 
 	ctx->decoded_frame_cnt++;
 
-	if (is_dynamic_mode(ctx)) {
+	mutex_lock(&ctx->state_lock);
+	if (aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
 		aml_buf_detach(&ctx->bm, (ulong)vb2_buf->planes[0].dbuf);
 		dstbuf->aml_buf = NULL;
 	}
+	mutex_unlock(&ctx->state_lock);
 }
 
 static void fill_capture_done_cb(void *v4l_ctx, void *fb_ctx)
@@ -2150,10 +2152,6 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	struct dma_buf_attachment *dba = NULL;
 	struct buf_core_dma *dma = NULL;
 
-	if (!ctx->enable_di_post || ctx->picinfo.field == V4L2_FIELD_NONE ||
-		!is_vdec_core_fmt(ctx->output_pix_fmt))
-		return 0;
-
 	if ((vb->vb2_buf.memory != VB2_MEMORY_DMABUF) ||
 		!dbuf ||
 		!dmabuf_is_uvm(dbuf))
@@ -2161,6 +2159,11 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 
 	obj = dmabuf_get_uvm_buf_obj(dbuf);
 	mbuf = container_of(obj, struct mua_buffer, base);
+
+	if (!ctx->enable_di_post ||
+		((ctx->picinfo.field == V4L2_FIELD_NONE) && (!aml_buf_check_dma_buf(&ctx->bm, (ulong)mbuf->idmabuf[0]))) ||
+		!is_vdec_core_fmt(ctx->output_pix_fmt))
+		return 0;
 
 	/* free fake dma buffer. */
 	if (mbuf->idmabuf[0]) {
@@ -4673,7 +4676,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		struct sg_table *sgt;
 		ulong pyh_addr;
 
-		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && is_dynamic_mode(ctx)) {
+		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
 			sgt = vb2_dma_sg_plane_desc(vb, 0);
 			pyh_addr = sg_dma_address(sgt->sgl);
 
@@ -5182,11 +5185,12 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		mutex_lock(&ctx->capture_buffer_lock);
 		INIT_KFIFO(ctx->capture_buffer);
 		mutex_unlock(&ctx->capture_buffer_lock);
+		mutex_lock(&ctx->state_lock);
 
 		for (i = 0; i < buf_num; ++i) {
 			vb2_v4l2 = to_vb2_v4l2_buffer(q->bufs[i]);
 			buf = container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
-			if (buf->aml_buf && !is_dynamic_mode(ctx)) {
+			if (buf->aml_buf && !aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
 				buf->aml_buf->state	= FB_ST_FREE;
 				memset(&buf->aml_buf->vframe,
 					0, sizeof(struct vframe_s));
@@ -5201,6 +5205,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			/*v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "idx: %d, state: %d\n",
 				q->bufs[i]->index, q->bufs[i]->state);*/
 		}
+		mutex_unlock(&ctx->state_lock);
 
 		if (ctx->v4l_resolution_change)
 			aml_ubuf_queue_del(ctx);

@@ -1450,6 +1450,25 @@ static bool buf_core_check_in_table(struct buf_core_mgr_s *bc, ulong key)
 	return ret;
 }
 
+
+static bool buf_core_check_in_dma_array(struct buf_core_mgr_s *bc, ulong dmabuf)
+{
+	int i;
+	int ret = 0;
+
+	if (!bc->dma[0])
+		return 0;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if ((dmabuf && bc->dma[i] && (dmabuf == bc->dma[i]->dmabuf))) {
+			ret = 1;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 ssize_t buf_core_walk(struct buf_core_mgr_s *bc, char *buf)
 {
 	struct buf_core_entry *entry, *tmp;
@@ -1569,6 +1588,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->put_dma		= buf_core_put_dma;
 	bc->update_planes	= buf_core_update_planes;
 	bc->check_in_table	= buf_core_check_in_table;
+	bc->check_in_dma_array  = buf_core_check_in_dma_array;
 
 	/* The interface set of the buffer core operation. */
 	bc->buf_ops.get		= buf_core_get;

@@ -536,6 +536,7 @@ struct buffer_spec_s {
 	struct aml_buf *am_buf;
 	bool buffer_attached;
 	struct userdata_param_t ud_param[2];
+	ulong idmabuf;
 };
 
 #define AUX_DATA_SIZE(pic) (hw->buffer_spec[pic->buf_spec_num].aux_data_size)
@@ -2629,8 +2630,11 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 
 			aml_buf_get_ref(&v4l->bm, hw->aml_buf);
 		}
-		if (aml_buf_is_dynamic_mode_inited(&v4l->bm))
+		if (aml_buf_is_dynamic_mode_inited(&v4l->bm)) {
 			aml_buf_get_dmabuf_ref(&v4l->bm, pic->buf_adr, true);
+			if (aml_buf && aml_buf->dma && aml_buf->dma->dmabuf)
+				pic->idmabuf = aml_buf->dma->dmabuf;
+		}
 		hw->aml_buf = NULL;
 
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
@@ -2710,7 +2714,7 @@ int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags)
 		pic = &hw->buffer_spec[i];
 
 		if (pic->cma_alloc_addr) {
-			if (aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
+			if (pic->idmabuf) {
 				if (!reset_flags)
 					aml_buf_put_free_dmabuf(&ctx->bm, pic->buf_adr, 0, true);
 				while (pic->vf_ref) {
@@ -8011,13 +8015,15 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 
 		if (fence_mode_error_frame_buf_posted == false)
 			aml_buf_put_ref(&ctx->bm, aml_buf);
+
+		if (aml_buf_is_dynamic_mode_inited(&ctx->bm))
+			aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
+
 		if (!ctx->avbcd_work_mode) {
 			aml_buf_put_ref(&ctx->bm, aml_buf);
 			hw->buffer_spec[buf_spec_num].cma_alloc_addr = 0;
 			hw->buffer_spec[buf_spec_num].buf_adr = 0;
 		}
-		if (aml_buf_is_dynamic_mode_inited(&ctx->bm))
-			aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
 
 		hw->buffer_spec[buf_spec_num].used = 0;
 		hw->dpb.cur_idx = INVALID_IDX;
@@ -11817,6 +11823,7 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 				"h264 res_change\n");
 			hw->report_param1 = param1;
 			hw->report_param4 = param4;
+			release_cur_decoding_buf(hw);
 			ctx->v4l_resolution_change = 1;
 			if (vmh264_get_ps_info(hw, param1,
 				param2, param3, param4, &ps) < 0) {
