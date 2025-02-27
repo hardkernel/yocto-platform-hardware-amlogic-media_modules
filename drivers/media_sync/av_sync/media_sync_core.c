@@ -3946,10 +3946,23 @@ long mediasync_ins_get_update_info(mediasync_ins* pInstance, mediasync_update_in
 	return 0;
 }
 
+long mediasync_ins_get_tunnel_combined_para(mediasync_ins* pInstance, mediasync_tunnel_combined_para* info) {
+	info->startingTimeMediaUs = pInstance->mStartMediaTime;
+	info->mediaTimeUs = pInstance->mTrackMediaTime;
+	info->anchorTimeMediaUs = pInstance->mLastMediaTime;
+	info->anchorTimeRealUs = pInstance->mLastRealTime;
+	info->syncMode = pInstance->mSyncMode;
+	info->numerator = pInstance->mSpeed.mNumerator;
+	info->denominator = pInstance->mSpeed.mDenominator;
+	info->pause = pInstance->mPaused;
+
+	return 0;
+}
+
 long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, unsigned int is_compat_ptr) {
 	mediasync_ins* pInstance = NULL;
 	s32 minSize = 0;
-	long ret = 0;
+	long ret = -1;
 	mediasync_control mediasyncUserControl;
 	mediasync_control mediasyncControl;
 	mediasync_update_info info;
@@ -4124,6 +4137,39 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 			ret = 0;
 			break;
 		}
+		case GET_TUNNEL_COMBINED_INFO:
+		{
+			mediasyncControl.cmd = GET_TUNNEL_COMBINED_INFO;
+			mediasyncControl.size = sizeof(mediasync_tunnel_combined_para);
+			mediasyncControl.ptr = (ulong)(&info);
+			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncControl);
+			minSize = mediasyncUserControl.size;
+			if (minSize > mediasyncControl.size) {
+				minSize = mediasyncControl.size;
+			}
+			if (is_compat_ptr == 1) {
+#ifdef CONFIG_COMPAT
+				ptr = (ulong)compat_ptr(mediasyncUserControl.ptr);
+#else
+				ptr = mediasyncUserControl.ptr;
+#endif
+			} else {
+				ptr = mediasyncUserControl.ptr;
+			}
+
+			if (copy_to_user((void *)ptr,(void*)&info,minSize)) {
+				mediasync_pr_info(0,pInstance->mSyncIndex,"copy_to_user ptr -EFAULT \n");
+				ret = -EFAULT;
+				break;
+			}
+
+			mediasyncUserControl.size = minSize;
+			if (copy_to_user((void *)arg,&mediasyncUserControl,sizeof(mediasyncControl))) {
+				mediasync_pr_info(0,pInstance->mSyncIndex,"copy_to_user arg -EFAULT \n");
+				ret = -EFAULT;
+			}
+			break;
+		}
 		default:
 			break;
 	}
@@ -4256,6 +4302,20 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		case GET_SHOW_FIRSTFRAME_NOSYNC:
 		{
 			mediasyncControl->value = pInstance->mShowFirstFrameNoSync;
+			ret = 0;
+			break;
+		}
+		case GET_TUNNEL_COMBINED_INFO:
+		{
+			mediasync_tunnel_combined_para info;
+			mediasync_ins_get_tunnel_combined_para(pInstance,&info);
+			minSize = sizeof(mediasync_tunnel_combined_para);
+
+			if (minSize > mediasyncControl->size) {
+				minSize = mediasyncControl->size;
+			}
+			memcpy((mediasync_tunnel_combined_para*)mediasyncControl->ptr,&info,minSize);
+			mediasyncControl->size = minSize;
 			ret = 0;
 			break;
 		}

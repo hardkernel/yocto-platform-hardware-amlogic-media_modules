@@ -125,6 +125,7 @@ typedef enum {
 	GET_START_PLAY_THRESHOLD,
 	GET_IS_ABNORMAL_AUDIO,
 	GET_SHOW_FIRSTFRAME_NOSYNC,
+	GET_TUNNEL_COMBINED_INFO,
 	SET_VIDEO_FRAME_ADVANCE = 500,
 	SET_SLOW_SYNC_ENABLE,
 	SET_TRICK_MODE,
@@ -250,6 +251,18 @@ typedef struct update_speedtime_para {
 	u32 mDenominator;
 	int64_t reserved[4];
 } mediasync_updatespeedtime_para;
+
+typedef struct tunnel_combined_para {
+    int64_t startingTimeMediaUs;
+    int64_t mediaTimeUs;
+    int64_t anchorTimeMediaUs;
+    int64_t anchorTimeRealUs;
+    int32_t syncMode;
+    uint32_t numerator;
+    uint32_t denominator;
+    int32_t pause;
+} mediasync_tunnel_combined_para;
+
 
 typedef enum
 {
@@ -514,4 +527,5 @@ long mediasync_ins_set_audio_switch(MediaSyncManager* pSyncManage, mediasync_aud
 long mediasync_ins_get_audio_switch(MediaSyncManager* pSyncManage, mediasync_audio_switch* audioSwitch);
 long mediasync_ins_update_speed_mediatime(MediaSyncManager* pSyncManage,
 				mediasync_updatespeedtime_para *para);
+long mediasync_ins_get_tunnel_combined_para(mediasync_ins* pInstance, mediasync_tunnel_combined_para* info);
 #endif
