@@ -240,7 +240,7 @@ t5d_dump_add_sid(int source, struct dvb_demux_feed *feed, int dump_type)
 	d_node->type = dump_type;
 	d_node->feed = feed;
 	list_add(&d_node->node, &t5d_dump_ts_list);
-	print_dbg("add dump ts, feed:%#x, source:%#x, type:%#x\n",
+	print_dbg("add dump ts, feed:%p, source:%#x, type:%#x\n",
 		  feed, source, dump_type);
 
 	return 0;
@@ -263,7 +263,7 @@ t5d_dump_remove_sid(int source, struct dvb_demux_feed *feed)
 		if (d_entry->source == source
 		    && d_entry->feed == feed) {
 			list_del(&d_entry->node);
-			print_dbg("remove dump ts feed:%#x\n", feed);
+			print_dbg("remove dump ts feed:%p\n", feed);
 		}
 	}
 
@@ -283,7 +283,7 @@ t5d_dump_get_input_feed(int source)
 	struct t5d_dump_ts *d_tmp = NULL;
 
 	list_for_each_entry_safe(d_entry, d_tmp, &t5d_dump_ts_list, node) {
-		print_dbg("dump entry source:%#x, type:%#x, feed:%#x\n",
+		print_dbg("dump entry source:%#x, type:%#x, feed:%p\n",
 			  d_entry->source, d_entry->type, d_entry->feed);
 		if (d_entry->source == source
 		    && d_entry->type == DMX_DUMP_INPUT_TYPE
@@ -540,7 +540,7 @@ static int asyncfifo_thread_func(void *data)
 					DMA_FROM_DEVICE);
 
 		list_for_each_entry_safe(d_entry, d_tmp, &t5d_dump_ts_list, node) {
-			print_ver("dump thread, feed:%#x, source:%#x, type:%#x\n",
+			print_ver("dump thread, feed:%p, source:%#x, type:%#x\n",
 				  d_entry->feed, d_entry->source, d_entry->type);
 			if (d_entry->source == afifo->source
 			    && d_entry->type == DMX_DUMP_TS_TYPE
@@ -566,7 +566,7 @@ async_fifo_set_regs(struct t5d_asyncfifo *afifo, int source_val)
 	u32 factor = 1;
 	int len = afifo->buf_len;
 
-	print_dbg("pages: %#x, phys: %#x\n", afifo->pages, virt_to_phys((void *)afifo->pages));
+	print_dbg("pages: %lx, phys: %llx\n", afifo->pages, virt_to_phys((void *)afifo->pages));
 	/*Destination address*/
 	WRITE_ASYNC_FIFO_REG(afifo->id, REG0, virt_to_phys((void *)afifo->pages));
 

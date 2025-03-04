@@ -43,8 +43,12 @@
 #include <linux/highmem.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/configs.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include "streambuf.h"
+#else
 #include "../../amports/streambuf.h"
-#include "c_stb_define.h"
+#endif
+  #include "c_stb_define.h"
 #include "c_stb_regs_define.h"
 #include "aml_dvb.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
@@ -3097,7 +3101,7 @@ static int dmx_get_record_flag(struct aml_dmx *dmx)
 	for (i = 0; i < dvb->async_fifo_total_count; i++) {
 		if (!dvb->asyncfifo[i].init)
 			continue;
-		if ((dvb->asyncfifo[i].source == dmx->id)) {
+		if (dvb->asyncfifo[i].source == dmx->id) {
 			linked = 1;
 			break;
 		}

@@ -27,14 +27,16 @@
 #include <linux/platform_device.h>
 #include <linux/sysfs.h>
 #include <linux/of.h>
+#include <linux/slab.h>
+
 #include "aml_ci.h"
 //#include "aml_spi.h"
 #include "aml_ci_bus.h"
 //#include "cimax/aml_cimax.h"
 
 //#include "dvb_ca_en50221.h"
-#include <dvbdev.h>
-#include "../../../common/media_utils/media_kernel_version.h"
+#include <media/dvbdev.h>
+#include "media_kernel_version.h"
 
 MODULE_PARM_DESC(aml_ci_debug, "\n\t\t dvb ci debug");
 static int aml_ci_debug = 1;
@@ -696,7 +698,7 @@ static int aml_ci_register_class(struct aml_ci *ci)
 		return -ENOMEM;
 
 	snprintf((char *)clp->name, CLASS_NAME_LEN, "amlci-%d", ci->id);
-	clp->owner = THIS_MODULE;
+//	clp->owner = THIS_MODULE;
 	clp->class_groups = aml_ci_groups;
 	ret = class_register(clp);
 	if (ret)
@@ -708,7 +710,7 @@ static int aml_ci_register_class(struct aml_ci *ci)
 static int aml_ci_unregister_class(struct aml_ci *ci)
 {
 	class_unregister(&ci->class);
-	kzfree(ci->class.name);
+	kfree(ci->class.name);
 	return 0;
 }
 
@@ -852,5 +854,5 @@ static void  aml_ci_mod_exit(void)
 
 module_init(aml_ci_mod_init);
 module_exit(aml_ci_mod_exit);
-MODULE_LICENSE("GPL");
 
+MODULE_LICENSE("GPL");

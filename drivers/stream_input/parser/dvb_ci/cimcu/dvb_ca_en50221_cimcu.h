@@ -24,7 +24,7 @@
 #include <linux/list.h>
 #include <linux/dvb/ca.h>
 
-#include "dvbdev.h"
+#include <media/dvbdev.h>
 
 #define DVB_CA_EN50221_POLL_CAM_PRESENT	1
 #define DVB_CA_EN50221_POLL_CAM_CHANGED	2
