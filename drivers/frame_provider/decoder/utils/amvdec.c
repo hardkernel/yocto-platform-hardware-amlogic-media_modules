@@ -81,8 +81,13 @@ static void amvdec_pg_enable(bool enable)
 		/* AMVDEC_CLK_GATE_ON(VLD_CLK); */
 		AMVDEC_CLK_GATE_ON(AMRISC);
 		/* #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD */
-		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_M8)
+		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_M8) {
+			if (is_hevc_clk_combined()) {
+				WRITE_VREG_BITS(DOS_GCLK_EN0, 0x3ff, 0, 10);
+				READ_VREG(DOS_GCLK_EN0);
+			}
 			WRITE_VREG(GCLK_EN, 0x3ff);
+		}
 		/* #endif */
 		CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 31);
 	} else {
