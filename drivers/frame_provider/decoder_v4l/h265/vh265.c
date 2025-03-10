@@ -2728,11 +2728,6 @@ static void hevc_init_stru(struct hevc_state_s *hevc,
 
 	INIT_LIST_HEAD(&hevc->log_list);
 	hevc->work_space_buf = buf_spec_i;
-	hevc->prefix_aux_size = 0;
-	hevc->suffix_aux_size = 0;
-	hevc->aux_addr = NULL;
-	hevc->rpm_addr = NULL;
-	hevc->lmem_addr = NULL;
 
 	hevc->curr_POC = INVALID_POC;
 
@@ -8147,9 +8142,8 @@ static void hevc_local_uninit(struct hevc_state_s *hevc)
 	}
 }
 
-static int hevc_local_init(struct hevc_state_s *hevc)
+static int hevc_local_init(struct hevc_state_s *hevc, bool reset_flag)
 {
-	int ret = -1;
 	struct BuffInfo_s *cur_buf_info = NULL;
 
 	memset(&hevc->param, 0, sizeof(union param_u));
@@ -8198,66 +8192,72 @@ static int hevc_local_init(struct hevc_state_s *hevc)
 	bit_depth_chroma = hevc->bit_depth_chroma;
 	video_signal_type = hevc->video_signal_type;
 
-	if ((get_dbg_flag(hevc) & H265_DEBUG_SEND_PARAM_WITH_REG) == 0) {
-		hevc->rpm_addr = decoder_dma_alloc_coherent(&hevc->rpm_mem_handle,
-				RPM_BUF_SIZE, &hevc->rpm_phy_addr, "H265_RPM_BUF");
-		if (hevc->rpm_addr == NULL) {
-			pr_err("%s: failed to alloc rpm buffer\n", __func__);
-			return -1;
+	if (!reset_flag) {
+		if ((get_dbg_flag(hevc) & H265_DEBUG_SEND_PARAM_WITH_REG) == 0) {
+			hevc->rpm_addr = decoder_dma_alloc_coherent(&hevc->rpm_mem_handle,
+					RPM_BUF_SIZE, &hevc->rpm_phy_addr, "H265_RPM_BUF");
+			if (hevc->rpm_addr == NULL) {
+				pr_err("%s: failed to alloc rpm buffer\n", __func__);
+				goto dma_alloc_fail;
+			}
+			hevc->rpm_ptr = hevc->rpm_addr;
 		}
-		hevc->rpm_ptr = hevc->rpm_addr;
-	}
 
-	if (prefix_aux_buf_size > 0 ||
-		suffix_aux_buf_size > 0) {
-		u32 aux_buf_size;
+		if (prefix_aux_buf_size > 0 ||
+			suffix_aux_buf_size > 0) {
+			u32 aux_buf_size;
 
-		hevc->prefix_aux_size = AUX_BUF_ALIGN(prefix_aux_buf_size);
-		hevc->suffix_aux_size = AUX_BUF_ALIGN(suffix_aux_buf_size);
-		aux_buf_size = hevc->prefix_aux_size + hevc->suffix_aux_size;
-		hevc->aux_addr = decoder_dma_alloc_coherent(&hevc->aux_mem_handle,
-				aux_buf_size, &hevc->aux_phy_addr, "H265_AUX_BUF");
-		if (hevc->aux_addr == NULL) {
-			pr_err("%s: failed to alloc rpm buffer\n", __func__);
-			return -1;
-		}
-		if (!hevc->pic_transfer) {
-			hevc->pic_transfer = pic_alloc();
+			hevc->prefix_aux_size = AUX_BUF_ALIGN(prefix_aux_buf_size);
+			hevc->suffix_aux_size = AUX_BUF_ALIGN(suffix_aux_buf_size);
+			aux_buf_size = hevc->prefix_aux_size + hevc->suffix_aux_size;
+			hevc->aux_addr = decoder_dma_alloc_coherent(&hevc->aux_mem_handle,
+					aux_buf_size, &hevc->aux_phy_addr, "H265_AUX_BUF");
+			if (hevc->aux_addr == NULL) {
+				pr_err("%s: failed to alloc rpm buffer\n", __func__);
+				goto dma_alloc_fail;
+			}
 			if (!hevc->pic_transfer) {
-				pr_err("%s: failed to alloc for pic_transfer\n", __func__);
-				return -1;
+				hevc->pic_transfer = pic_alloc();
+				if (!hevc->pic_transfer) {
+					pr_err("%s: failed to alloc for pic_transfer\n", __func__);
+					goto dma_alloc_fail;
+				}
+				hevc->pic_transfer->aux_data_buf = vzalloc(hevc->prefix_aux_size);
+				if (!hevc->pic_transfer->aux_data_buf) {
+					pr_err("%s: failed to alloc for aux\n", __func__);
+					vfree(hevc->pic_transfer);
+					hevc->pic_transfer = NULL;
+					goto dma_alloc_fail;
+				}
 			}
-			hevc->pic_transfer->aux_data_buf = vzalloc(hevc->prefix_aux_size);
-			if (!hevc->pic_transfer->aux_data_buf) {
-				pr_err("%s: failed to alloc for aux\n", __func__);
-				vfree(hevc->pic_transfer);
-				hevc->pic_transfer = NULL;
-				return -1;
+		}
+
+		hevc->lmem_addr = decoder_dma_alloc_coherent(&hevc->lmem_phy_handle,
+					LMEM_BUF_SIZE, &hevc->lmem_phy_addr, "H265_LMEM_BUF");
+		if (hevc->lmem_addr == NULL) {
+			pr_err("%s: failed to alloc lmem buffer\n", __func__);
+			goto dma_alloc_fail;
+		}
+		hevc->lmem_ptr = hevc->lmem_addr;
+
+		if (hevc->mmu_enable) {
+			hevc->frame_mmu_map_addr =
+					decoder_dma_alloc_coherent(&hevc->frame_mmu_map_handle,
+					get_frame_mmu_map_size(),
+					&hevc->frame_mmu_map_phy_addr, "H265_MMU_BUF");
+			if (hevc->frame_mmu_map_addr == NULL) {
+				pr_err("%s: failed to alloc count_buffer\n", __func__);
+				goto dma_alloc_fail;
 			}
+			memset(hevc->frame_mmu_map_addr, 0, get_frame_mmu_map_size());
 		}
 	}
 
-	hevc->lmem_addr = decoder_dma_alloc_coherent(&hevc->lmem_phy_handle,
-				LMEM_BUF_SIZE, &hevc->lmem_phy_addr, "H265_LMEM_BUF");
-	if (hevc->lmem_addr == NULL) {
-		pr_err("%s: failed to alloc lmem buffer\n", __func__);
-		return -1;
-	}
-	hevc->lmem_ptr = hevc->lmem_addr;
+	return 0;
 
-	if (hevc->mmu_enable) {
-		hevc->frame_mmu_map_addr =
-				decoder_dma_alloc_coherent(&hevc->frame_mmu_map_handle,
-				get_frame_mmu_map_size(),
-				&hevc->frame_mmu_map_phy_addr, "H265_MMU_BUF");
-		if (hevc->frame_mmu_map_addr == NULL) {
-			pr_err("%s: failed to alloc count_buffer\n", __func__);
-			return -1;
-		}
-		memset(hevc->frame_mmu_map_addr, 0, get_frame_mmu_map_size());
-	}
-	ret = 0;
-	return ret;
+dma_alloc_fail:
+	hevc_local_uninit(hevc);
+	return -1;
 }
 
 /*
@@ -13995,10 +13995,7 @@ static int vh265_local_init(struct hevc_state_s *hevc, bool reset_flag)
 		kfifo_put(&hevc->newframe_q, vf);
 	}
 
-	if (!reset_flag)
-		ret = hevc_local_init(hevc);
-	else
-		ret = 0;
+	ret = hevc_local_init(hevc, reset_flag);
 
 	if (ret < 0)
 		vdec_v4l_post_error_event(ctx, DECODER_EMERGENCY_NO_MEM);
