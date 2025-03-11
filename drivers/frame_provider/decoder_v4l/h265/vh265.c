@@ -13780,21 +13780,23 @@ int vh265_set_trickmode(struct vdec_s *vdec, unsigned long trickmode)
 	struct hevc_state_s *hevc = (struct hevc_state_s *)vdec->private;
 	hevc_print(hevc, 0,	"[%s %d] trickmode:%lu\n", __func__, __LINE__, trickmode);
 
-	if (trickmode == TRICKMODE_I) {
-		trickmode_i = 1;
-		i_only_flag = 0x1;
-	} else if (trickmode == TRICKMODE_NONE) {
-		trickmode_i = 0;
-		i_only_flag = 0x0;
-	} else if (trickmode == 0x02) {
-		trickmode_i = 0;
-		i_only_flag = 0x02;
-	} else if (trickmode == 0x03) {
-		trickmode_i = 1;
-		i_only_flag = 0x03;
-	} else if (trickmode == 0x07) {
-		trickmode_i = 1;
-		i_only_flag = 0x07;
+	if (hevc != NULL) {
+		if (trickmode == TRICKMODE_I) {
+			trickmode_i = 1;
+			hevc->i_only = 0x1;
+		} else if (trickmode == TRICKMODE_NONE) {
+			trickmode_i = 0;
+			hevc->i_only = 0x0;
+		} else if (trickmode == 0x02) {
+			trickmode_i = 0;
+			hevc->i_only = 0x02;
+		} else if (trickmode == 0x03) {
+			trickmode_i = 1;
+			hevc->i_only = 0x03;
+		} else if (trickmode == 0x07) {
+			trickmode_i = 1;
+			hevc->i_only = 0x07;
+		}
 	}
 
 	return 0;
@@ -13961,7 +13963,7 @@ static int vh265_local_init(struct hevc_state_s *hevc, bool reset_flag)
 	if (hevc->frame_width && hevc->frame_height)
 		hevc->frame_ar = hevc->frame_height * 0x100 / hevc->frame_width;
 
-	if (i_only_flag)
+	if (i_only_flag & 0x100)
 		hevc->i_only = i_only_flag & 0xff;
 	else if ((unsigned long) hevc->vh265_amstream_dec_info.param & 0x08)
 		hevc->i_only = 0x7;
@@ -16035,7 +16037,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	hevc->vdec_cb = callback;
 	hevc->aux_data_dirty = 1;
 
-	if (i_only_flag)
+	if (i_only_flag & 0x100)
 		hevc->i_only = i_only_flag & 0xff;
 
 	ATRACE_COUNTER(hevc->trace.decode_time_name, DECODER_RUN_START);
