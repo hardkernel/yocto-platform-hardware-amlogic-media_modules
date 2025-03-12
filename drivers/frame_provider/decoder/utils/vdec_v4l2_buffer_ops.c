@@ -167,7 +167,7 @@ int __vdec_v4l_post_error_frame_event(struct aml_vcodec_ctx *ctx, u32 type, stru
 }
 EXPORT_SYMBOL(__vdec_v4l_post_error_frame_event);
 
-int vdec_v4l_post_evet(struct aml_vcodec_ctx *ctx, u32 event)
+int __vdec_v4l_post_event(struct aml_vcodec_ctx *ctx, u32 event, struct set_param_info *param)
 {
 	int ret = 0;
 
@@ -176,11 +176,11 @@ int vdec_v4l_post_evet(struct aml_vcodec_ctx *ctx, u32 event)
 	if (event == 1)
 		ctx->reset_flag = 2;
 	ret = ctx->dec_if->set_param(ctx->drv_handle,
-		SET_PARAM_POST_EVENT, &event, NULL);
+		SET_PARAM_POST_EVENT, &event, param);
 
 	return ret;
 }
-EXPORT_SYMBOL(vdec_v4l_post_evet);
+EXPORT_SYMBOL(__vdec_v4l_post_event);
 
 int vdec_v4l_inst_reset(struct aml_vcodec_ctx *ctx)
 {

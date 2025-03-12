@@ -469,6 +469,7 @@ void __aml_vdec_dispatch_event(struct aml_vcodec_ctx *ctx, u32 changes, struct s
 	case V4L2_EVENT_SRC_CH_HDRINFO:
 	case V4L2_EVENT_REQUEST_RESET:
 	case V4L2_EVENT_REQUEST_EXIT:
+	case V4L2_EVENT_RES_CHANGE_CLEAR:
 		event.type = V4L2_EVENT_SOURCE_CHANGE;
 		event.u.src_change.changes = changes;
 		break;

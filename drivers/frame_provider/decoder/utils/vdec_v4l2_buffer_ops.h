@@ -61,9 +61,8 @@ int __vdec_v4l_post_error_event(
 int __vdec_v4l_post_error_frame_event(
 	struct aml_vcodec_ctx *ctx, u32 type, struct set_param_info *param);
 
-int vdec_v4l_post_evet(
-	struct aml_vcodec_ctx *ctx,
-	u32 event);
+int __vdec_v4l_post_event(
+	struct aml_vcodec_ctx *ctx, u32 event, struct set_param_info *param);
 
 int vdec_v4l_inst_reset(
 	struct aml_vcodec_ctx *ctx);

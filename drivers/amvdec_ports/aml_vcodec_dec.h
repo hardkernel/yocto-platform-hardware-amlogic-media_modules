@@ -113,6 +113,9 @@ struct set_param_info {
 #define aml_vdec_dispatch_event(ctx, type) \
 	__VDEC_EVENT_POST(ctx, type, __aml_vdec_dispatch_event)
 
+#define vdec_v4l_post_event(ctx, type) \
+		__VDEC_EVENT_POST(ctx, type, __vdec_v4l_post_event)
+
 #define vdec_v4l_post_error_frame_event(ctx) \
 	__VDEC_EVENT_POST(ctx, V4L2_EVENT_REPORT_ERROR_FRAME, __vdec_v4l_post_error_frame_event)
 

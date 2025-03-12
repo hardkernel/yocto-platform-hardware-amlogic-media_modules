@@ -74,6 +74,7 @@
 #define V4L2_EVENT_REQUEST_EXIT		(1 << 9)
 #define V4L2_EVENT_SEND_ERROR		(1 << 10)
 #define V4L2_EVENT_REPORT_ERROR_FRAME	(1 << 11)
+#define V4L2_EVENT_RES_CHANGE_CLEAR	(1 << 12)
 
 
 /* eos event */

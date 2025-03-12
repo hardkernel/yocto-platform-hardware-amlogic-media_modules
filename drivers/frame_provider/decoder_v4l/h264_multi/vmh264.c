@@ -697,6 +697,12 @@ struct mh264_csd_main_info_t {
 	u32 crop_bottom;
 };
 
+struct res_info {
+	u32 param1;
+	u32 param4;
+	u32 dpb_size;
+};
+
 struct vdec_h264_hw_s {
 	spinlock_t lock;
 	spinlock_t bufspec_lock;
@@ -801,7 +807,6 @@ struct vdec_h264_hw_s {
 
 	u32 seq_info;
 	u32 seq_info2;
-	u32 seq_info2_last;
 	u32 seq_info3;
 	u32 video_signal_from_vui; /*to do .. */
 	u32 timing_info_present_flag;
@@ -1026,9 +1031,9 @@ struct vdec_h264_hw_s {
 	u32 multi_frame_in_run;   //multi frames in once run flag
 	enum FenceModeBufStatus fence_mode_buf_status;
 	bool time_bandwidth_flag;
-	u32 last_param4;
-	u32 report_param1;
-	u32 report_param4;
+	struct res_info last_res_info;
+	struct res_info report_res_info;
+	u32 res_change_need_double_check;
 };
 
 #define TIMEOUT_INIT 0
@@ -6560,8 +6565,8 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 		dec_dpb_size_change = hw->dpb.dec_dpb_size!= get_dec_dpb_size_active(hw, param1, param4);
 
 	if ((((seq_info2 != 0 &&
-		(hw->seq_info2_last & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
-		hw->seq_info2_last != 0
+		(hw->last_res_info.param1 & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
+		hw->last_res_info.param1 != 0
 		) && (!hw->res_ch_flag)) { /*picture size changed*/
 		h264_reconfig(hw);
 	} else {
@@ -11475,7 +11480,7 @@ static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
 
 static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	u32 param1, u32 param2, u32 param3, u32 param4,
-	struct aml_vdec_ps_infos *ps)
+	struct aml_vdec_ps_infos *ps, u32 force_dps_size)
 {
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	struct aml_vcodec_ctx *ctx =
@@ -11524,13 +11529,17 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	hw->error_frame_width = 0;
 	hw->error_frame_height = 0;
 
-	dec_dpb_size = get_dec_dpb_size(hw , mb_width, mb_height, level_idc, max_reference_size);
+	if (force_dps_size)
+		dec_dpb_size = force_dps_size;
+	else
+		dec_dpb_size = get_dec_dpb_size(hw , mb_width, mb_height, level_idc, max_reference_size);
 
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
-		"v4l restriction:%d, max buffering:%d, DPB size:%d, reorder frames:%d, margin:%d\n",
+		"v4l restriction:%d, max buffering:%d, DPB size:(%d,%d) , reorder frames:%d, margin:%d\n",
 		p_H264_Dpb->bitstream_restriction_flag,
 		hw->max_dec_frame_buffering,
 		dec_dpb_size,
+		force_dps_size,
 		hw->num_reorder_frames,
 		used_reorder_dpb_size_margin);
 
@@ -11816,17 +11825,19 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 	if (ctx->param_sets_from_ucode &&
 			hw->res_ch_flag == 0) {
 		if (((param1 != 0 &&
-			(hw->seq_info2_last & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
-			hw->seq_info2_last != 0) { /*picture size changed*/
+			(hw->last_res_info.param1 & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
+			hw->last_res_info.param1 != 0) { /*picture size changed*/
 			struct aml_vdec_ps_infos ps = {0};
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 				"h264 res_change\n");
-			hw->report_param1 = param1;
-			hw->report_param4 = param4;
+			hw->report_res_info.param1 = param1;
+			hw->report_res_info.param4 = param4;
+			hw->report_res_info.dpb_size = dec_dpb_size;
+			hw->res_change_need_double_check = 1;
 			release_cur_decoding_buf(hw);
 			ctx->v4l_resolution_change = 1;
 			if (vmh264_get_ps_info(hw, param1,
-				param2, param3, param4, &ps) < 0) {
+				param2, param3, param4, &ps, 0) < 0) {
 				dpb_print(DECODE_ID(hw), 0,
 					"set parameters error\n");
 			}
@@ -11859,40 +11870,46 @@ static bool v4l_resolution_double_check(struct vdec_h264_hw_s *hw,
 {
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	u32 size_for_check = 0;
-	u32 report_dpb_size = 0;
+	u32 last_dpb_size = hw->dpb.dec_dpb_size;
 	bool ret = false;
 
-	if (hw->dpb.dec_dpb_size != 0)
-		size_for_check = get_dec_dpb_size_active(hw, param1, param4);
+	if (hw->res_change_need_double_check) {
+		if (hw->dpb.dec_dpb_size != 0)
+			size_for_check = get_dec_dpb_size_active(hw, param1, param4);
 
-	report_dpb_size = get_dec_dpb_size_active(hw, hw->report_param1, hw->report_param4);
-	if (!ctx->v4l_reqbuff_flag) {
-		hw->res_ch_flag = 0;
-	} else if (ctx->v4l_reqbuff_flag &&
-		((param1 != 0 &&
-		hw->report_param1 != 0 &&
-		(hw->report_param1 & 0x80ffffff) != (param1 & 0x80ffffff)) ||
-		(size_for_check != 0 && report_dpb_size != 0 &&
-		(size_for_check != report_dpb_size)))) {
-		hw->res_ch_flag = 0;
-		hw->dpb.dec_dpb_size = report_dpb_size;
-		hw->seq_info2_last = hw->report_param1;
-		hw->last_param4 = hw->report_param4;
+		if (!ctx->v4l_reqbuff_flag) {
+			hw->res_ch_flag = 0;
+		} else if (ctx->v4l_reqbuff_flag &&
+			((param1 != 0 &&
+			hw->report_res_info.param1 != 0 &&
+			(hw->report_res_info.param1 & 0x80ffffff) != (param1 & 0x80ffffff)) ||
+			(size_for_check != 0 && hw->report_res_info.dpb_size != 0 &&
+			(size_for_check != hw->report_res_info.dpb_size)))) {
+			hw->res_ch_flag = 0;
+			hw->dpb.dec_dpb_size = hw->report_res_info.dpb_size;
+			hw->last_res_info.param1 = hw->report_res_info.param1;
+			hw->last_res_info.param4 = hw->report_res_info.param4;
+		} else {
+			ret = true;
+		}
+
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
+			"%s %s! reqbuff:%d flag:%d report:(param1:0x%x, param4:0x%x, dpb:%d), frame:(param1:0x%x, param4:0x%x, dpb:%d) last:(param1:0x%x, param4:0x%x, dpb:%d)\n",
+			__func__, ret ? "pass" : "fail", ctx->v4l_reqbuff_flag, hw->res_ch_flag,
+			hw->report_res_info.param1, hw->report_res_info.param4, hw->report_res_info.dpb_size,
+			param1, param4, size_for_check,
+			hw->last_res_info.param1, hw->report_res_info.param4, last_dpb_size);
+
+		hw->res_change_need_double_check = 0;
 	} else {
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL, "%s pass!\n", __func__);
 		ret = true;
 	}
 
-	dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
-		"%s %s! reqbuff:%d flag:%d report:(param1:0x%x, dpb:%d), frame:(param1:0x%x, dpb:%d) last:(param1:0x%x, dpb:%d)\n",
-		__func__, ret ? "pass" : "fail", ctx->v4l_reqbuff_flag, hw->res_ch_flag,
-		hw->report_param1, report_dpb_size,
-		param1, size_for_check,
-		hw->seq_info2_last, hw->dpb.dec_dpb_size);
-
 	if (ret == false) {
 		struct aml_vdec_ps_infos ps;
-		if (vmh264_get_ps_info(hw, hw->seq_info2_last,
-			param2, param3, hw->last_param4, &ps) < 0) {
+		if (vmh264_get_ps_info(hw, hw->last_res_info.param1, param2,
+			param3, hw->last_res_info.param4, &ps, hw->dpb.dec_dpb_size) < 0) {
 			dpb_print(DECODE_ID(hw), 0,
 				"set parameters error\n");
 		}
@@ -11903,7 +11920,12 @@ static bool v4l_resolution_double_check(struct vdec_h264_hw_s *hw,
 		vdec_v4l_set_ps_infos(ctx, &ps);
 		vdec_v4l_res_ch_event(ctx);
 		aml_buf_update_planes(&ctx->bm);
+		ctx->vdec_configure_update(ctx);
+		if (!ctx->v4l_reqbuff_flag && ctx->resolution_event_done)
+			vdec_v4l_post_event(ctx, V4L2_EVENT_RES_CHANGE_CLEAR);
 	}
+
+	ctx->resolution_event_done = false;
 	return ret;
 }
 
@@ -11990,7 +12012,7 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 					if (v4l_resolution_double_check(hw, param1, param2, param3, param4)) {
 						if (vmh264_get_ps_info(hw,
 							param1, param2,
-							param3, param4, &ps) < 0) {
+							param3, param4, &ps, 0) < 0) {
 							dpb_print(DECODE_ID(hw), 0,
 								"set parameters error\n");
 							if (vdec_stream_based(vdec)) {
@@ -11999,12 +12021,6 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 								vdec_schedule_work(&hw->work);
 								return;
 							}
-						}
-
-						if (hw->report_param1 == 0 ||
-							hw->report_param4 == 0) {
-							hw->report_param1 = param1;
-							hw->report_param4 = param1;
 						}
 
 						hw->v4l_params_parsed = true;
@@ -12040,8 +12056,8 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 							hw->csd_restore_flag = false;
 							hw->csd_restore_timeout_num = 0;
 						}
-						hw->seq_info2_last = param1;
-						hw->last_param4 = param4;
+						hw->last_res_info.param1 = param1;
+						hw->last_res_info.param4 = param4;
 					}
 					amvdec_stop();
 					if (hw->mmu_enable && !is_vdec_hevc_combine()) {
