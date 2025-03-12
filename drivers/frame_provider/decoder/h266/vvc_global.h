@@ -1,6 +1,10 @@
 #ifndef VVC_GLOBAL_H_
 #define VVC_GLOBAL_H_
 
+#include "param.h"
+#include "h266_global.h"
+#include "../../../common/media_utils/media_utils.h"
+
 #define LINUX
 #define AML
 //#define SIMULATION

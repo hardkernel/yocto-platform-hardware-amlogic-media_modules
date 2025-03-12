@@ -11108,7 +11108,7 @@ static s32 vav1_init(struct vdec_s *vdec)
 static s32 vav1_init(struct AV1HW_s *hw)
 {
 #endif
-	int ret, size = -1;
+	int ret = -1, size = -1;
 	int fw_size = 0x1000 * 16;
 	struct firmware_s *fw = NULL;
 

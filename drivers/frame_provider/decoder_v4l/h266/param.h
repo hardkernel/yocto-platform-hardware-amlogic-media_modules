@@ -1,3 +1,6 @@
+#ifndef __PARAM_H_
+#define __PARAM_H_
+
 #define RPM_BEGIN                                              0x000
 #define RPM_END                                                0x200
 
@@ -939,4 +942,5 @@ static void print_param(param_t *param)
     printk("alf_y_coeffmulti = 0x%04x\n", param->p.alf_y_coeffmulti);
 
 }
+#endif
 #endif

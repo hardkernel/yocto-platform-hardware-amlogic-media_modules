@@ -7537,7 +7537,7 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 				/*avs2_dec->m_bg->index is
 				set to dec->used_buf_num - 1*/
 			if ((dec->front_back_mode == 1) && (paral_alloc_buffer_mode & 1)) {
-				if ((dec->pic_list_wait_alloc_done_flag == BUFFER_INIT)) {
+				if (dec->pic_list_wait_alloc_done_flag == BUFFER_INIT) {
 					dec->dec_result = DEC_RESULT_WAIT_BUFFER;
 					avs2_print(dec, AVS2_DBG_BUFMGR, "alloc buffer\n");
 					ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_ISR_THREAD_HEAD_END);
