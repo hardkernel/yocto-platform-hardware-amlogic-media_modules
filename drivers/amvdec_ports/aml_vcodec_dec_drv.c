@@ -41,6 +41,7 @@
 #endif
 #include "aml_vcodec_dec_infoserver.h"
 #include "../frame_provider/decoder/utils/decoder_report.h"
+#include "../frame_provider/decoder/utils/vdec.h"
 #include "../common/media_utils/media_kernel_version.h"
 
 #include <linux/file.h>
@@ -516,8 +517,8 @@ static const struct v4l2_file_operations aml_vcodec_fops = {
 	.mmap		= v4l2_m2m_fop_mmap,
 };
 
-static ssize_t status_show(KV_CLASS_CONST struct class *cls,
-	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+static ssize_t status_show_func(KV_CLASS_CONST struct class *cls,
+	char *buf)
 {
 	struct aml_vcodec_dev *dev = container_of(cls,
 		struct aml_vcodec_dev, v4ldec_class);
@@ -545,9 +546,41 @@ out:
 	return pbuf - buf;
 }
 
+static ssize_t status_show(KV_CLASS_CONST struct class *cls,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	char *pbuf = buf;
+	char *tmpbuf = NULL;
+	char *ptmpbuf = NULL;
+	uint32_t size = 0;
+	u32 temp_buf_size = DEBUG_BUFF_SIZE * (vdec_get_core_nr() + 1);
+
+	tmpbuf = vzalloc(temp_buf_size);
+	if (!tmpbuf) {
+		pr_err("failed alloc buf for status_show\n");
+		return -ENOMEM;
+	}
+	ptmpbuf = tmpbuf;
+
+	ptmpbuf += status_show_func(cls, ptmpbuf);
+
+	size = ptmpbuf - tmpbuf;
+
+	if (size > USER_BUFF_SIZE) {
+		buff_show(size, tmpbuf, temp_buf_size);
+		pr_info("cat v4ldec status size:%d\n", size);
+	} else {
+		pbuf += scnprintf(pbuf, USER_BUFF_SIZE, "%s\n", tmpbuf);
+	}
+
+	vfree(tmpbuf);
+
+	return pbuf - buf;
+}
+
 ssize_t show_v4ldec_state(void *dev, char *buf) {
 	struct aml_vcodec_dev *devptr = (struct aml_vcodec_dev *)dev;
-	return status_show(&devptr->v4ldec_class, NULL, buf);
+	return status_show_func(&devptr->v4ldec_class, buf);
 }
 EXPORT_SYMBOL(show_v4ldec_state);
 

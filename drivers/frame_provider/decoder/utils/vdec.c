@@ -89,6 +89,8 @@
 #ifdef DDK_DEFINE
 #include "vdec_version.h"
 #endif
+#include "decoder_report.h"
+
 #ifdef CONFIG_AMLOGIC_IONVIDEO
 #include <linux/amlogic/media/video_sink/ionvideo_ext.h>
 #else
@@ -7543,8 +7545,7 @@ ssize_t dump_vdec_blocks(char *buf) {
 	return dump_vdec_blocks_show(NULL, NULL, buf);
 }
 
-static ssize_t dump_vdec_chunks_show(KV_CLASS_CONST struct class *class,
-			KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+static ssize_t dump_vdec_chunks_show_func(char *buf, int size)
 {
 	struct vdec_core_s *core = vdec_core;
 	char *pbuf = buf;
@@ -7556,16 +7557,48 @@ static ssize_t dump_vdec_chunks_show(KV_CLASS_CONST struct class *class,
 		struct vdec_s *vdec;
 		list_for_each_entry(vdec, &core->connected_vdec_list, list) {
 			pbuf += vdec_input_dump_chunks(vdec->id, &vdec->input,
-				pbuf, PAGE_SIZE - (pbuf - buf));
+				pbuf, size - (pbuf - buf));
 		}
 	}
 	vdec_core_unlock(vdec_core, flags);
 
 	return pbuf - buf;
 }
+static ssize_t dump_vdec_chunks_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	char *pbuf = buf;
+	char *tmpbuf = NULL;
+	char *ptmpbuf = NULL;
+	uint32_t size = 0;
+	u32 temp_buf_size = DEBUG_BUFF_SIZE * (vdec_get_core_nr() + 1);
 
-ssize_t dump_vdec_chunks(char *buf) {
-	return dump_vdec_chunks_show(NULL, NULL, buf);
+	tmpbuf = vzalloc(temp_buf_size);
+	if (!tmpbuf) {
+		pr_err("failed alloc buf for status_show\n");
+		return -ENOMEM;
+	}
+	ptmpbuf = tmpbuf;
+
+	ptmpbuf += dump_vdec_chunks_show_func(ptmpbuf, temp_buf_size);
+
+	size = ptmpbuf - tmpbuf;
+
+	if (size > USER_BUFF_SIZE) {
+		buff_show(size, tmpbuf, temp_buf_size);
+		pr_info("cat vdec chunks size:%d\n", size);
+	} else {
+		pbuf += scnprintf(pbuf, USER_BUFF_SIZE, "%s\n", tmpbuf);
+	}
+
+	vfree(tmpbuf);
+
+	return pbuf - buf;
+}
+
+ssize_t dump_vdec_chunks(char *buf, int size)
+{
+	return dump_vdec_chunks_show_func(buf, size);
 }
 
 static ssize_t dump_path_monitor_show(KV_CLASS_CONST struct class *class,

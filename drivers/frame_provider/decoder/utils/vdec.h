@@ -1065,7 +1065,7 @@ ssize_t dump_decoder_state(char *buf);
 
 ssize_t dump_vdec_blocks(char *buf);
 
-ssize_t dump_vdec_chunks(char *buf);
+ssize_t dump_vdec_chunks(char *buf, int size);
 
 ssize_t dump_vdec_core(char *buf);
 

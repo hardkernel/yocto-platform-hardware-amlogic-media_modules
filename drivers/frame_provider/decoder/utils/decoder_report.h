@@ -20,6 +20,9 @@
 #ifndef __DEC_REPORT_H__
 #define __DEC_REPORT_H__
 
+#define DEBUG_BUFF_SIZE (1024 * 8)
+#define USER_BUFF_SIZE 4096
+
 #define DEBUG_AMVDEC_PORTS "amvdec_ports"
 #define DEBUG_AMVDEC_H265 "amvdec_h265"
 #define DEBUG_AMVDEC_H265_V4L "amvdec_h265_v4l"
@@ -65,6 +68,8 @@ int register_set_debug_flag_func(const char *module, set_debug_flag_func func);
 
 typedef ssize_t (*dump_amstream_bufs_func)(char *);
 void register_dump_amstream_bufs_func(dump_amstream_bufs_func func);
+
+void buff_show(ssize_t size, char *buf, int buff_size);
 
 #endif
 

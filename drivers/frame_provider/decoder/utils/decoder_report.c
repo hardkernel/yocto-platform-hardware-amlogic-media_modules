@@ -27,8 +27,7 @@
 #include "vdec.h"
 #include "decoder_report.h"
 
-#define BUFF_SIZE 1024 * 4 *  4
-#define USER_BUFF_SIZE 1024 * 4
+#define PRINT_SIZE (1024 * 16)
 
 #define DEFAULT_TITTLE "default"
 #define DEC_TITTLE "Video_Dec"
@@ -77,11 +76,13 @@ static ssize_t dump_amstream_bufs(char *buf)
 	char *pbuf = buf;
 	char *tmpbuf;
 	char *ptmpbuf;
+	u32 temp_buf_size = 0;
 
 	if (report_dev->dump_amstream_bufs_notify == NULL)
 		return 0;
 
-	tmpbuf = (char *)kzalloc(BUFF_SIZE, GFP_KERNEL);
+	temp_buf_size = DEBUG_BUFF_SIZE * (vdec_get_core_nr() + 1);
+	tmpbuf = vzalloc(temp_buf_size);
 	if (!tmpbuf)
 		return 0;
 
@@ -93,7 +94,7 @@ static ssize_t dump_amstream_bufs(char *buf)
 		pbuf += sprintf(pbuf, "%s", tmpbuf);
 	}
 
-	kfree(tmpbuf);
+	vfree(tmpbuf);
 	return pbuf - buf;
 }
 
@@ -103,7 +104,7 @@ void register_dump_amstream_bufs_func(dump_amstream_bufs_func func)
 }
 EXPORT_SYMBOL(register_dump_amstream_bufs_func);
 
-static void buff_show(ssize_t size, char *buf, int buff_size)
+void buff_show(ssize_t size, char *buf, int buff_size)
 {
 	if (size && buf) {
 		char *tmpbuf = kzalloc(sizeof(char) * (size + 1), GFP_KERNEL);
@@ -127,6 +128,7 @@ static void buff_show(ssize_t size, char *buf, int buff_size)
 		kfree(tmpbuf);
 	}
 }
+EXPORT_SYMBOL(buff_show);
 
 static ssize_t status_show(KV_CLASS_CONST struct class *cls,
 	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
@@ -134,12 +136,14 @@ static ssize_t status_show(KV_CLASS_CONST struct class *cls,
 	char *pbuf = buf;
 	char *tmpbuf = NULL;
 	char *ptmpbuf = NULL;
-	ssize_t size = 0;
+	uint32_t size = 0;
+	u32 temp_buf_size = 0;
 
 	if (!report_dev)
 		return 0;
 
-	tmpbuf = (char *)kzalloc(BUFF_SIZE, GFP_KERNEL);
+	temp_buf_size = DEBUG_BUFF_SIZE * (vdec_get_core_nr() + 1);
+	tmpbuf = vzalloc(temp_buf_size);
 	if (!tmpbuf) {
 		pr_err("failed alloc buf for status_show\n");
 		return -ENOMEM;
@@ -147,7 +151,7 @@ static ssize_t status_show(KV_CLASS_CONST struct class *cls,
 	ptmpbuf = tmpbuf;
 
 	pr_info("\n============ cat /sys/class/vdec/dump_decoder_state:\n");
-	buff_show(dump_decoder_state(tmpbuf), tmpbuf, BUFF_SIZE);
+	buff_show(dump_decoder_state(tmpbuf), tmpbuf, temp_buf_size);
 
 	ptmpbuf += dump_v4ldec_state(ptmpbuf);
 
@@ -155,7 +159,7 @@ static ssize_t status_show(KV_CLASS_CONST struct class *cls,
 	ptmpbuf += dump_vdec_debug(ptmpbuf);
 
 	ptmpbuf += sprintf(ptmpbuf, "\n============ cat /sys/class/vdec/dump_vdec_chunks:\n");
-	ptmpbuf += dump_vdec_chunks(ptmpbuf);
+	ptmpbuf += dump_vdec_chunks(ptmpbuf, temp_buf_size - (ptmpbuf - tmpbuf));
 
 	ptmpbuf += dump_amstream_bufs(ptmpbuf);
 
@@ -164,12 +168,14 @@ static ssize_t status_show(KV_CLASS_CONST struct class *cls,
 
 	size = ptmpbuf - tmpbuf;
 	if (size > USER_BUFF_SIZE) {
-		buff_show(size, tmpbuf, BUFF_SIZE);
+		buff_show(size, tmpbuf, temp_buf_size);
+		if (size > PRINT_SIZE)
+			pr_info("cat report size:%d\n", size);
 	} else {
-		pbuf+= sprintf(pbuf, "%s\n", tmpbuf);
+		pbuf += scnprintf(pbuf, USER_BUFF_SIZE, "%s\n", tmpbuf);
 	}
 
-	kfree(tmpbuf);
+	vfree(tmpbuf);
 	return pbuf - buf;
 }
 
@@ -514,7 +520,8 @@ void set_debug_configs(const char *module, const char *debug, int len)
 		}
 
 		if (get_configs(dec_str, DUMP_DECODER_STATE, &config_val) == 0) {
-			char *tmpbuf = (char *)vzalloc(BUFF_SIZE);
+			u32 temp_buf_size = DEBUG_BUFF_SIZE * (vdec_get_core_nr() + 1);
+			char *tmpbuf = vzalloc(temp_buf_size);
 			int size = status_show(NULL, NULL, tmpbuf);
 			if (size <= USER_BUFF_SIZE) {
 				pr_info("%s\n", tmpbuf);
