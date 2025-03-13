@@ -694,7 +694,7 @@ int aml_v4l2_ge2d_get_buf_num(u32 mode)
 	return 4;
 }
 
-void static inline aml_v4l2_ge2d_set_workmode(struct aml_vcodec_ctx *ctx,
+static inline void aml_v4l2_ge2d_set_workmode(struct aml_vcodec_ctx *ctx,
 		struct aml_ge2d_cfg_infos *cfg)
 {
 	if ((ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||

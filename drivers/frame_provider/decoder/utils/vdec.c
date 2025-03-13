@@ -1264,12 +1264,12 @@ static void vdec_enable_DMC(struct vdec_s *vdec)
 	pr_debug("%s input->target= 0x%x\n", __func__, input->target);
 }
 
-static void __inline__ stream_prefix_set(ulong prefix)
+static inline void stream_prefix_set(ulong prefix)
 {
 	g_prefix.stream_prefix = prefix;
 }
 
-u64 __inline__ stream_prefix_get(void)
+inline u64 stream_prefix_get(void)
 {
 	return g_prefix.stream_prefix;
 }

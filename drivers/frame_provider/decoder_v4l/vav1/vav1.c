@@ -4704,7 +4704,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 	lf->sharpness_level =
 		hw->aom_param.p.loop_filter_sharpness_level;
 	if (((hw->aom_param.p.loop_filter_mode_ref_delta_enabled)&3) == 3) { // enabled but and update
-		if (cm->prev_frame <= 0) {
+		if (cm->prev_frame == NULL) {
 		  // already initialized in Microcode
 			lf->ref_deltas[0] = conv2int8((uint8_t)(hw->aom_param.p.loop_filter_ref_deltas_0),7);
 			lf->ref_deltas[1]	= conv2int8((uint8_t)(hw->aom_param.p.loop_filter_ref_deltas_0>>8),7);
@@ -4750,7 +4750,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 		}
 	}
 	  else {
-		if ((cm->prev_frame <= 0) | (hw->aom_param.p.loop_filter_mode_ref_delta_enabled & 4)) {
+		if ((cm->prev_frame == NULL) | (hw->aom_param.p.loop_filter_mode_ref_delta_enabled & 4)) {
 			av1_print(hw, AOM_DEBUG_HW_MORE,
 				"[test.c] mode_ref_delta set to default\n");
 			lf->ref_deltas[0] = conv2int8((uint8_t)1,7);
@@ -4812,7 +4812,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 				}
 			} // segmentation_update_data
 			else { // no segmentation_update_data
-				if (cm->prev_frame <= 0) {
+				if (cm->prev_frame == NULL) {
 					for (i=0;i<MAX_SEGMENTS;i++) {
 						seg_4lf->seg_lf_info_y[i] = 0;
 						seg_4lf->seg_lf_info_c[i] = 0;
@@ -4867,7 +4867,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 	av1_print(hw, AOM_DEBUG_HW_MORE,
 		"[test.c] cur_frame : %p prev_frame : %p - %p \n",
 		cm->cur_frame, cm->prev_frame, av1_get_primary_ref_frame_buf(cm));
-	if (cm->cur_frame <= 0) {
+	if (cm->cur_frame == NULL) {
 		WRITE_VREG(enable_swap?HEVC_ASSIST_SCRATCH_3:HEVC_ASSIST_SCRATCH_8,
 			buf_spec->cdf_buf.buf_start);
 		WRITE_VREG(AOM_AV1_SEG_MAP_BUFFER_W, buf_spec->seg_map.buf_start);
@@ -4882,7 +4882,7 @@ static void config_dblk_hw(struct AV1HW_s *hw)
 	}
 	cm->cur_frame->seg_mi_rows = cm->cur_frame->mi_rows;
 	cm->cur_frame->seg_mi_cols = cm->cur_frame->mi_cols;
-	if (cm->prev_frame <= 0) {
+	if (cm->prev_frame == NULL) {
 		WRITE_VREG(AOM_AV1_CDF_BUFFER_R, buf_spec->cdf_buf.buf_start);
 		WRITE_VREG(AOM_AV1_SEG_MAP_BUFFER_R, buf_spec->seg_map.buf_start);
 	} else {
@@ -8209,7 +8209,7 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 		cm->cur_frame->mi_rows,
 		cur_pic_config->y_crop_width,
 		cur_pic_config->y_crop_height);
-		if (cm->prev_frame > 0) {
+		if (cm->prev_frame != NULL) {
 			av1_print(hw, AOM_DEBUG_HW_MORE,
 			" [SEGMENT] cm->prev_frame->segmentation_enabled : %d\n",
 			cm->prev_frame->segmentation_enabled);
@@ -8217,16 +8217,16 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 			" [SEGMENT] cm->prev_frame->mi_size : (%d X %d)\n",
 			cm->prev_frame->mi_cols, cm->prev_frame->mi_rows);
 		}
-		cm->cur_frame->prev_segmentation_enabled = (cm->prev_frame > 0) ?
+		cm->cur_frame->prev_segmentation_enabled = (cm->prev_frame != NULL) ?
 		(cm->prev_frame->segmentation_enabled & (cm->prev_frame->segmentation_update_map
 		| cm->prev_frame->prev_segmentation_enabled) &
 		(cm->cur_frame->mi_rows == cm->prev_frame->mi_rows) &
 		(cm->cur_frame->mi_cols == cm->prev_frame->mi_cols)) : 0;
 		WRITE_VREG(AV1_SKIP_MODE_INFO,
 			(cm->cur_frame->prev_segmentation_enabled << 31) |
-			(((cm->prev_frame > 0) ? cm->prev_frame->intra_only : 0) << 30) |
-			(((cm->prev_frame > 0) ? prev_pic_config->index : 0x1f) << 24) |
-			(((cm->cur_frame > 0) ? cur_pic_config->index : 0x1f) << 16) |
+			(((cm->prev_frame != NULL) ? cm->prev_frame->intra_only : 0) << 30) |
+			(((cm->prev_frame != NULL) ? prev_pic_config->index : 0x1f) << 24) |
+			(((cm->cur_frame != NULL) ? cur_pic_config->index : 0x1f) << 16) |
 			(cm->current_frame.skip_mode_info.ref_frame_idx_0 & 0xf) |
 			((cm->current_frame.skip_mode_info.ref_frame_idx_1 & 0xf) << 4) |
 			(cm->current_frame.skip_mode_info.skip_mode_allowed << 8));

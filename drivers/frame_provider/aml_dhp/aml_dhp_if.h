@@ -151,7 +151,7 @@ static inline void tag_to_string(int tag, char* str)
  * @ver       : The version number as an integer.
  * @str       : Pointer to the character array where the version string will be stored.
  */
-static void inline ver_to_string(int ver, char* str)
+static inline void ver_to_string(int ver, char* str)
 {
 	int major	= (ver >> 16) & 0xFF;	/* major */
 	int minor	= (ver >> 8) & 0xFF;	/* minor */

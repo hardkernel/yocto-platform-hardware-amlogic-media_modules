@@ -6241,7 +6241,7 @@ static void ucode_copy(void *mc_cpu_addr, char *data)
 		data + 0x5000, 0x1000);
 }
 
-static bool inline is_open_h264_mmu(struct vdec_h264_hw_s *hw, bool field_flag)
+static inline bool is_open_h264_mmu(struct vdec_h264_hw_s *hw, bool field_flag)
 {
 	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_TXLX)
 		return false;
