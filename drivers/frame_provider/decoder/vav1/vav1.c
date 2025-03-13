@@ -416,6 +416,8 @@ static u32 get_picture_qos;
 
 static u32 debug;
 
+static u32 over_decoder_shiftbytes = 0x80;
+
 static bool is_reset;
 /*for debug*/
 static u32 force_bufspec;
@@ -1022,9 +1024,9 @@ static void timeout_process(struct AV1HW_s *hw)
 		return;
 	}
 	hw->timeout_num++;
+	av1_print(hw, 0, "%s decoder timeout HEVC_MPC_E=0x%x\n",
+		__func__, READ_VREG(HEVC_MPC_E));
 	amhevc_stop();
-	av1_print(hw,
-		0, "%s decoder timeout\n", __func__);
 
 	hw->dec_result = DEC_RESULT_DONE;
 	vdec_schedule_work(&hw->work);
@@ -1765,6 +1767,7 @@ static int get_free_fb(AV1_COMMON *cm) {
 			pic->spatial_id = (hw->aom_param.p.temporal_spatial_id >> 3) & 3;
 			pic->not_need_display = 0;
 			pic->fence_create = 0;
+			pic->error_mark = 0;
 
 			av1_print(hw, AV1_DEBUG_OUT_PTS,
 				"%s, idx: %d, ts: %lld, pts %d, pts64 %lld temporal_spatial_id = 0x%x\n",
@@ -3809,6 +3812,14 @@ static int config_mc_buffer(struct AV1HW_s *hw, unsigned short bit_depth, unsign
 				(pic_config->mc_canvas_u_v<<16) |
 				(pic_config->mc_canvas_u_v<<8) |
 				pic_config->mc_canvas_y);
+
+			if (pic_config->error_mark) {
+				cur_pic_config->error_mark = 1;
+				av1_print(hw, AOM_DEBUG_HW_MORE,
+					"%s:%d,ref pic error, set cur pic error_mark\n",
+					__func__, __LINE__);
+			}
+
 			if (inter_flag)
 				av1_print(hw, AOM_DEBUG_HW_MORE,
 				"refid 0x%x mc_canvas_u_v 0x%x mc_canvas_y 0x%x order_hint 0x%x\n",
@@ -3839,6 +3850,13 @@ static int config_mc_buffer(struct AV1HW_s *hw, unsigned short bit_depth, unsign
 			(pic_config->mc_canvas_u_v << 16) |
 			(pic_config->mc_canvas_u_v << 8) |
 			pic_config->mc_canvas_y);
+
+			if (pic_config->error_mark) {
+				cur_pic_config->error_mark = 1;
+				av1_print(hw, AOM_DEBUG_HW_MORE,
+					"%s:%d,ref pic error, set cur pic error_mark\n",
+					__func__, __LINE__);
+			}
 		} else {
 			WRITE_VREG(HEVCD_MPP_ANC_CANVAS_DATA_ADDR, 0);
 		}
@@ -3860,6 +3878,13 @@ static int config_mc_buffer(struct AV1HW_s *hw, unsigned short bit_depth, unsign
 			ref_pic_body_size =
 				compute_losless_comp_body_size(pic_config->y_crop_width,
 			pic_config->y_crop_height, (bit_depth == AOM_BITS_10));
+
+			if (pic_config->error_mark) {
+				cur_pic_config->error_mark = 1;
+				av1_print(hw, AOM_DEBUG_HW_MORE,
+					"%s:%d,ref pic error, set cur pic error_mark\n",
+					__func__, __LINE__);
+			}
 
 			WRITE_VREG(AV1D_MPP_REFINFO_DATA, pic_config->y_crop_width);
 			WRITE_VREG(AV1D_MPP_REFINFO_DATA, pic_config->y_crop_height);
@@ -7227,14 +7252,14 @@ void av1_raw_write_image(AV1Decoder *pbi, PIC_BUFFER_CONFIG *sd)
 				continue;
 			vav1_vf_put(signed_fence[i], vdec);
 		}
-	}else if(hw->error_mark == 1) {
+	} else if(hw->error_mark == 1) {
 		av1_print(hw, PRINT_FLAG_ERROR,
 			"%s, frame err, do not display,idx:%d\n",
 			__func__, hw->common.current_frame_id);
 	} else {
-		av1_print(hw, AOM_DEBUG_HW_MORE, "Out frame index %d not_need_display %d\n",
-			sd->index, sd->not_need_display);
-		if (sd->not_need_display == 0)
+		av1_print(hw, AOM_DEBUG_HW_MORE, "Out frame index %d not_need_display %d error_mark %d\n",
+			sd->index, sd->not_need_display, sd->error_mark);
+		if ((sd->not_need_display == 0) && (sd->error_mark == 0))
 			prepare_display_buf((struct AV1HW_s *)(pbi->private_data), sd);
 	}
 	pbi->pre_stream_offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);
@@ -9250,6 +9275,23 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 					hw->fgs_valid,
 					hw->data_size,
 					READ_VREG(HEVC_SHIFT_BYTE_COUNT));
+
+				if (cm->cur_frame != NULL) {
+					u32 over_shiftbytes = 0;
+
+					WRITE_VREG(HEVC_PARSER_DEBUG_IDX, 0xa);
+					over_shiftbytes = READ_VREG(HEVC_PARSER_DEBUG_DAT) & 0xffff;
+
+					if (over_shiftbytes > over_decoder_shiftbytes) {
+						cm->cur_frame->buf.error_mark = 1;
+						av1_print(hw, AOM_DEBUG_HW_MORE,
+							"Decoding done (index %d), data_size 0x%x shiftbyte 0x%x shiftbytes 0x%x set cur_pic error\n",
+							cm->cur_frame? cm->cur_frame->buf.index:-1,
+							hw->data_size,
+							READ_VREG(HEVC_SHIFT_BYTE_COUNT), over_shiftbytes);
+					}
+				}
+
 				hw->config_next_ref_info_flag = 1; /*to do: low_latency_flag  case*/
 				//config_next_ref_info_hw(hw);
 			}
@@ -12491,6 +12533,7 @@ static struct param_entry amvdec_av1_params[] = {
 	PARAM_UINT(frame_height),
 	PARAM_UINT(multi_frames_in_one_pack),
 	PARAM_UINT(debug),
+	PARAM_UINT(over_decoder_shiftbytes),
 	PARAM_UINT(radr),
 	PARAM_UINT(rval),
 	PARAM_UINT(pop_shorts),
@@ -12593,6 +12636,9 @@ MODULE_PARM_DESC(multi_frames_in_one_pack, "\n multi_frames_in_one_pack\n");
 
 MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_av1 debug\n");
+
+MEDIA_PARAM(over_decoder_shiftbytes, uint, 0664);
+MODULE_PARM_DESC(over_decoder_shiftbytes, "\n over_decoder_shiftbytes\n");
 
 MEDIA_PARAM(radr, uint, 0664);
 MODULE_PARM_DESC(radr, "\n radr\n");
