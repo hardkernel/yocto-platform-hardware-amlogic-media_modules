@@ -6381,22 +6381,6 @@ static int av1_local_init(struct AV1HW_s *hw)
 	hw->pbi->frame_width = hw->init_pic_w;
 	hw->pbi->frame_height = hw->init_pic_h;
 
-	/* video is not support unaligned with 64 in tl1
-	** vdec canvas mode will be linear when dump yuv is set
-	*/
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
-		(hw->double_write_mode != 0) &&
-		(((hw->max_pic_w % 64) != 0) ||
-		(hw->vav1_amstream_dec_info.width % 64) != 0)) {
-		if (hw_to_vdec(hw)->canvas_mode !=
-			CANVAS_BLKMODE_LINEAR)
-			hw->mem_map_mode = 2;
-		else {
-			hw->mem_map_mode = 0;
-			av1_print(hw, AOM_DEBUG_HW_MORE, "vdec blkmod linear, force mem_map_mode 0\n");
-		}
-	}
-
 	hw->mv_buf_margin = mv_buf_margin;
 	if (IS_4K_SIZE(hw->init_pic_w, hw->init_pic_h)) {
 		hw->used_buf_num = MAX_BUF_NUM_LESS + hw->dynamic_buf_num_margin;

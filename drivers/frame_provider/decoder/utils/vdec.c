@@ -3746,7 +3746,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 		id = vdec->id;
 
 	p->prog_only = prog_only;
-	vdec->canvas_mode = CANVAS_BLKMODE_32X32;
+	vdec->canvas_mode = is_v4l ? CANVAS_BLKMODE_LINEAR : CANVAS_BLKMODE_32X32;
 #ifdef FRAME_CHECK
 	vdec_frame_check_init(vdec);
 #endif

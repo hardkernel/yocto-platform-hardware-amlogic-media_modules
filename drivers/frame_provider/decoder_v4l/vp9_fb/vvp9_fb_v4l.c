@@ -9246,22 +9246,6 @@ static int vp9_local_init(struct VP9Decoder_s *pbi, bool reset_flag)
 		pbi->vvp9_amstream_dec_info.height :
 		pbi->work_space_buf->max_height));
 
-	/* video is not support unaligned with 64 in tl1
-	** vdec canvas mode will be linear when dump yuv is set
-	*/
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) &&
-		(get_double_write_mode(pbi) != 0) &&
-		(((pbi->max_pic_w % 64) != 0) ||
-		(pbi->vvp9_amstream_dec_info.width % 64) != 0)) {
-		if (hw_to_vdec(pbi)->canvas_mode !=
-			CANVAS_BLKMODE_LINEAR)
-			pbi->mem_map_mode = 2;
-		else {
-			pbi->mem_map_mode = 0;
-			pr_info("vdec blkmod linear, force mem_map_mode 0\n");
-		}
-	}
-
 	pbi->pts_unstable = ((unsigned long)(pbi->vvp9_amstream_dec_info.param)
 		& 0x40) >> 6;
 
