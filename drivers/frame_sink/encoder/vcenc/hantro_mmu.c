@@ -80,19 +80,20 @@
 #include <linux/dma-buf.h>
 #include <asm/io.h>
 #endif
-#include <stddef.h>
+#include <linux/stddef.h>
 #include "hantrommu.h"
+#include "../../../common/media_utils/media_kernel_version.h"
 
 MODULE_DESCRIPTION("Verisilicon VPU Driver");
 MODULE_LICENSE("GPL");
 
-#ifndef NULL
+/*#ifndef NULL
 #ifdef __cplusplus
 #define NULL 0
 #else
 #define NULL ((void *)0)
 #endif
-#endif
+#endif*/
 
 /****************** New MMU Definition *******************************/
 #define MMU_MTLB_SHIFT 22
@@ -895,7 +896,7 @@ static inline enum MMUStatus QueryProcessPageTable(void *logical, unsigned long 
         /* vmalloc area. */
         *address = page_to_phys(vmalloc_to_page(logical)) | offset;
         return MMU_STATUS_OK;
-    } else if (virt_addr_valid(lg)) {
+    } else if (virt_addr_valid((void *)lg)) {
         /* Kernel logical address. */
         *address = virt_to_phys(logical);
         return MMU_STATUS_OK;
@@ -924,6 +925,7 @@ static inline enum MMUStatus QueryProcessPageTable(void *logical, unsigned long 
         if (pgd_none(*pgd) || pgd_bad(*pgd))
             return MMU_STATUS_NOT_FOUND;
 
+#if 0
 #if (defined(CONFIG_CPU_CSKYV2) || defined(CONFIG_X86)) &&                                         \
     LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
         pud = pud_offset((p4d_t *)pgd, lg);
@@ -931,6 +933,9 @@ static inline enum MMUStatus QueryProcessPageTable(void *logical, unsigned long 
         pud = pud_offset((p4d_t *)pgd, lg);
 #else
         pud = pud_offset(pgd, lg);
+#endif
+#else
+        pud = pud_offset((p4d_t *)pgd, lg);
 #endif
         if (pud_none(*pud) || pud_bad(*pud))
             return MMU_STATUS_NOT_FOUND;

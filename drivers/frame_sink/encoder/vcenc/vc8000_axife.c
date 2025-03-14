@@ -78,7 +78,7 @@
 #include <linux/dma-buf.h>
 #endif
 
-#include <stddef.h>
+#include <linux/stddef.h>
 #include "vc8000_axife.h"
 /* mode description
  * 1: OYB normal(enable)

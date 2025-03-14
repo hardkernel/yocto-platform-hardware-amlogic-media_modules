@@ -1,0 +1,199 @@
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+
+ddk_headers(
+    name = "encoder_headers",
+    hdrs = glob([
+        "common/*.h",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+ddk_module(
+    name = "encoder_common",
+    srcs = glob(
+        [
+            "common/*.c",
+            "common/*.h",
+        ],
+    ),
+    hdrs = [
+    ],
+    local_defines = [
+    ],
+    out = "encoder_common.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+    ],
+)
+
+ddk_module(
+    name = "vpu",
+    srcs = glob(
+        [
+            "h265/*.c",
+            "h265/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "vpu.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/power:amlogic-power",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+    ],
+)
+
+ddk_module(
+    name = "encoder",
+    srcs = glob(
+        [
+            "h264/*.c",
+            "h264/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "encoder.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//common_drivers/drivers/power:amlogic-power",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ],
+)
+
+ddk_module(
+    name = "jpegenc",
+    srcs = glob(
+        [
+            "jpeg/*.c",
+            "jpeg/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "jpegenc.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//common_drivers/drivers/power:amlogic-power",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ],
+)
+
+ddk_module(
+    name = "amvenc_multi",
+    srcs = glob(
+        [
+            "multi/*.c",
+            "multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "amvenc_multi.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:decoder_common",
+    ],
+)
+
+ddk_module(
+    name = "memalloc",
+    srcs = glob(
+        [
+            "memalloc/*.c",
+            "memalloc/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "memalloc.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+    ],
+)
+
+ddk_module(
+    name = "vc8000",
+    srcs = glob(
+        [
+            "vcenc/*.c",
+            "vcenc/*.h",
+        ],
+    ),
+    hdrs = [
+        "//common_drivers:soc_headers",
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+    ],
+    local_defines = [
+    ],
+    out = "vc8000.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_common",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:decoder_common",
+    ],
+)
