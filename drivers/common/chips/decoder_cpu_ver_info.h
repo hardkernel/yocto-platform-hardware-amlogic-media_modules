@@ -220,6 +220,8 @@ inline bool is_core_hevc_fmt(int format);
 
 inline bool is_hevc_align32(int blkmod);
 
+u32 vdec_width_align_force(u32 width, int blkmod);
+
 /* clk get */
 inline u32 vdec_max_clk_get(void);
 

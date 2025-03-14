@@ -2340,10 +2340,8 @@ static int v4l_alloc_buf(struct vdec_h264_hw_s *hw, int idx)
 	c_canvas_cfg = &bs->canvas_config[1];
 
 	y_canvas_cfg->phy_addr	= y_addr;
-	if (hw->mmu_enable && is_hevc_align32(hw->canvas_mode))
-		y_canvas_cfg->width = ALIGN(hw->frame_width / dw_ratio, 32);
-	else
-		y_canvas_cfg->width = ALIGN(hw->frame_width / dw_ratio, 64);
+
+	y_canvas_cfg->width = vdec_width_align_force(hw->frame_width / dw_ratio, hw->canvas_mode);
 	y_canvas_cfg->height	= ALIGN(hw->frame_height / dw_ratio, 32);
 	y_canvas_cfg->block_mode = hw->canvas_mode;
 	//aml_buf->planes[0].bytes_used = y_canvas_cfg->width * y_canvas_cfg->height;
@@ -2352,10 +2350,8 @@ static int v4l_alloc_buf(struct vdec_h264_hw_s *hw, int idx)
 		y_canvas_cfg->width,y_canvas_cfg->height);
 
 	c_canvas_cfg->phy_addr	= c_addr;
-	if (hw->mmu_enable && is_hevc_align32(hw->canvas_mode))
-		c_canvas_cfg->width = ALIGN(hw->frame_width / dw_ratio, 32);
-	else
-		c_canvas_cfg->width = ALIGN(hw->frame_width / dw_ratio, 64);
+
+	c_canvas_cfg->width = vdec_width_align_force(hw->frame_width / dw_ratio, hw->canvas_mode);
 	c_canvas_cfg->height	= ALIGN(hw->frame_height / dw_ratio, 32);
 	c_canvas_cfg->block_mode = hw->canvas_mode;
 	//aml_buf->planes[1].bytes_used = c_canvas_cfg->width * c_canvas_cfg->height;
@@ -2373,6 +2369,7 @@ static void config_decode_canvas(struct vdec_h264_hw_s *hw, int i)
 {
 	int blkmode = hw->canvas_mode;
 	int endian = 0;
+	u32 align_w = vdec_width_align_force(hw->frame_width, blkmode);
 
 	if (blkmode == CANVAS_BLKMODE_LINEAR) {
 		if ((h264_debug_flag & IGNORE_PARAM_FROM_CONFIG) == 0)
@@ -2386,7 +2383,7 @@ static void config_decode_canvas(struct vdec_h264_hw_s *hw, int i)
 	config_cav_lut_ex(hw->buffer_spec[i].
 		y_canvas_index,
 		hw->buffer_spec[i].y_addr,
-		hw->mb_width << 4,
+		align_w,
 		hw->mb_height << 4,
 		CANVAS_ADDR_NOWRAP,
 		blkmode,
@@ -2412,7 +2409,7 @@ static void config_decode_canvas(struct vdec_h264_hw_s *hw, int i)
 	config_cav_lut_ex(hw->buffer_spec[i].
 		u_canvas_index,
 		hw->buffer_spec[i].u_addr,
-		hw->mb_width << 4,
+		align_w,
 		hw->mb_height << 3,
 		CANVAS_ADDR_NOWRAP,
 		blkmode,
@@ -11804,7 +11801,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	ps->mb_height 		= mb_height;
 	ps->visible_width	= frame_width;
 	ps->visible_height	= frame_height;
-	ps->coded_width		= ALIGN(mb_width << 4, 64);
+	ps->coded_width		= vdec_width_align_force(frame_width, hw->canvas_mode);  //ALIGN(mb_width << 4, 64);
 	ps->coded_height	= ALIGN(mb_height << 4, 64);
 	/* +1 for two frames in one packet */
 	ps->dpb_frames		= one_packet_multi_frames_multi_run ? dec_dpb_size : dec_dpb_size + 1;
@@ -11887,9 +11884,6 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 		cfg_info.double_write_mode = DM_AVBC_ONLY;
 		vdec_v4l_set_cfg_infos(ctx, &cfg_info);
 	}
-
-	ps->coded_width = ALIGN(mb_width << 4,
-		(is_hevc_align32(0) && hw->double_write_mode != DM_YUV_ONLY) ? 32 : 64);
 
 	/*
 	 * 4K H264 interlace(MBAFF) streams require conversion field

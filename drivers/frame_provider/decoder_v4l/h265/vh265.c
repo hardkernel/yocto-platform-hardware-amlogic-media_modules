@@ -11679,6 +11679,7 @@ static int vh265_get_ps_info(struct hevc_state_s *hevc,
 	coded_height <<= hevc->interlace_flag;
 	ps->visible_width 	= width;
 	ps->visible_height 	= height;
+	/* align check */
 	ps->coded_width 	= ALIGN(coded_width, is_hevc_align32(0) ? 32 : 64);
 	ps->coded_height 	= ALIGN(coded_height, 64);
 	ps->field 		= hevc->interlace_flag ? V4L2_FIELD_INTERLACED : V4L2_FIELD_NONE;

@@ -534,7 +534,8 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 		decbuf_y_size	= aml_buf->planes[0].offset;
 		decbuf_uv_start	= decbuf_start + decbuf_y_size;
 		decbuf_uv_size	= decbuf_y_size / 2;
-		canvas_width	= ALIGN(hw->frame_width, 64);
+
+		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = aml_buf->planes[0].length;
 	} else if (aml_buf->num_planes == 2) {
@@ -542,7 +543,8 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 		decbuf_y_size	= aml_buf->planes[0].length;
 		decbuf_uv_start	= aml_buf->planes[1].addr;
 		decbuf_uv_size	= aml_buf->planes[1].length;
-		canvas_width	= ALIGN(hw->frame_width, 64);
+
+		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = decbuf_y_size;
 		aml_buf->planes[1].bytes_used = decbuf_uv_size;
@@ -2364,7 +2366,8 @@ static int vmpeg2_get_ps_info(struct vdec_mpeg12_hw_s *hw, int width, int height
 {
 	ps->visible_width	= width;
 	ps->visible_height	= height;
-	ps->coded_width		= ALIGN(width, 64);
+
+	ps->coded_width		= vdec_width_align_force(width, hw->canvas_mode);
 	ps->coded_height 	= ALIGN(height, 64);
 	ps->dpb_size 		= hw->buf_num;
 	ps->dpb_frames		= DECODE_BUFFER_NUM_DEF;

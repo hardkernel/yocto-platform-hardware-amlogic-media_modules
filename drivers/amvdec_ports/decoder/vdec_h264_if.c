@@ -491,7 +491,7 @@ static void fill_vdec_params(struct vdec_h264_inst *inst, struct h264_SPS_t *sps
 	rect->height		= pic->visible_height;
 
 	/* config canvas size that be used for decoder. */
-	pic->coded_width	= ALIGN(mb_w, 4) << 4;
+	pic->coded_width	= vdec_width_align_force(width, 0);
 	pic->coded_height	= ALIGN(mb_h, 4) << 4;
 	pic->y_len_sz		= pic->coded_width * pic->coded_height;
 	pic->c_len_sz		= pic->y_len_sz >> 1;
@@ -1076,7 +1076,7 @@ static void set_param_ps_info(struct vdec_h264_inst *inst,
 	pic->coded_height 	= ps->coded_height;
 
 	pic->y_len_sz		= vdec_get_plane_size(pic->coded_width, pic->coded_height, dw, 64,
-		(is_hevc_align32(0) && dw != DM_YUV_ONLY) ? 32 : 64);
+		(is_hevc_align32(0) ? 32 : 64));
 	pic->c_len_sz		= pic->y_len_sz >> 1;
 	pic->profile_idc	= ps->profile;
 	pic->field		= ps->field;

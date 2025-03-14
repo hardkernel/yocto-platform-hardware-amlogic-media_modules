@@ -1065,6 +1065,7 @@ bit1: force support all video format;
 #define FORCE_VDEC_NO_PARSER     BIT(0)
 #define FORCE_VDEC_SUPPORT_FMT   BIT(1)
 #define FORCE_VDEC_NO_OVERSIZE   BIT(2)
+#define FORCE_VDEC_ALIGN64       BIT(3)
 extern u32 force_dos_support;
 
 inline bool is_core_vdec_fmt(int format)
@@ -1109,6 +1110,9 @@ inline bool is_hevc_align32(int blkmod)
 {
 	enum AM_MESON_CPU_MAJOR_ID cpu_major_id = get_cpu_major_id();
 
+	if (force_dos_support & FORCE_VDEC_ALIGN64)
+		return false;
+
 	if ((cpu_major_id == AM_MESON_CPU_MAJOR_ID_TXHD2) ||
 		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_S1A) ||
 		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_G12A))
@@ -1117,6 +1121,16 @@ inline bool is_hevc_align32(int blkmod)
 	return false;
 }
 EXPORT_SYMBOL(is_hevc_align32);
+
+/* txhd2, s1a, g12a gxlx3? force align32. */
+u32 vdec_width_align_force(u32 width, int blkmod)
+{
+	if (is_hevc_align32(blkmod) && (blkmod < 2))
+		return ALIGN(width, 32);
+	else
+		return ALIGN(width, 64);
+}
+EXPORT_SYMBOL(vdec_width_align_force);
 
 inline bool is_support_new_dos_dev(void)
 {

@@ -713,7 +713,7 @@ static int vvc1_get_ps_info(struct vdec_vc1_hw_s *hw, struct aml_vdec_ps_infos *
 {
 	ps->visible_width 	= hw->frame_width;
 	ps->visible_height 	= hw->frame_height;
-	ps->coded_width 	= ALIGN(hw->frame_width, 64);
+	ps->coded_width 	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
 	ps->coded_height 	= ALIGN(hw->frame_height, 64);
 	ps->dpb_size 		= hw->vf_buf_num_used;
 	ps->dpb_margin		= hw->dynamic_buf_num_margin;
@@ -938,7 +938,7 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 		decbuf_y_size	= aml_buf->planes[0].offset;
 		decbuf_uv_start	= decbuf_start + decbuf_y_size;
 		decbuf_uv_size	= decbuf_y_size / 2;
-		canvas_width	= ALIGN(hw->frame_width, 64);
+		canvas_width	=vdec_width_align_force(hw->frame_width, hw->canvas_mode);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = aml_buf->planes[0].length;
 	} else if (aml_buf->num_planes == 2) {
@@ -946,7 +946,7 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 		decbuf_y_size	= aml_buf->planes[0].length;
 		decbuf_uv_start	= aml_buf->planes[1].addr;
 		decbuf_uv_size	= aml_buf->planes[1].length;
-		canvas_width	= ALIGN(hw->frame_width, 64);
+		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = decbuf_y_size;
 		aml_buf->planes[1].bytes_used = decbuf_uv_size;

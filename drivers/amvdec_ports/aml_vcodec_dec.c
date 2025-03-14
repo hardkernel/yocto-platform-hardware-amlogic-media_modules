@@ -5532,6 +5532,7 @@ static void m2mops_vdec_job_abort(void *priv)
 
 static int get_width_align(struct aml_vcodec_ctx *ctx)
 {
+#if 0
 	int align = 64;
 	u32 dw;
 
@@ -5551,6 +5552,12 @@ static int get_width_align(struct aml_vcodec_ctx *ctx)
 		align = 32;
 
 	return align;
+#else
+	if (ctx->avbcd_work_mode || (!is_hevc_align32(0)))
+		return 64;
+
+	return 32;
+#endif
 }
 
 static int get_height_align(struct aml_vcodec_ctx *ctx)

@@ -274,7 +274,7 @@ static void fill_vdec_params(struct vdec_mpeg12_inst *inst,
 	rect->height		= pic->visible_height;
 
 	/* config canvas size that be used for decoder. */
-	pic->coded_width	= ALIGN(dec_ps->coded_width, 64);
+	pic->coded_width	= vdec_width_align_force(dec_ps->coded_width, 0);
 	pic->coded_height	= ALIGN(dec_ps->coded_height, 32);
 
 	pic->y_len_sz		= pic->coded_width * pic->coded_height;
