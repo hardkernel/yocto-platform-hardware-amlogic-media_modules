@@ -133,6 +133,7 @@ enum E_DECINFO_TYPE {
 	AML_CC_TYPE,
 	AML_AUX_DATA_TYPE,
 	AML_FRAME_TYPE,
+	AML_USERDATA_TYPE,
 };
 
 enum E_DECINFO_EVENT {
@@ -145,6 +146,7 @@ enum E_DECINFO_EVENT {
 	AML_DECINFO_EVENT_CUVA,
 	AML_DECINFO_EVENT_DV,
 	AML_DECINFO_EVENT_FRAME,
+	AML_DECINFO_EVENT_USERDATA,
 	AML_DECINFO_EVENT_COMPOSITE = 30,
 	AML_DECINFO_EVENT_BOTTOM = 31,
 };
@@ -160,6 +162,7 @@ enum E_DECINFO_CMD_GET {
 	AML_DECINFO_GET_DV_TYPE,
 	AML_DECINFO_GET_FRAME_TYPE,
 	AML_DECINFO_GET_FEATURE_TYPE,
+	AML_DECINFO_GET_USERDATA_TYPE,
 	AML_DECINFO_GET_COMPOSITE_TYPE = 30,
 	AML_DECINFO_GET_CMD_BOTTOM = 31,
 };
@@ -941,6 +944,10 @@ struct aml_v4l2_decinfo_interface {
 	struct dec_frame_info_s	frminfo_pool[FRM_INFO_BUFF_NUM];
 	DECLARE_KFIFO(frm_free, struct dec_frame_info_s *, FRM_INFO_BUFF_NUM);
 	DECLARE_KFIFO(frm_done, struct dec_frame_info_s *, FRM_INFO_BUFF_NUM);
+
+	struct sei_usd_param_s	ud_pool[USER_DATA_BUFF_NUM];
+	DECLARE_KFIFO(ud_free, struct sei_usd_param_s *, USER_DATA_BUFF_NUM);
+	DECLARE_KFIFO(ud_done, struct sei_usd_param_s *, USER_DATA_BUFF_NUM);
 	void (*decinfo_event_report)(struct aml_vcodec_ctx *, int, void *);
 };
 

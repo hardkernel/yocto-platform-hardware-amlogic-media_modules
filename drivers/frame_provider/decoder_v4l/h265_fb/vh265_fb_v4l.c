@@ -9700,36 +9700,15 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 	hevc_print(hevc, H265_DEBUG_PRINT_SEI, "%s: poc %d vpts %d\n", __func__,
 				usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
 
-	if (is_afd_data(tmp_buf)) {
-		if (kfifo_is_full(&ctx->dec_intf.afd_done)) {
-			hevc_print(hevc, H265_DEBUG_PRINT_SEI,
-				"%s, AFD fifo is full\n", __func__);
-			vfree(tmp_buf);
-			return;
-		}
-
-		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.afd_done) + 1; /* +1 : current one's */
-		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_AFD, &usd_rep);
-		hevc_print(hevc, H265_DEBUG_PRINT_SEI,
-				"%s, AFD ready event report\n", __func__);
-	} else if (is_cc_data(tmp_buf)) {
-		if (kfifo_is_full(&ctx->dec_intf.cc_done)) {
-			hevc_print(hevc, H265_DEBUG_PRINT_SEI,
-				"%s, CC fifo is full\n", __func__);
-			vfree(tmp_buf);
-			return;
-		}
-
-		usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.cc_done) + 1; /* +1 : current one's */
-		ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_CC, &usd_rep);
-		hevc_print(hevc, H265_DEBUG_PRINT_SEI,
-				"%s, CC ready event report\n", __func__);
-	} else {
-		hevc_print(hevc, H265_DEBUG_PRINT_SEI,
-			"%s, data type not support\n", __func__);
+	if (kfifo_is_full(&ctx->dec_intf.ud_done)) {
+		hevc_print(hevc, H265_DEBUG_PRINT_SEI, "%s, ud fifo is full\n", __func__);
 		vfree(tmp_buf);
 		return;
 	}
+
+	usd_rep.meta_data.records_in_que = kfifo_len(&ctx->dec_intf.ud_done) + 1; /* +1 : current one's */
+	ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_USERDATA, &usd_rep);
+	hevc_print(hevc, H265_DEBUG_PRINT_SEI, "%s, ud ready event report\n", __func__);
 }
 
 static void vh265_wakeup_userdata_poll(struct vdec_s *vdec)

@@ -71,6 +71,12 @@ void aml_vcodec_dec_info_init(struct aml_vcodec_ctx *ctx)
 		kfifo_put(&ctx->dec_intf.frm_free, &ctx->dec_intf.frminfo_pool[i]);
 	}
 
+	INIT_KFIFO(ctx->dec_intf.ud_free);
+	INIT_KFIFO(ctx->dec_intf.ud_done);
+	for (i = 0; i < USER_DATA_BUFF_NUM ; i++) {
+		kfifo_put(&ctx->dec_intf.ud_free, &ctx->dec_intf.ud_pool[i]);
+	}
+
 	return;
 }
 
@@ -100,6 +106,14 @@ void aml_vcodec_dec_info_deinit(struct aml_vcodec_ctx *ctx)
 			ud->v_addr = 0;
 		}
 		kfifo_put(&ctx->dec_intf.aux_free, ud);
+	}
+
+	while (kfifo_get(&ctx->dec_intf.ud_done, &ud)) {
+		if (ud->v_addr) {
+			vfree(VOID_PTR_CONVERT(ud->v_addr));
+			ud->v_addr = 0;
+		}
+		kfifo_put(&ctx->dec_intf.ud_free, ud);
 	}
 
 	return;
@@ -171,6 +185,29 @@ static void vcodec_aux_data_put(struct aml_vcodec_ctx *ctx,
 	}
 }
 
+static void vcodec_user_data_put(struct aml_vcodec_ctx *ctx,
+	void *data)
+{
+	struct sei_usd_param_s *ud_in = NULL;
+	struct sei_usd_param_s *ud = NULL;
+
+	ud_in = (struct sei_usd_param_s *)data;
+	if (kfifo_get(&ctx->dec_intf.ud_free, &ud)) {
+		*ud = *ud_in;
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "%s: data_len %d\n", __func__, ud->data_size);
+		if (debug_mode & V4L_DEBUG_CODEC_EXINFO) {
+			int i;
+			for (i = 0; i < ud->data_size; i++) {
+				pr_info("%02x ", (BYTE_PTR_CONVERT(ud->v_addr))[i]);
+				if (((i + 1) & 0xf) == 0)
+					pr_info("\n");
+			}
+		}
+		kfifo_put(&ctx->dec_intf.ud_done, ud);
+	}
+}
+
+
 static void vcodec_frame_data_put(struct aml_vcodec_ctx *ctx,
 	void *data)
 {
@@ -239,6 +276,9 @@ void aml_vcodec_decinfo_event_handler(struct aml_vcodec_ctx *ctx,
 		break;
 	case AML_DECINFO_EVENT_HDR10:
 		vcodec_hdr10_data_put(ctx, data);
+		break;
+	case AML_DECINFO_EVENT_USERDATA:
+		vcodec_user_data_put(ctx, data);
 		break;
 	default:
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
@@ -338,6 +378,38 @@ static int vcodec_get_data_aux_data(struct aml_vcodec_ctx *ctx,
 	ud_out->info_type = AML_AUX_DATA_TYPE;
 	return ret;
 }
+
+static int vcodec_get_data_user_data(struct aml_vcodec_ctx *ctx,
+	struct vdec_common_s *data)
+{
+	struct sei_usd_param_s *ud = NULL;
+	struct sei_usd_param_s *ud_out = NULL;
+	void __user *argp = NULL;
+	int ret = 0;
+
+	ud_out = &data->u.usd_param;
+	argp = (void __user *)((uintptr_t)ud_out->data_ptr);
+
+	if (kfifo_get(&ctx->dec_intf.ud_done, &ud)) {
+		int copy_size = MIN(ud->data_size, ud_out->data_size);
+		if ((!ud->v_addr) || copy_to_user(argp, VOID_PTR_CONVERT(ud->v_addr), copy_size)) {
+			v4l_dbg(ctx, 0,
+				"CC data copy to user failed\n");
+			ret = -EINVAL;
+		}
+		memcpy(&ud_out->meta_data, &ud->meta_data, sizeof(struct v4l_userdata_meta_data_t));
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "%s, poc %d vpts 0x%x\n", __func__,
+				ud_out->meta_data.poc_number, ud_out->meta_data.vpts);
+		ud_out->data_size = copy_size;
+		vfree(VOID_PTR_CONVERT(ud->v_addr));
+		ud->v_addr = 0;
+		kfifo_put(&ctx->dec_intf.ud_free, ud);
+	}
+
+	ud_out->info_type = AML_USERDATA_TYPE;
+	return ret;
+}
+
 
 static int vcodec_get_data_frame(struct aml_vcodec_ctx *ctx,
 	struct vdec_common_s *data)
@@ -486,6 +558,9 @@ int aml_vcodec_decinfo_get(struct v4l2_ctrl *ctrl,
 		break;
 	case AML_DECINFO_GET_FEATURE_TYPE:
 		ret = vcodec_get_feature(ctx, info);
+		break;
+	case AML_DECINFO_GET_USERDATA_TYPE:
+		ret = vcodec_get_data_user_data(ctx, info);
 		break;
 	default:
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
