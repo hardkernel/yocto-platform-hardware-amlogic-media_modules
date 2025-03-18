@@ -226,6 +226,7 @@ static u32 dirty_again_threshold = 100;
 static u32 dirty_buffersize_threshold = 0x800000;
 static u32 save_buffer = 1;
 static u32 efficiency_mode = 1;
+static u32 enable_hw_timer = 1;
 
 #define VIDEO_SIGNAL_TYPE_AVAILABLE_MASK	0x20000000
 
@@ -11974,7 +11975,10 @@ force_output:
 
 		return IRQ_HANDLED;
 #endif
-	} else if (dec_status == HEVC_OVER_DECODE) {
+	} else if (dec_status == HEVC_OVER_DECODE ||
+		dec_status == HEVC_DECODE_TIMEOUT) {
+		if (dec_status == HEVC_DECODE_TIMEOUT)
+			hevc_print(hevc, 0, "%s decoder timeout\n", __func__);
 		hevc->decoded_poc = hevc->curr_POC;
 		hevc->decoding_pic = NULL;
 		hevc->over_decode = 1;
@@ -12623,6 +12627,11 @@ force_output:
 				H265_DEBUG_DIS_SYS_ERROR_PROC);
 #endif
 		hevc->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
+	} else if (dec_status == HEVC_ACTION_ERROR) {
+		amhevc_stop();
+		hevc->dec_result = DEC_RESULT_DONE;
+		vdec_schedule_work(&hevc->work);
+		return IRQ_HANDLED;
 	} else {
 		hevc_print(hevc, 0 , "isr: status = 0x%x\n",dec_status);
 		hevc->dec_result = DEC_RESULT_DONE;
@@ -15348,6 +15357,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		(struct hevc_state_s *)vdec->private;
 	int r, loadr = 0;
 	unsigned char check_sum = 0;
+	u32 nal_search_data = 0;
 
 	run_count[hevc->index]++;
 	hevc->vdec_cb_arg = arg;
@@ -15540,10 +15550,19 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		return;
 	}
 
+	nal_search_data = READ_VREG(NAL_SEARCH_CTL);
+
 	if (efficiency_mode)
-		WRITE_VREG(NAL_SEARCH_CTL, (READ_VREG(NAL_SEARCH_CTL) | (1<<21)));
+		nal_search_data |= 1 << 21;
 	else
-		WRITE_VREG(NAL_SEARCH_CTL, (READ_VREG(NAL_SEARCH_CTL) & (~(1<<21))));
+		nal_search_data &= ~(1 << 21);
+
+	if (enable_hw_timer)
+		nal_search_data |= 1 << 24;
+	else
+		nal_search_data &= ~(1 << 24);
+
+	WRITE_VREG(NAL_SEARCH_CTL, nal_search_data);
 
 	ATRACE_COUNTER(hevc->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END);
 	vdec_enable_input(vdec);
@@ -16921,6 +16940,7 @@ static struct param_entry amvdec_h265_params[] = {
 	PARAM_UINT(detect_stuck_buffer_margin),
 	PARAM_UINT(frmbase_multi_slice),
 	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(enable_hw_timer),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_h265_params, 0644);
@@ -17231,6 +17251,9 @@ MODULE_PARM_DESC(frmbase_multi_slice,	"\n amvdec_h265 frmbase_multi_slice\n");
 
 MEDIA_PARAM(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
+
+module_param(enable_hw_timer, uint, 0664);
+MODULE_PARM_DESC(enable_hw_timer, "\n  enable_hw_timer\n");
 
 module_init(amvdec_h265_driver_init_module);
 module_exit(amvdec_h265_driver_remove_module);

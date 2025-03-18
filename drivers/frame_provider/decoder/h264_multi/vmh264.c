@@ -350,6 +350,8 @@ static unsigned int check_slice_num = 30;
 
 static unsigned int mb_count_threshold = 5; /*percentage*/
 
+static unsigned int enable_hw_timer = 1;
+
 #define MH264_USERDATA_ENABLE
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
@@ -9159,6 +9161,11 @@ pic_done_proc:
 			(dec_dpb_status == H264_DECODE_BUFEMPTY) ||
 			(dec_dpb_status == H264_DECODE_TIMEOUT)) {
 
+			if (dec_dpb_status == H264_DECODE_TIMEOUT) {
+				dpb_print(DECODE_ID(hw),
+					PRINT_FLAG_ERROR, "%s decoder timeout\n", __func__);
+			}
+
 			if ((hw->csd_restore_flag == true) && (dec_dpb_status == H264_DECODE_TIMEOUT))
 				hw->csd_restore_timeout_num++;
 empty_proc:
@@ -12427,7 +12434,10 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	config_aux_buf(hw);
 	config_decode_mode(hw);
 	vdec_enable_input(vdec);
-	WRITE_VREG(NAL_SEARCH_CTL, 0);
+	if (enable_hw_timer)
+		WRITE_VREG(NAL_SEARCH_CTL, 1 << 3);
+	else
+		WRITE_VREG(NAL_SEARCH_CTL, 0);
 
 	WRITE_VREG(MDEC_EXTIF_CFG2, READ_VREG(MDEC_EXTIF_CFG2) | 0x20);
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS, "set MDEC_EXTIF_CFG2 bit 5\n");
@@ -13536,6 +13546,7 @@ static struct param_entry amvdec_h264_params[] = {
 	PARAM_UINT(one_packet_multi_frames_multi_run),
 	PARAM_UINT(save_buffer),
 	PARAM_UINT(save_buffer_in_res_change),
+	PARAM_UINT(enable_hw_timer),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_h264_params, 0644);
@@ -13755,6 +13766,9 @@ MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(save_buffer_in_res_change, uint, 0664);
 MODULE_PARM_DESC(save_buffer_in_res_change, "\n save_buffer_in_res_change\n");
+
+module_param(enable_hw_timer, uint, 0664);
+MODULE_PARM_DESC(enable_hw_timer, "\n enable_hw_timer\n");
 
 module_init(ammvdec_h264_driver_init_module);
 module_exit(ammvdec_h264_driver_remove_module);

@@ -142,6 +142,7 @@ static unsigned int rval;
 
 static u32 without_display_mode;
 static u32 dynamic_buf_num_margin = 6;
+static u32 enable_hw_timer = 1;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 static unsigned int max_decode_instance_num = MAX_INSTANCE_MUN;
@@ -188,6 +189,7 @@ enum {
 #define MPEG12_SEQ_END      3
 #define MPEG12_DATA_REQUEST 4
 #define MPEG12_ERROR_RESET  5
+#define MPEG12_DECODE_TIMEOUT 6
 
 /*Send by AV_SCRATCH_G*/
 #define MPEG12_V4L2_INFO_NOTIFY 1
@@ -2420,11 +2422,13 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			hw->dec_result = DEC_RESULT_GET_DATA;
 			vdec_schedule_work(&hw->work);
 		}
-	} else if (reg == MPEG12_DATA_EMPTY) {
+	} else if (reg == MPEG12_DATA_EMPTY ||
+		reg == MPEG12_DECODE_TIMEOUT) {
 		/*timeout when decoding next frame*/
 		debug_print(DECODE_ID(hw), PRINT_FLAG_VLD_DETAIL,
-			"%s: Insufficient data, lvl=%x ctrl=%x bcnt=%x\n",
+			"%s: %s, lvl=%x ctrl=%x bcnt=%x\n",
 			__func__,
+			reg == MPEG12_DATA_EMPTY ? "Insufficient data" : "decode timeout",
 			READ_VREG(VLD_MEM_VIFIFO_LEVEL),
 			READ_VREG(VLD_MEM_VIFIFO_CONTROL),
 			READ_VREG(VIFF_BIT_CNT));
@@ -3808,7 +3812,9 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 
 	/* clear error count */
 	WRITE_VREG(MREG_ERROR_COUNT, 0);
-	/*Use MREG_FATAL_ERROR bit1, the ucode determine
+	/*Use MREG_FATAL_ERROR
+	bit2: hw_timer_enable_flag
+	bit1, the ucode determine
 		whether to report the interruption of width and
 		height information,in order to be compatible
 		with the old version of ucode.
@@ -3818,7 +3824,10 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 	        1: Use cma cc buffer for new driver
 	        0: use codec mm cc buffer for old driver
 		*/
-	WRITE_VREG(MREG_FATAL_ERROR, 3);
+	if (enable_hw_timer)
+		WRITE_VREG(MREG_FATAL_ERROR, 7);
+	else
+		WRITE_VREG(MREG_FATAL_ERROR, 3);
 	/* clear wait buffer status */
 	WRITE_VREG(MREG_WAIT_BUFFER, 0);
 #ifdef NV21
@@ -4702,6 +4711,7 @@ static struct param_entry amvdec_mpeg12_params[] = {
 #endif
 	PARAM_UINT(without_display_mode),
 	PARAM_UINT(error_proc_policy),
+	PARAM_UINT(enable_hw_timer),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_mpeg12_params, 0644);
@@ -4758,6 +4768,9 @@ MODULE_PARM_DESC(without_display_mode, "\n ammvdec_mpeg12 without_display_mode\n
 
 MEDIA_PARAM(error_proc_policy, uint, 0664);
 MODULE_PARM_DESC(error_proc_policy, "\n ammvdec_mpeg12 error_proc_policy\n");
+
+module_param(enable_hw_timer, uint, 0664);
+MODULE_PARM_DESC(enable_hw_timer, "\n ammvdec_mpeg12 enable_hw_timer\n");
 
 module_init(ammvdec_mpeg12_driver_init_module);
 module_exit(ammvdec_mpeg12_driver_remove_module);
