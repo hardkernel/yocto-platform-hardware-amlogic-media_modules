@@ -1837,7 +1837,7 @@ static int is_oversize(int w, int h)
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2))
 		max = MAX_SIZE_2K;
 
-	if (w <= 0 || h <= 0)
+	if (w < 64 || h < 64)
 		return true;
 
 	if (h != 0 && (w > max / h))

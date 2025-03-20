@@ -1130,7 +1130,7 @@ u32 avs3_get_error_handle_mode(COM_PM *pm)
 
 static int is_oversize(int w, int h)
 {
-	if (w <= 0 || h <= 0)
+	if (w < 64 || h < 64)
 		return true;
 
 	if (format_resolution_fatal_error(VFORMAT_AVS3, w, h))

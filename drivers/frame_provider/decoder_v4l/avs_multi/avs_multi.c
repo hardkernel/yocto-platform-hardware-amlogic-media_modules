@@ -4416,7 +4416,7 @@ static void error_reset_in_c_driver(int num)
 
 static int is_oversize(int w, int h)
 {
-	if (w <= 0 || h <= 0)
+	if (w < 64 || h < 64)
 		return true;
 
 	if (format_resolution_fatal_error(VFORMAT_AVS, w, h))

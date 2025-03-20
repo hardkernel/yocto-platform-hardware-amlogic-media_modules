@@ -387,6 +387,10 @@ struct vdec_mpeg12_hw_s {
 	struct userdata_meta_info_t meta_info;
 	u32 vf_ucode_cc_last_wp;
 	bool v4l_report_ud_flag;
+	bool stream_multi_frame_flag;
+	u32 start_bit_cnt;
+	u32 actual_frame_width;
+	u32 actual_frame_height;
 };
 static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw);
 static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw);
@@ -2392,6 +2396,8 @@ static int v4l_res_change(struct vdec_mpeg12_hw_s *hw, int width, int height, bo
 			notify_v4l_eos(hw_to_vdec(hw));
 			ctx->vdec_configure_update(ctx);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
+			hw->actual_frame_width = width;
+			hw->actual_frame_height = height;
 
 			ret = 1;
 		}
@@ -2420,7 +2426,7 @@ void cal_chunk_offset_and_size(struct vdec_mpeg12_hw_s *hw)
 
 static int is_oversize(int w, int h)
 {
-	if (w <= 0 || h <= 0)
+	if (w < 64 || h < 64)
 		return true;
 
 	if (format_resolution_fatal_error(VFORMAT_MPEG12, w, h))
@@ -2617,6 +2623,22 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			if (ctx->param_sets_from_ucode && !hw->v4l_params_parsed) {
 				struct aml_vdec_ps_infos ps;
 
+				if (vdec_stream_based(vdec) && (hw->res_ch_flag == 1) &&
+					((hw->actual_frame_width != frame_width) ||
+						(hw->actual_frame_height != frame_height))) {
+
+					hw->stream_multi_frame_flag = true;
+
+					debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
+						"%s: start_bit_cnt 0x%x, consume_byte 0x%x\n",
+						__func__, hw->start_bit_cnt, hw->consume_byte);
+
+					mpeg2_buf_ref_process_for_exception(hw);
+					hw->dec_result = DEC_RESULT_AGAIN;
+					vdec_schedule_work(&hw->work);
+					return IRQ_HANDLED;
+				}
+
 				vmpeg2_get_ps_info(hw, frame_width, frame_height, frame_prog, &ps);
 				hw->v4l_params_parsed = true;
 				hw->report_field = (hw->force_prog_only || frame_prog) ? V4L2_FIELD_NONE : V4L2_FIELD_INTERLACED;
@@ -2638,6 +2660,9 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			} else {
 				struct vdec_pic_info pic = { 0 };
 
+				if (hw->stream_multi_frame_flag == false)
+					hw->consume_byte = (hw->start_bit_cnt - READ_VREG(VIFF_BIT_CNT)) >> 3;
+
 				vdec_v4l_get_pic_info(ctx, &pic);
 				hw->buf_num = pic.dpb_frames +
 					pic.dpb_margin;
@@ -2648,8 +2673,9 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 
 				hw->res_ch_flag = 0;
 				debug_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
-				"%s buf_num: %d dpb_frames: %d dpb_margin: %d\n",
-				__func__, hw->buf_num, pic.dpb_frames, pic.dpb_margin);
+				"%s buf_num: %d dpb_frames: %d dpb_margin: %d, start_bit_cnt 0x%x, consume_byte 0x%x\n",
+				__func__, hw->buf_num, pic.dpb_frames, pic.dpb_margin,
+						hw->start_bit_cnt, hw->consume_byte);
 			}
 		} else {
 			userdata_pushed_drop(hw);
@@ -2723,6 +2749,8 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			READ_VREG(VLD_MEM_VIFIFO_RP),
 			READ_VREG(VIFF_BIT_CNT));
 
+		hw->stream_multi_frame_flag = false;
+		hw->consume_byte = 0;
 		vdec_profile(vdec, VDEC_PROFILE_DECODED_FRAME, CORE_MASK_VDEC_1);
 		reset_process_time(hw);
 
@@ -4514,7 +4542,16 @@ void (*callback)(struct vdec_s *, void *, int),
 			hw->chunk_offset = hw->chunk->offset;
 			hw->chunk_size = hw->chunk->size;
 		}
-		WRITE_VREG(AV_SCRATCH_L, 0);
+
+		if (hw->stream_multi_frame_flag) {
+			u32 reserved = size - hw->consume_byte;
+			WRITE_VREG(AV_SCRATCH_L, reserved*8);
+			debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
+						"%s, size 0x%x consume_byte 0x%x\n",
+						 __func__, size, hw->consume_byte);
+		} else
+			WRITE_VREG(AV_SCRATCH_L, 0);
+
 	}
 
 	vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_0, size);
@@ -4528,6 +4565,12 @@ void (*callback)(struct vdec_s *, void *, int),
 		if (vdec->mvfrm)
 			vdec->mvfrm->frame_size = hw->chunk_size;
 		ctx->current_timestamp = hw->chunk->timestamp;
+	} else {
+		if (size <= 0)
+			size = 0; /*error happen*/
+
+		WRITE_VREG(VIFF_BIT_CNT, size * 8);
+		hw->start_bit_cnt = size * 8;
 	}
 	if (vdec_frame_based(vdec) && !(vdec_secure(vdec) || vdec_dmabuf(vdec))) {
 		/* HW needs padding (NAL start) for frame ending */
@@ -4595,7 +4638,7 @@ void (*callback)(struct vdec_s *, void *, int),
 			codec_mm_unmap_phyaddr(data);
 	} else {
 		debug_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
-			"%s: %x %x %x %x %x size 0x%x, bitcnt %d\n",
+			"%s: %x %x %x %x %x size 0x%x, bitcnt 0x%x\n",
 			__func__,
 			READ_VREG(VLD_MEM_VIFIFO_LEVEL),
 			READ_VREG(VLD_MEM_VIFIFO_WP),
