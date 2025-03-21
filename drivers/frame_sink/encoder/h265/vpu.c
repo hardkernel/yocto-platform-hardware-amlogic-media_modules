@@ -55,6 +55,7 @@
 #include <linux/sched/signal.h>
 #endif
 
+#include "../../../common/chips/decoder_cpu_ver_info.h"
 #include "../../../common/media_clock/switch/amports_gate.h"
 #include "../common/encoder_report.h"
 
@@ -576,19 +577,20 @@ static s32 vpu_open(struct inode *inode, struct file *filp)
 		} else
 		    amports_switch_gate("vdec", 1);
 
-		spin_lock_irqsave(&s_vpu_lock, flags);
-
 		if (get_cpu_type() >= MESON_CPU_MAJOR_ID_SC2) {
 			//vpu_clk_config(1);
-			pwr_ctrl_psci_smc(PDID_SC2_DOS_WAVE, PWR_ON);
+			pm_runtime_get_sync(&hevc_pdev->dev);
 		} else {
+			spin_lock_irqsave(&s_vpu_lock, flags);
 			WRITE_AOREG(AO_RTI_GEN_PWR_SLEEP0,
 				READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) &
 				(get_cpu_type() == MESON_CPU_MAJOR_ID_SM1
 				? ~0x8 : ~(0x3<<24)));
+			spin_unlock_irqrestore(&s_vpu_lock, flags);
 		}
 		udelay(10);
 
+		spin_lock_irqsave(&s_vpu_lock, flags);
 		if (get_cpu_type() <= MESON_CPU_MAJOR_ID_TXLX) {
 			data32 = 0x700;
 			data32 |= READ_VREG(DOS_SW_RESET4);
@@ -1819,20 +1821,22 @@ static s32 vpu_release(struct inode *inode, struct file *filp)
 				free_irq(s_vpu_irq, &s_vpu_drv_context);
 				s_vpu_irq_requested = false;
 			}
-			spin_lock_irqsave(&s_vpu_lock, flags);
 
 			if (get_cpu_type() >= MESON_CPU_MAJOR_ID_SC2) {
 				//vpu_clk_config(0);
-				pwr_ctrl_psci_smc(PDID_SC2_DOS_WAVE, PWR_OFF);
+				pm_runtime_put_sync(&hevc_pdev->dev);
 			} else {
+				spin_lock_irqsave(&s_vpu_lock, flags);
 				WRITE_AOREG(AO_RTI_GEN_PWR_ISO0,
 					READ_AOREG(AO_RTI_GEN_PWR_ISO0) |
 					(get_cpu_type() == MESON_CPU_MAJOR_ID_SM1
 					? 0x8 : (0x3<<12)));
+				spin_unlock_irqrestore(&s_vpu_lock, flags);
 			}
 
 			udelay(10);
 
+			spin_lock_irqsave(&s_vpu_lock, flags);
 			WRITE_VREG(DOS_MEM_PD_WAVE420L, 0xffffffff);
 #ifndef VPU_SUPPORT_CLOCK_CONTROL
 			vpu_clk_config(0);
@@ -1847,8 +1851,8 @@ static s32 vpu_release(struct inode *inode, struct file *filp)
 					? 0x8 : (0x3<<24)));
 			}
 
-			udelay(10);
 			spin_unlock_irqrestore(&s_vpu_lock, flags);
+			udelay(10);
 			if (get_cpu_type() >= MESON_CPU_MAJOR_ID_SC2) {
 			} else
 			    amports_switch_gate("vdec", 0);
@@ -2556,6 +2560,7 @@ static s32 vpu_probe(struct platform_device *pdev)
 		enc_pr(LOG_DEBUG,
 			"success to probe vpu device with video memory from cma\n");
 	hevc_pdev = pdev;
+	pm_runtime_enable(&hevc_pdev->dev);
 	return 0;
 
 ERROR_PROVE_DEVICE:
@@ -2814,12 +2819,13 @@ static s32 __init vpu_init(void)
 
 	enc_pr(LOG_DEBUG, "vpu_init\n");
 
-	if ((get_cpu_type() != MESON_CPU_MAJOR_ID_GXM)
-		&& (get_cpu_type() != MESON_CPU_MAJOR_ID_G12A)
-			&& (get_cpu_type() != MESON_CPU_MAJOR_ID_GXLX)
-				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_G12B)
-				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_SM1)
-				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_SC2)) {
+	if ((get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXM)
+		&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12A)
+			&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX)
+				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12B)
+				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SM1)
+				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SC2)
+				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX4)) {
 		enc_pr(LOG_DEBUG,
 			"The chip is not support hevc encoder\n");
 		return -1;
@@ -2844,12 +2850,13 @@ static s32 __init vpu_init(void)
 static void __exit vpu_exit(void)
 {
 	enc_pr(LOG_DEBUG, "vpu_exit\n");
-	if ((get_cpu_type() != MESON_CPU_MAJOR_ID_GXM) &&
-		(get_cpu_type() != MESON_CPU_MAJOR_ID_G12A) &&
-		(get_cpu_type() != MESON_CPU_MAJOR_ID_GXLX) &&
-		(get_cpu_type() != MESON_CPU_MAJOR_ID_G12B) &&
-		(get_cpu_type() != MESON_CPU_MAJOR_ID_SC2) &&
-		(get_cpu_type() != MESON_CPU_MAJOR_ID_SM1)) {
+	if ((get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXM) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12A) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12B) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SC2) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SM1) &&
+		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX4)) {
 		enc_pr(LOG_INFO,
 			"The chip is not support hevc encoder\n");
 		return;
