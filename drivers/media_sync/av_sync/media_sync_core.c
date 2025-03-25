@@ -3985,7 +3985,7 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 			mediasyncControl.size = sizeof(mediasync_update_info);
 			mediasyncControl.ptr = (ulong)(&info);
 
-			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncControl);
+			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncControl);
 
 			minSize = mediasyncUserControl.size;
 			if (minSize > mediasyncControl.size) {
@@ -4013,7 +4013,6 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 				mediasync_pr_info(0,pInstance->mSyncIndex,"copy_to_user arg -EFAULT \n");
 				ret = -EFAULT;
 			}
-
 			break;
 		}
 		case GET_SLOW_SYNC_ENABLE:
@@ -4024,7 +4023,7 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case GET_IS_ABNORMAL_AUDIO:
 		case GET_SHOW_FIRSTFRAME_NOSYNC:
 		{
-			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
+			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			if (copy_to_user((void *)arg,&mediasyncUserControl,sizeof(mediasyncControl))) {
 				pr_info("copy_to_user arg -EFAULT \n");
 				ret = -EFAULT;
@@ -4041,11 +4040,12 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case SET_IS_ABNORMAL_AUDIO:
 		case SET_SHOW_FIRSTFRAME_NOSYNC:
 		{
-			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
+			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			break;
 		}
 		case SET_VIDEO_HOLD:
 		{
+			ret = 0;
 			if (is_compat_ptr == 1) {
 		#ifdef CONFIG_COMPAT
 				mediasyncUserControl.ptr = (ulong)compat_ptr(mediasyncUserControl.ptr);
@@ -4142,7 +4142,7 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 			mediasyncControl.cmd = GET_TUNNEL_COMBINED_INFO;
 			mediasyncControl.size = sizeof(mediasync_tunnel_combined_para);
 			mediasyncControl.ptr = (ulong)(&info);
-			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncControl);
+			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncControl);
 			minSize = mediasyncUserControl.size;
 			if (minSize > mediasyncControl.size) {
 				minSize = mediasyncControl.size;
