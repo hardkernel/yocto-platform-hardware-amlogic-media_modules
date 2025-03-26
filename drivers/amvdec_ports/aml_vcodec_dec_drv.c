@@ -114,6 +114,7 @@ static int fops_vcodec_open(struct file *file)
 	spin_lock_init(&ctx->slock);
 	spin_lock_init(&ctx->tsplock);
 	spin_lock_init(&ctx->es_wkr_slock);
+	spin_lock_init(&ctx->input_splock);
 	init_completion(&ctx->comp);
 	init_waitqueue_head(&ctx->wq);
 	init_waitqueue_head(&ctx->cap_wq);

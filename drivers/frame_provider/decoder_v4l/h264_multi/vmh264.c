@@ -7231,8 +7231,9 @@ static bool is_buffer_available(struct vdec_s *vdec)
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)(vdec->private);
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 	struct DecodedPictureBuffer *p_Dpb = &p_H264_Dpb->mDPB;
+#ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
-
+#endif
 	if ((kfifo_len(&hw->newframe_q) <= 0) ||
 	    ((hw->config_bufmgr_done) && (!is_there_free_buffer(vdec))) ||
 	    ((p_H264_Dpb->mDPB.init_done) &&

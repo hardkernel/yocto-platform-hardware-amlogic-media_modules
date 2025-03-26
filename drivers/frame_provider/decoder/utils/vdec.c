@@ -4165,7 +4165,9 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 	}
 	p->dolby_meta_with_el = 0;
 
+#ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 skip:
+#endif
 	if (debug & VDEC_DBG_DETAIL_INFO)
 		pr_debug("vdec_init, vf_provider_name = %s\n", p->vf_provider_name);
 

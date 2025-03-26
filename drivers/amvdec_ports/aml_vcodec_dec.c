@@ -1288,12 +1288,12 @@ void aml_creat_pipeline(struct aml_vcodec_ctx *ctx,
 
 	switch (requester) {
 	case AML_FB_REQ_DEC:
+#ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 		if (ctx->avbc_wrapper)
 			/* dec <==> avbcd. */
-#ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 			task->attach(task, get_avbc_ops(), ctx->avbc_wrapper);
 #endif
-		else if (ctx->ge2d) {
+		if (ctx->ge2d) {
 			/* dec <==> ge2d. */
 			task->attach(task, get_ge2d_ops(), ctx->ge2d);
 		} else if (ctx->vpp) {
@@ -1685,6 +1685,8 @@ static void aml_vdec_worker(struct work_struct *work)
 			"src_buf empty.\n");
 		goto out;
 	}
+
+	atomic_dec(&ctx->input_count);
 
 	vb = (struct vb2_buffer *)vb2_v4l2;
 
@@ -2397,6 +2399,7 @@ static int vidioc_decoder_streamon(struct file *file, void *priv,
 	struct v4l2_fh *fh = file->private_data;
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(fh);
 	struct vb2_queue *q;
+	ulong flags;
 
 	q = v4l2_m2m_get_vq(fh->m2m_ctx, i);
 	if (!V4L2_TYPE_IS_OUTPUT(q->type) &&
@@ -2479,6 +2482,9 @@ static int vidioc_decoder_streamon(struct file *file, void *priv,
 			aml_avbc_wrapper_start(ctx->avbc_wrapper);
 #endif
 	} else {
+		spin_lock_irqsave(&ctx->input_splock, flags);
+		ctx->stop_schedule = false;
+		spin_unlock_irqrestore(&ctx->input_splock, flags);
 		ctx->is_out_stream_off = false;
 		ctx->es_wkr_stop = false;
 		aml_codec_connect(ctx->ada_ctx); /* for seek */
@@ -5251,17 +5257,51 @@ static void m2mops_vdec_device_run(void *priv)
 static int m2mops_vdec_job_ready(void *m2m_priv)
 {
 	struct aml_vcodec_ctx *ctx = m2m_priv;
+	ulong flags;
+	bool no_schedule;
 
-	return (ctx->es_wkr_stop ||
-		!is_input_ready(ctx->ada_ctx) ||
-		vdec_input_full(ctx->ada_ctx)) ? 0 : 1;
+	no_schedule = (ctx->es_wkr_stop ||
+			!is_input_ready(ctx->ada_ctx) ||
+			vdec_input_full(ctx->ada_ctx));
+	if (!no_schedule)
+		atomic_set(&ctx->input_count, 1);
+
+	spin_lock_irqsave(&ctx->input_splock, flags);
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+			"%s, stop_schedule: %d no_schedule %d\n",
+			__func__, ctx->stop_schedule, no_schedule);
+	if (ctx->stop_schedule) {
+		spin_unlock_irqrestore(&ctx->input_splock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(&ctx->input_splock, flags);
+
+	return no_schedule ? 0 : 1;
 }
 
 static void m2mops_vdec_job_abort(void *priv)
 {
 	struct aml_vcodec_ctx *ctx = priv;
+	ulong flags;
+	ulong expires;
 
 	flush_work(&ctx->es_wkr_in);
+
+	spin_lock_irqsave(&ctx->input_splock, flags);
+	ctx->stop_schedule = true;
+	spin_unlock_irqrestore(&ctx->input_splock, flags);
+
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+			"%s, input_count: %d\n",
+			__func__, atomic_read(&ctx->input_count));
+	expires = jiffies + msecs_to_jiffies(500);
+	while (atomic_read(&ctx->input_count)) {
+		if (time_after(jiffies, expires)) {
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "%s timeout!\n", __func__);
+			break;
+		}
+		usleep_range(500, 1000);
+	}
 
 	//v4l2_m2m_job_finish(ctx->dev->m2m_dev_dec, ctx->m2m_ctx);
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "%s\n", __func__);

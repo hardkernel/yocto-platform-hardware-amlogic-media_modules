@@ -1028,6 +1028,9 @@ struct aml_vcodec_ctx {
 	struct v4l2_ctrl_handler	ctrl_hdl;
 	spinlock_t			slock;
 	spinlock_t			tsplock;
+	spinlock_t			input_splock;
+	atomic_t			input_count;
+	u32				stop_schedule;
 	struct aml_v4l2_buf		*empty_flush_buf;
 	struct list_head		list;
 
