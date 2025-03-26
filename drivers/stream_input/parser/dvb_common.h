@@ -22,7 +22,7 @@
 
 #include <linux/amlogic/aml_dvb_extern.h>
 
-#include <media/dvb_frontend.h>
+#include "dvb_frontend.h"
 
 typedef enum dmx_source {
 	DMX_SOURCE_FRONT0 = 0,

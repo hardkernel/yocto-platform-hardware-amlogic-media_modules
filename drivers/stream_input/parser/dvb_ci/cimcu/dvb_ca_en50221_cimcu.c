@@ -1779,14 +1779,11 @@ static int dvb_ca_en50221_io_read_condition(struct dvb_ca_private *ca,
 			dvb_ringbuffer_pkt_read(&ca->slot_info[slot].rx_buffer, idx, 0, hdr, 2);
 			if (connection_id == -1)
 				connection_id = hdr[0];
-
-#ifndef READ_LPDU_PKT
 			if ((hdr[0] == connection_id)
-				&& ((hdr[1] & 0x80) == 0))
-#else
-			if (hdr[0] == connection_id)
+#ifndef READ_LPDU_PKT
+				&& ((hdr[1] & 0x80) == 0)
 #endif
-			 {
+			) {
 				*_slot = slot;
 				found = 1;
 				break;

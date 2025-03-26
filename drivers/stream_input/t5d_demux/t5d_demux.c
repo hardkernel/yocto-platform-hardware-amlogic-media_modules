@@ -598,7 +598,7 @@ t5d_alloc_filter(
 
 			break;
 		} else
-			print_dbg("%p used: %d\n", f, f->used);
+			print_dbg("%#x used: %d\n", f, f->used);
 	}
 
 	mutex_unlock(&dvbdev.lock);
