@@ -20,10 +20,7 @@
 #ifndef __AML_DEMOD_GT_H__
 #define __AML_DEMOD_GT_H__
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
-#include "dvb_common.h"
-#else
 #include "../dvb_common.h"
-#endif
+
 
 #endif /*__AML_DEMOD_GT_H__*/

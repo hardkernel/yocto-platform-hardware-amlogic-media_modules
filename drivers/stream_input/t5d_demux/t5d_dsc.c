@@ -307,7 +307,7 @@ t5d_dsc_init(
 	dvb_register_device(padapter, &dsc->dev,
 			    &t5d_dvbdev_dsc, dsc, DVB_DEVICE_CA, 0);
 
-	print_dbg("init dsc %p\n", dsc);
+	print_dbg("init dsc %#x\n", dsc);
 
 	return 0;
 }
