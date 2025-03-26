@@ -417,7 +417,7 @@ static void buf_core_reset_dma(struct buf_core_mgr_s *bc)
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = bc->dma[i];
-		if (dma->dec_ref) {
+		if (dma->dec_ref && !dma->inited) {
 			if (!atomic_dec_return(&dma->ref)) {
 				list_add_tail(&dma->node, &bc->dma_free_que);
 				bc->dma_free_num++;
@@ -617,6 +617,7 @@ static void buf_core_clean_dma(struct buf_core_mgr_s *bc)
 			dma->phy_addr = 0;
 			dma->used = 0;
 			dma->inited = 0;
+			dma->dec_ref = 0;
 			atomic_set(&bc->dma[i]->ref, 0);
 		}
 	}
