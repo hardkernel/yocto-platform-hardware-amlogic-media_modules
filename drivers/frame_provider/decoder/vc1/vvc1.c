@@ -60,6 +60,7 @@
 #define I_PICTURE   0
 #define P_PICTURE   1
 #define B_PICTURE   2
+#define BI_PICTURE  3
 
 #define ORI_BUFFER_START_ADDR   0x01000000
 
@@ -195,11 +196,6 @@ enum {
 #define RATE_30_FPS  3003	/* 29.97 */
 #define DUR2PTS(x) ((x)*90/96)
 #define PTS2DUR(x) ((x)*96/90)
-
-#define I_PICTURE 0
-#define P_PICTURE 1
-#define B_PICTURE 2
-#define BI_PICTURE 3
 
 #define VC1_DEBUG_DETAIL                   0x01
 
@@ -434,7 +430,8 @@ static int vvc1_config_ref_buf(struct vdec_vc1_hw_s *hw)
 {
 	vc1_print(0, VC1_DEBUG_DETAIL,"%s: new_type %d\n", __func__, hw->new_type);
 
-	if (hw->new_type != B_PICTURE) {
+	if ((hw->new_type == I_PICTURE) ||
+		(hw->new_type == P_PICTURE)) {
 		if (hw->refs[1] == -1) {
 			WRITE_VREG(ANC0_CANVAS_REG, 0xffffffff);
 		} else {
@@ -929,8 +926,11 @@ static irqreturn_t vvc1_isr_thread_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	} else if (status_reg == DECODE_STATUS_PIC_HEADER_DONE) {//PIC header done
 		hw->new_type = READ_VREG(AV_SCRATCH_K);
-		vc1_print(0, VC1_DEBUG_DETAIL, "%s: PIC_HEADER_DONE picture_type %d(%s)\n", __func__, hw->new_type,
-			((hw->new_type == I_PICTURE) ? "I" : ((hw->new_type == P_PICTURE) ? "P" : "B")));
+		vc1_print(0, VC1_DEBUG_DETAIL, "%s: PIC_HEADER_DONE picture_type %d(%s)\n",
+			__func__, hw->new_type,
+			(hw->new_type == I_PICTURE) ? "I" :
+				((hw->new_type == P_PICTURE) ? "P" :
+					((hw->new_type == B_PICTURE) ? "B" : "BI")));
 	}
 
 	reg = READ_VREG(VC1_BUFFEROUT);
