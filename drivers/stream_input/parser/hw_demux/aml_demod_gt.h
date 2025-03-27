@@ -22,5 +22,4 @@
 
 #include "../dvb_common.h"
 
-
 #endif /*__AML_DEMOD_GT_H__*/

@@ -30,12 +30,12 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/vmalloc.h>
 #include <linux/dvb/dmx.h>
 #include <media/dvb_demux.h>
 #include <media/dvb_frontend.h>
 #include <media/dmxdev.h>
 #include <uapi/linux/dvb/dmx.h>
-#include <cpu_version.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
@@ -43,7 +43,7 @@
 #include <linux/dvb/aml_dmx_ext.h>
 #include <linux/dvb/aml_ca_ext.h>
 
-#include "aml_demux_ext.h"
+#include <media/aml_demux_ext.h>
 #include "t5d_dvb_reg.h"
 #include "t5d_hw_dsc.h"
 #include "t5d_demux.h"
@@ -446,7 +446,7 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 				dump_sid = ((filter->params.pes.flags >> 24) & 0xff);
 				//filter->params.pes.flags &= 0x0000ffff;
 
-				print_dbg("filter: %#x dump type %#x, sid: %#x\n",
+				print_dbg("filter: %p dump type %#x, sid: %#x\n",
 					  filter, dump_type, dump_sid);
 				if (dump_type == DMX_DUMP_TS_TYPE
 				    || dump_type == DMX_DUMP_INPUT_TYPE) {
@@ -582,7 +582,7 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 			if (feed->feed.sec.check_crc)
 				p.flags |= DMX_CHECK_CRC;
 
-			print_dbg("dmx_id: %d, filter %#x\n", dmx_id, filter);
+			print_dbg("dmx_id: %d, filter %p\n", dmx_id, filter);
 			t5d_set_sec_filter(dmx_id, fid, &p);
 			t5d_set_filter_callback(dmx_id, fid, sec_callback, filter);
 			t5d_start_filter(dmx_id, fid);
@@ -613,7 +613,7 @@ dmx_stop_feed(struct dvb_demux_feed *feed)
 		if (feed->pes_type == DMX_PES_OTHER) {
 			filter = feed->feed.ts.priv;
 			dump_type = ((filter->params.pes.flags >> 16) & 0xff);
-			print_dbg("filter: %#x dump type %#x, sid: %#x\n",
+			print_dbg("filter: %p dump type %#x, sid: %#x\n",
 				  filter, dump_type, dump_sid);
 			if (dump_type >= DMX_DUMP_DVR_TYPE
 			    && dump_type <= DMX_DUMP_INPUT_TYPE) {
@@ -1098,10 +1098,10 @@ dmx_write(struct dmx_demux *demux, const char __user *buf, size_t count)
 	void *write_buf = NULL;
 	struct dvb_demux_feed *feed = NULL;
 
-	print_ver("called. buf: %#x, count: %#x\n", buf, count);
+	print_ver("called. buf: %p, count: %#zx\n", buf, count);
 
 	if (t5d_sw_demuxes[dmx_id].buf == NULL) {
-		t5d_sw_demuxes[dmx_id].buf = vmalloc(write_each_len);
+		t5d_sw_demuxes[dmx_id].buf = (void *)vmalloc(write_each_len);
 	}
 	write_buf = t5d_sw_demuxes[dmx_id].buf;
 	if (write_buf == NULL) {
@@ -1133,8 +1133,8 @@ dmx_write(struct dmx_demux *demux, const char __user *buf, size_t count)
 	return count;
 }
 
-static ssize_t ts_setting_show(struct class *class,
-			       struct class_attribute *attr, char *buf)
+static ssize_t ts_setting_show(KV_CLASS_CONST struct class *class,
+			       KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int i;
 	int r, total = 0;
@@ -1154,31 +1154,31 @@ static ssize_t ts_setting_show(struct class *class,
 	return total;
 }
 
-static ssize_t ts_setting_store(struct class *class,
-				struct class_attribute *attr,
+static ssize_t ts_setting_store(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				const char *buf, size_t count)
 {
 	print_dbg("%s. TODO:\n", __func__);
 	return count;
 }
 
-static ssize_t get_pcr_show(struct class *class,
-			    struct class_attribute *attr, char *buf)
+static ssize_t get_pcr_show(KV_CLASS_CONST struct class *class,
+			    KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	print_dbg("%s. TODO:\n", __func__);
 	return 0;
 }
 
-static ssize_t get_pcr_store(struct class *class,
-			     struct class_attribute *attr,
+static ssize_t get_pcr_store(KV_CLASS_CONST struct class *class,
+			     KV_CLASS_ATTR_CONST struct class_attribute *attr,
 			     const char *buf, size_t count)
 {
 	print_dbg("%s. TODO:\n", __func__);
 	return 0;
 }
 
-static ssize_t dmx_setting_show(struct class *class,
-				struct class_attribute *attr, char *buf)
+static ssize_t dmx_setting_show(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int i;
 	int r, total = 0;
@@ -1207,8 +1207,8 @@ static ssize_t dmx_setting_show(struct class *class,
 	return total;
 }
 
-static ssize_t dsc_setting_show(struct class *class,
-				struct class_attribute *attr, char *buf)
+static ssize_t dsc_setting_show(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int total = 0;
 
@@ -1217,15 +1217,15 @@ static ssize_t dsc_setting_show(struct class *class,
 	return total;
 }
 
-static ssize_t dmx_ver_show(struct class *class,
-			    struct class_attribute *attr, char *buf)
+static ssize_t dmx_ver_show(KV_CLASS_CONST struct class *class,
+			    KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	print_dbg("%s. todo:\n", __func__);
 	return 0;
 }
 
-static ssize_t tso_source_show(struct class *class,
-			       struct class_attribute *attr, char *buf)
+static ssize_t tso_source_show(KV_CLASS_CONST struct class *class,
+			       KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int r, total = 0;
 	u32 val = 0;
@@ -1238,8 +1238,8 @@ static ssize_t tso_source_show(struct class *class,
 	return total;
 }
 
-static ssize_t tso_source_store(struct class *class,
-				struct class_attribute *attr,
+static ssize_t tso_source_store(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				const char *buf, size_t count)
 {
 	unsigned int tso_src = 0;
@@ -1284,8 +1284,8 @@ static struct class t5d_stb_class = {
 
 
 static int reg_addr;
-static ssize_t register_addr_show(struct class *class,
-				  struct class_attribute *attr, char *buf)
+static ssize_t register_addr_show(KV_CLASS_CONST struct class *class,
+				  KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 
@@ -1293,8 +1293,8 @@ static ssize_t register_addr_show(struct class *class,
 	return ret;
 }
 
-static ssize_t register_addr_store(struct class *class,
-				   struct class_attribute *attr,
+static ssize_t register_addr_store(KV_CLASS_CONST struct class *class,
+				   KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				   const char *buf, size_t size)
 {
 	int addr = 0;
@@ -1306,8 +1306,8 @@ static ssize_t register_addr_store(struct class *class,
 	return size;
 }
 
-static ssize_t register_value_show(struct class *class,
-				   struct class_attribute *attr, char *buf)
+static ssize_t register_value_show(KV_CLASS_CONST struct class *class,
+				   KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret, value;
 
@@ -1317,8 +1317,8 @@ static ssize_t register_value_show(struct class *class,
 	return ret;
 }
 
-static ssize_t register_value_store(struct class *class,
-				    struct class_attribute *attr,
+static ssize_t register_value_store(KV_CLASS_CONST struct class *class,
+				   KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				    const char *buf, size_t size)
 {
 	u32 value = 0;
@@ -1331,8 +1331,8 @@ static ssize_t register_value_store(struct class *class,
 	return size;
 }
 
-static ssize_t dump_filter_show(struct class *class,
-				struct class_attribute *attr, char *buf)
+static ssize_t dump_filter_show(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int i;
 	int r;
@@ -1442,7 +1442,7 @@ static ssize_t dump_filter_show(struct class *class,
 			    || feed->pes_type == DMX_PES_VIDEO2
 			    || feed->pes_type == DMX_PES_VIDEO3) {
 				dmx_video = &t5d_sw_demuxes[i].videos[id];
-				r = sprintf(buf, "pid:%#x type:video addr:%#x len:%#x rp:%#x wp:%#x\n",
+				r = sprintf(buf, "pid:%#x type:video addr:%#lx len:%#x rp:%#x wp:%#x\n",
 					    feed->pid, dmx_video->phys, dmx_video->len,
 					    dmx_video->r_offset, dmx_video->w_offset);
 			} else if (feed->pes_type == DMX_PES_PCR0
@@ -1457,10 +1457,10 @@ static ssize_t dump_filter_show(struct class *class,
 					continue;
 
 				slot = &t5d_sw_demuxes[i].pcrs[pcr_id];
-				r = sprintf(buf, "pid:%#x type:pcr value:%#x\n",
+				r = sprintf(buf, "pid:%#x type:pcr value:%#llx\n",
 					    feed->pid, slot->last_pcr);
 			} else {
-				r = sprintf(buf, "pid:%#x type:audio addr:%#x len:%#x rp:%#x wp:%#x\n",
+				r = sprintf(buf, "pid:%#x type:audio addr:%p len:%#zx rp:%#zx wp:%#zx\n",
 					    feed->pid,
 					    filter->buffer.data, filter->buffer.size,
 					    filter->buffer.pread, filter->buffer.pwrite);
@@ -1489,7 +1489,7 @@ static ssize_t dump_filter_show(struct class *class,
 				continue;
 
 			filter = feed->filter->filter.priv;
-			r = sprintf(buf, "pid:%#x addr:%#x len:%#x rp:%#x wp:%#x\n",
+			r = sprintf(buf, "pid:%#x addr:%p len:%#zx rp:%#zx wp:%#zx\n",
 				    feed->pid, filter->buffer.data, filter->buffer.size,
 				    filter->buffer.pread, filter->buffer.pwrite);
 			buf += r;
@@ -1500,23 +1500,23 @@ static ssize_t dump_filter_show(struct class *class,
 	return size;
 }
 
-static ssize_t dump_filter_store(struct class *class,
-				 struct class_attribute *attr,
+static ssize_t dump_filter_store(KV_CLASS_CONST struct class *class,
+				 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				 const char *buf, size_t size)
 {
 	print_dbg("%s. todo:\n", __func__);
 	return size;
 }
 
-static ssize_t dmx_source_show(struct class *class,
-			       struct class_attribute *attr, char *buf)
+static ssize_t dmx_source_show(KV_CLASS_CONST struct class *class,
+			       KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	print_dbg("%s. todo:\n", __func__);
 	return 0;
 }
 
-static ssize_t dmx_source_store(struct class *class,
-				struct class_attribute *attr,
+static ssize_t dmx_source_store(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				const char *buf, size_t count)
 {
 	print_dbg("%s. todo:\n", __func__);
@@ -1665,8 +1665,10 @@ t5d_dvb_probe(struct platform_device *pdev)
 
 	t5d_key_init();
 
-	class_register(&t5d_stb_class);
-	class_register(&t5d_dmx_class);
+	if (class_register(&t5d_stb_class) < 0)
+		print_err("create t5d stb class fail\n");
+	if (class_register(&t5d_dmx_class) < 0)
+		print_err("create t5d dmx class fail\n");
 	return 0;
 
 ERR:

@@ -3097,7 +3097,7 @@ static int dmx_get_record_flag(struct aml_dmx *dmx)
 	for (i = 0; i < dvb->async_fifo_total_count; i++) {
 		if (!dvb->asyncfifo[i].init)
 			continue;
-		if ((dvb->asyncfifo[i].source == dmx->id)) {
+		if (dvb->asyncfifo[i].source == dmx->id) {
 			linked = 1;
 			break;
 		}

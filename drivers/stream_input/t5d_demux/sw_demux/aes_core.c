@@ -659,10 +659,12 @@ void AES_encrypt(const unsigned char *in, unsigned char *out,
  * in and out can overlap
  */
 void AES_decrypt(const unsigned char *in, unsigned char *out,
-                 const AES_KEY *key)
+                 const void *key1)
 {
     const u64 *rk;
+    const AES_KEY *key;
 
+    key = (const AES_KEY *)key1;
     assert(in && out && key);
     rk = (u64*)key->rd_key;
 
@@ -1410,14 +1412,16 @@ int AES_set_decrypt_key(const unsigned char *userKey, const int bits,
  * in and out can overlap
  */
 void AES_encrypt(const unsigned char *in, unsigned char *out,
-                 const AES_KEY *key) {
+                 const void *key1) {
 
     const u32 *rk;
+    const AES_KEY *key;
     u32 s0, s1, s2, s3, t0, t1, t2, t3;
 #ifndef FULL_UNROLL
     int r;
 #endif /* ?FULL_UNROLL */
 
+    key = (const AES_KEY *)key1;
     assert(in && out && key);
     rk = key->rd_key;
 
@@ -1601,14 +1605,17 @@ void AES_encrypt(const unsigned char *in, unsigned char *out,
  * in and out can overlap
  */
 void AES_decrypt(const unsigned char *in, unsigned char *out,
-                 const AES_KEY *key)
+                 const void *key1)
 {
-
     const u32 *rk;
+    const AES_KEY *key;
     u32 s0, s1, s2, s3, t0, t1, t2, t3;
+
 #ifndef FULL_UNROLL
     int r;
 #endif /* ?FULL_UNROLL */
+
+    key = (const AES_KEY *)key1;
 
     assert(in && out && key);
     rk = key->rd_key;

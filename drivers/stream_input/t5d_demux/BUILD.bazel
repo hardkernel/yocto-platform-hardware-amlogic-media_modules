@@ -1,0 +1,59 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+
+ddk_module(
+    name = "t5d-dvb-demux",
+	srcs = glob([
+        "**/*.h",
+    ]),
+    conditional_srcs = {
+        "CONFIG_AMLOGIC_HW_DEMUX": {
+        True: [
+                "t5d_module.c",
+                "t5d_demux.c",
+				"t5d_hw_dmx.c",
+				"t5d_dsc.c",
+				"t5d_key.c",
+				"sw_demux/swdmx_cb_list.c",
+				"sw_demux/swdmx_demux.c",
+				"sw_demux/swdmx_pes_parser.c",
+				"sw_demux/swdmx_crc32.c",
+				"sw_demux/swdmx_descrambler.c",
+				"sw_demux/swdmx_ts_parser.c",
+            ],
+		},
+		"CONFIG_USE_ASM_ARM_AES": {
+		True: [
+				"sw_demux/aes-ce-core.S",
+				"sw_demux/aes-ce-glue.c",
+				"sw_demux/swdmx_aes_cbc_arm.c",
+			],
+		},
+		"CONFIG_USE_SW_AES": {
+		True: [
+				"sw_demux/aes_cbc.c",
+				"sw_demux/cbc128.c",
+				"sw_demux/aes_core.c",
+				"sw_demux/swdmx_aes_cbc.c"
+			],
+        },
+    },
+    hdrs = [
+        "//common_drivers:soc_headers",
+    ],
+    linux_includes = [
+    ],
+    local_defines = [
+		],
+    out = "t5d-dvb-demux.ko",
+    kernel_build = "//common_drivers:amlogic",
+    visibility = ["//visibility:public"],
+    deps = [
+		"//driver_modules/media_modules:stream_input",
+		"//driver_modules/media_modules:media_clock",
+		"//common_drivers/drivers/media:aml_media",
+		"//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug-iotrace",
+        "//common_drivers/drivers/debug:amlogic-debug",
+    ],
+)

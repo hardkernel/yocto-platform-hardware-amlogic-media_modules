@@ -34,8 +34,8 @@
 #include "aml_ci_bus.h"
 #include "aml_ci.h"
 #include "amci.h"
-#include "../../../common/media_utils/media_kernel_version.h"
-
+#include "media_kernel_version.h"
+#include <linux/pinctrl/consumer.h>
 
 //can see jtag dts and driver to select gpio function.
 //write dts config for cam/tsin/out
@@ -119,7 +119,7 @@ int init_ci_addr(struct platform_device *pdev)
 		return -1;
 	}
 	if (!p_hw_base)
-	p_hw_base = devm_ioremap_nocache(&pdev->dev, res->start,
+	p_hw_base = devm_ioremap(&pdev->dev, res->start,
 					 resource_size(res));
 	if (p_hw_base) {
 		pr_dbg("%s base addr = %lx\n", __func__,
@@ -482,7 +482,7 @@ char *str, int input_output, int output_level)
 		return -1;
 	}
 
-	*pin_value = of_get_named_gpio_flags(child, str, 0, NULL);
+	*pin_value = of_get_named_gpio(child, str, 0);
 	*gpiod = gpio_to_desc(*pin_value);
 	if (IS_ERR(*gpiod)) {
 		pr_dbg("ci bus %s request failed\n", str);
@@ -1795,7 +1795,7 @@ KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 		return size;
 	}
 
-	if ((parm[0][0] == 'r')) {
+	if (parm[0][0] == 'r') {
 		if (n > 2) {
 			pr_err("read: invalid parameter\n");
 			kfree(buf_orig);
@@ -1817,7 +1817,7 @@ KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 				break;
 		}
 		pr_dbg("%s: 0x%x --> 0x%x\n", parm[0], addr, retval);
-	} else if ((parm[0][0] == 'w')) {
+	} else if (parm[0][0] == 'w') {
 		if (n != 3) {
 			pr_err("write: invalid parameter\n");
 			kfree(buf_orig);
@@ -1840,10 +1840,10 @@ KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 				break;
 		}
 		pr_dbg("%s: 0x%x <-- 0x%x\n", parm[0], addr, retval);
-	} else if ((parm[0][0] == 'f')) {
+	} else if (parm[0][0] == 'f') {
 		pr_dbg("full test----\r\n");
 		aml_ci_bus_full_test(ci);
-	}  else if ((parm[0][0] == 'p')) {
+	}  else if (parm[0][0] == 'p') {
 		pr_dbg("cis dvb_ca_en50221_parse_attributes----\r\n");
 		dvb_ca_en50221_parse_attributes();
 	}
@@ -1914,15 +1914,15 @@ static long rawci_ioctl(struct file *file, unsigned int cmd, ulong arg)
 {
 	struct aml_ci_bus *ci_bus_dev = (struct aml_ci_bus *)file->private_data;
 	int ret = 0;
-	long cr;
-	int value;
+	long cr = 0;
+	int value = 0;
 	struct ci_rw_param param;
 	memset(&param, 0, sizeof(struct ci_rw_param));
 
 	switch (cmd) {
 		case AMCI_IOC_RESET:
 		{
-			aml_pcmcia_reset(&(ci_bus_dev->pc));
+			aml_pcmcia_reset(&ci_bus_dev->pc);
 		}
 		break;
 		case AMCI_IOC_IO:
@@ -1944,7 +1944,7 @@ static long rawci_ioctl(struct file *file, unsigned int cmd, ulong arg)
 		break;
 		case AMCI_IOC_GET_DETECT:
 		{
-			int value = aml_gio_get_cd1(&(ci_bus_dev->pc));
+			value = aml_gio_get_cd1(&ci_bus_dev->pc);
 			if (value == 1)
 				value = 0;
 			else
@@ -1954,9 +1954,8 @@ static long rawci_ioctl(struct file *file, unsigned int cmd, ulong arg)
 		break;
 		case AMCI_IOC_SET_POWER:
 		{
-			int value = 0;
 			cr = copy_from_user(&value, (void *)arg, sizeof(int));
-			aml_gio_power(&(ci_bus_dev->pc), value > 0 ? AML_PWR_OPEN : AML_PWR_CLOSE);
+			aml_gio_power(&ci_bus_dev->pc, value > 0 ? AML_PWR_OPEN : AML_PWR_CLOSE);
 		}
 		break;
 		default:
@@ -2000,14 +1999,13 @@ int  aml_ci_bus_mod_init(void)
 	#define CLASS_NAME_LEN 48
 	pr_dbg("Amlogic DVB CI BUS Init---\n");
 
-	clp = &(ci_bus.cls);
+	clp = &ci_bus.cls;
 
 	clp->name = kzalloc(CLASS_NAME_LEN, GFP_KERNEL);
 	if (!clp->name)
 		return -ENOMEM;
 
 	snprintf((char *)clp->name, CLASS_NAME_LEN, "aml_ci_bus_%s", "test");
-	clp->owner = THIS_MODULE;
 	clp->class_groups = aml_ci_bus_groups;
 	ret = class_register(clp);
 	if (ret)
@@ -2033,10 +2031,10 @@ void  aml_ci_bus_mod_exit(void)
 {
 	pr_dbg("Amlogic DVB CI BUS Exit\n");
 	if (ci_bus.raw_mode == 1 && rawci_major > 0)
-		device_destroy(&(ci_bus.cls), MKDEV(rawci_major, 0));
+		device_destroy(&ci_bus.cls, MKDEV(rawci_major, 0));
 	if (ci_bus.raw_mode == 1 && rawci_major > 0)
 		unregister_chrdev(rawci_major, RAWCI_DEV_NAME);
-	class_unregister(&(ci_bus.cls));
+	class_unregister(&ci_bus.cls);
 }
 
 #endif

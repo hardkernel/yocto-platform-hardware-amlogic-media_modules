@@ -12,6 +12,7 @@
 * more details.
 *
 */
+#include <linux/version.h>
 #include <linux/debugfs.h>
 #include <linux/cdev.h>
 #include "t5d_hw_dsc.h"
@@ -170,8 +171,11 @@ t5d_key_init(void)
 {
 	int ret = 0;
 	struct device *device;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+	t5d_key_class = class_create(T5D_KEY_DEVICE_NAME);
+#else
 	t5d_key_class = class_create(THIS_MODULE, T5D_KEY_DEVICE_NAME);
+#endif
 	if (IS_ERR(t5d_key_class)) {
 		print_err("key class_create failed\n");
 		ret = PTR_ERR(t5d_key_class);

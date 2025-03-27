@@ -42,15 +42,15 @@
 #endif
 
 
-#include <dvbdev.h>
-#include <demux.h>
-#include <dvb_demux.h>
-#include <dmxdev.h>
+#include <media/dvbdev.h>
+#include <media/demux.h>
+#include <media/dvb_demux.h>
+#include <media/dmxdev.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 #include <dvb_filter.h>
 #endif
-#include <dvb_net.h>
-#include <dvb_ringbuffer.h>
+#include <media/dvb_net.h>
+#include <media/dvb_ringbuffer.h>
 
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
