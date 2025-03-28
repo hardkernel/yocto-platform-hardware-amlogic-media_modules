@@ -2819,12 +2819,12 @@ static s32 __init vpu_init(void)
 
 	enc_pr(LOG_DEBUG, "vpu_init\n");
 
-	if ((get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXM)
-		&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12A)
-			&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX)
-				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12B)
-				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SM1)
-				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SC2)
+	if ((get_cpu_type() != MESON_CPU_MAJOR_ID_GXM)
+		&& (get_cpu_type() != MESON_CPU_MAJOR_ID_G12A)
+			&& (get_cpu_type() != MESON_CPU_MAJOR_ID_GXLX)
+				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_G12B)
+				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_SM1)
+				&& (get_cpu_type() != MESON_CPU_MAJOR_ID_SC2)
 				&& (get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX4)) {
 		enc_pr(LOG_DEBUG,
 			"The chip is not support hevc encoder\n");
@@ -2850,12 +2850,12 @@ static s32 __init vpu_init(void)
 static void __exit vpu_exit(void)
 {
 	enc_pr(LOG_DEBUG, "vpu_exit\n");
-	if ((get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXM) &&
-		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12A) &&
-		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX) &&
-		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_G12B) &&
-		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SC2) &&
-		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_SM1) &&
+	if ((get_cpu_type() != MESON_CPU_MAJOR_ID_GXM) &&
+		(get_cpu_type() != MESON_CPU_MAJOR_ID_G12A) &&
+		(get_cpu_type() != MESON_CPU_MAJOR_ID_GXLX) &&
+		(get_cpu_type() != MESON_CPU_MAJOR_ID_G12B) &&
+		(get_cpu_type() != MESON_CPU_MAJOR_ID_SC2) &&
+		(get_cpu_type() != MESON_CPU_MAJOR_ID_SM1) &&
 		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_GXLX4)) {
 		enc_pr(LOG_INFO,
 			"The chip is not support hevc encoder\n");
