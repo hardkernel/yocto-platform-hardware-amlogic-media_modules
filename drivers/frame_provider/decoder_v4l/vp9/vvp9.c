@@ -2389,12 +2389,16 @@ static int v4l_get_free_fb(struct VP9Decoder_s *pbi)
 		aml_buf_get_ref(&ctx->bm, pbi->aml_buf);
 		pbi->cur_idx = pos;
 		pbi->aml_buf = NULL;
+		if (pbi->error_flag)
+			free_pic->error_mark = 1;
+		else
+			free_pic->error_mark = 0;
 	}
 
 	if (debug & VP9_DEBUG_OUT_PTS) {
 		if (free_pic) {
-			pr_debug("%s, idx: %d, ts: %lld\n",
-				__func__, free_pic->index, free_pic->timestamp);
+			pr_debug("%s, idx: %d, ts: %lld, error_mark %d\n",
+				__func__, free_pic->index, free_pic->timestamp, free_pic->error_mark);
 		} else {
 			pr_debug("%s, vp9 get free pic null\n", __func__);
 			dump_pic_list(pbi);
@@ -2773,13 +2777,17 @@ int vp9_bufmgr_process(struct VP9Decoder_s *pbi, union param_u *params)
 		ret = setup_frame_size(pbi,
 			cm, params,  pbi->frame_mmu_map_addr,
 				print_header_info);
-		if (ret)
+		if (ret) {
+			pbi->error_flag = 1;
+			vp9_print(pbi, VP9_DEBUG_BUFMGR, "set error_flag 1\n");
 			return -1;
+		}
 		if (pbi->need_resync) {
 			memset(&cm->ref_frame_map, -1,
 				sizeof(cm->ref_frame_map));
 			pbi->need_resync = 0;
 		}
+		pbi->error_flag = 0;
 	} else {
 		cm->intra_only = cm->show_frame ? 0 : params->p.intra_only;
 
@@ -7202,12 +7210,13 @@ static struct vframe_s *vvp9_vf_get(void *op_arg)
 			atomic_add(1, &pbi->vf_get_count);
 
 			if (debug & VP9_DEBUG_BUFMGR)
-				pr_info("%s idx: %d, type 0x%x w/h %d/%d, pts %d, %lld, ts: %lld\n",
+				pr_info("%s idx: %d, type 0x%x w/h %d/%d, pts %d, %lld, ts: %lld, frame_type %d\n",
 					__func__, index, vf->type,
 					vf->width, vf->height,
 					vf->pts,
 					vf->pts_us64,
-					vf->timestamp);
+					vf->timestamp,
+					vf->frame_type);
 
 			if (kfifo_peek(&pbi->display_q, &next_vf) && next_vf) {
 				vf->next_vf_pts_valid = true;
@@ -7778,6 +7787,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 		vf->v4l_mem_handle = (ulong)aml_buf;
 		vf->src_fmt.dv_id = v4l2_ctx->dv_id;
 		vf->decoder_instid = v4l2_ctx->id;
+		vf->frame_type = 0;
 
 		if (!aml_buf) {
 			kfifo_put(&pbi->newframe_q, (const struct vframe_s *)vf);
@@ -8100,6 +8110,11 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 				}
 				vdec_ge2d_copy_data(pbi->ge2d, &ge2d_info);
 			}
+
+			if (pic_config->error_mark) {
+				vf->frame_type |= V4L2_BUF_FLAG_ERROR;
+			}
+
 			if (!v4l2_ctx->avbcd_work_mode)
 				decoder_do_frame_check(pvdec, vf);
 			kfifo_put(&pbi->display_q, (const struct vframe_s *)vf);
@@ -8256,7 +8271,7 @@ static void debug_buffer_mgr_more(struct VP9Decoder_s *pbi)
 {
 	int i;
 
-	if (!(debug & VP9_DEBUG_DUMP_DATA))
+	if (!(debug & VP9_DEBUG_BUFMGR_MORE))
 		return;
 	pr_info("vp9_param: (%d)\n", pbi->slice_idx);
 	for (i = 0; i < (RPM_END-RPM_BEGIN); i++) {
@@ -9328,6 +9343,7 @@ static void vp9_buf_ref_process_for_exception(struct VP9Decoder_s *pbi)
 
 		frame_bufs[cur_idx].buf.cma_alloc_addr = 0;
 		frame_bufs[cur_idx].buf.vf_ref = 0;
+		frame_bufs[cur_idx].ref_count = 0;
 		pbi->m_BUF[cur_idx].v4l_ref_buf_addr = 0;
 
 		pbi->cur_idx = INVALID_IDX;
@@ -9689,6 +9705,7 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 
 	if (is_oversize(pbi->frame_width, pbi->frame_height)) {
 		continue_decoding(pbi);
+		pbi->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
 		vp9_print(pbi, 0, "pic size(%d x %d) is oversize\n",
 			pbi->frame_width, pbi->frame_height);
 		pbi->postproc_done = 0;
