@@ -25,6 +25,15 @@
 #include <linux/netdevice.h>
 #include <linux/i2c.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <uapi/amlogic/dvb/video.h>
+#include <uapi/amlogic/dvb/audio.h>
+#include <uapi/amlogic/dvb/dmx.h>
+#include <uapi/amlogic/dvb/ca.h>
+#include <uapi/amlogic/dvb/osd.h>
+#include <uapi/amlogic/dvb/net.h>
+#include <uapi/amlogic/dvb/frontend.h>
+#else
 #include <linux/dvb/video.h>
 #include <linux/dvb/audio.h>
 #include <linux/dvb/dmx.h>
@@ -32,16 +41,26 @@
 #include <linux/dvb/osd.h>
 #include <linux/dvb/net.h>
 #include <linux/dvb/frontend.h>
-
+#endif
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
+#include <linux/of.h>
+#include <linux/pinctrl/consumer.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/amlogic/media/dvb-core/dvbdev.h>
+#include <linux/amlogic/media/dvb-core/demux.h>
+#include <linux/amlogic/media/dvb-core/dvb_demux.h>
+#include <linux/amlogic/media/dvb-core/dmxdev.h>
+#include <linux/amlogic/media/dvb-core/dvb_net.h>
+#include <linux/amlogic/media/dvb-core/dvb_ringbuffer.h>
+#include <uapi/amlogic/dvb/aml_ca_ext.h>
+#else
 #include <media/dvbdev.h>
 #include <media/demux.h>
 #include <media/dvb_demux.h>
@@ -51,14 +70,10 @@
 #endif
 #include <media/dvb_net.h>
 #include <media/dvb_ringbuffer.h>
-
-#include <linux/of.h>
-#include <linux/pinctrl/consumer.h>
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 #include "linux/dvb/aml_ca_ext.h"
 #endif
-
+#endif
 #include "aml_demod_gt.h"
 
 #define TS_IN_COUNT       4

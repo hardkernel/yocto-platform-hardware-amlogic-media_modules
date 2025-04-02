@@ -23,7 +23,11 @@
 #include <linux/amlogic/media/utils/vformat.h>
 #include <linux/amlogic/media/utils/amstream.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <uapi/amlogic/dvb/aml_dmx_ext.h>
+#else
 #include <linux/dvb/aml_dmx_ext.h>
+#endif
 #else
 #include <linux/dvb/dmx.h>
 #endif

@@ -48,7 +48,11 @@
 #include "c_stb_regs_define.h"
 #include "aml_dvb.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include "uapi/amlogic/dvb/aml_dmx_ext.h"
+#else
 #include "linux/dvb/aml_dmx_ext.h"
+#endif
 #endif
 #include "aml_dvb_reg.h"
 #include <linux/sched/signal.h>

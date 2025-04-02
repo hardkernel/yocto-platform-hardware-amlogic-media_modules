@@ -21,9 +21,11 @@
 #define __DVB_COMMON_H__
 
 #include <linux/amlogic/aml_dvb_extern.h>
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/amlogic/media/dvb-core/dvb_frontend.h>
+#else
 #include <media/dvb_frontend.h>
-
+#endif
 typedef enum dmx_source {
 	DMX_SOURCE_FRONT0 = 0,
 	DMX_SOURCE_FRONT1,
