@@ -127,6 +127,7 @@ typedef enum {
 	GET_IS_ABNORMAL_AUDIO,
 	GET_SHOW_FIRSTFRAME_NOSYNC,
 	GET_TUNNEL_COMBINED_INFO,
+	GET_QUEUE_VIDEO_INTERVAL,
 	SET_VIDEO_FRAME_ADVANCE = 500,
 	SET_SLOW_SYNC_ENABLE,
 	SET_TRICK_MODE,
@@ -397,6 +398,7 @@ typedef struct instance{
 	bool mShowFirstFrameNoSync;
 	mediasync_frameinfo mRcordPcr[RECORD_PCR_NUM];
 	u32 mRcordPcrCount;
+	int64_t mQueueVptsInterval;
 	mediasync_inner_ctl_ext mMediasyncCtlExt;
 }mediasync_ins;
 

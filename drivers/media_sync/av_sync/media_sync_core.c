@@ -895,6 +895,7 @@ long mediasync_ins_alloc(s32 sDemuxId,
 			pInstance->mStartStrategy = 0xFF;
 			pInstance->mStartPlayThreshold = media_sync_start_play_threshold;
 			pInstance->mIsAbnormalAudio = false;
+			pInstance->mQueueVptsInterval = -1;
 			pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 			snprintf(pInstance->atrace_video,
 				sizeof(pInstance->atrace_video), "msync_v_%d", *sSyncInsId);
@@ -2846,7 +2847,6 @@ long mediasync_ins_get_queue_video_info(MediaSyncManager* pSyncManage, mediasync
 	return 0;
 }
 
-
 long mediasync_ins_set_audio_packets_info_implementation(MediaSyncManager* pSyncManage, mediasync_audio_packets_info info) {
 	mediasync_ins* pInstance = NULL;
 	unsigned long flags = 0;
@@ -3086,8 +3086,8 @@ long mediasync_ins_set_video_packets_info_implementation(MediaSyncManager* pSync
 
 
 	if (pInstance->mSyncInfo.videoPacketsInfo.packetsPts != -1) {
-		int64_t PtsDiff = info.packetsPts - pInstance->mSyncInfo.videoPacketsInfo.packetsPts;
-		if (get_llabs(PtsDiff) >= 45000 /*500000 us*/) {
+		pInstance->mQueueVptsInterval = info.packetsPts - pInstance->mSyncInfo.videoPacketsInfo.packetsPts;
+		if (get_llabs(pInstance->mQueueVptsInterval) >= 45000 /*500000 us*/) {
 			pInstance->mVideoDiscontinueInfo.lastDiscontinuePtsBefore = pInstance->mVideoDiscontinueInfo.discontinuePtsBefore;
 			pInstance->mVideoDiscontinueInfo.lastDiscontinuePtsAfter  = pInstance->mVideoDiscontinueInfo.discontinuePtsAfter;
 			pInstance->mVideoDiscontinueInfo.discontinuePtsBefore =
@@ -4027,6 +4027,7 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case GET_START_PLAY_THRESHOLD:
 		case GET_IS_ABNORMAL_AUDIO:
 		case GET_SHOW_FIRSTFRAME_NOSYNC:
+		case GET_QUEUE_VIDEO_INTERVAL:
 		{
 			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			if (copy_to_user((void *)arg,&mediasyncUserControl,sizeof(mediasyncControl))) {
@@ -4321,6 +4322,12 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 			}
 			memcpy((mediasync_tunnel_combined_para*)mediasyncControl->ptr,&info,minSize);
 			mediasyncControl->size = minSize;
+			ret = 0;
+			break;
+		}
+		case GET_QUEUE_VIDEO_INTERVAL:
+		{
+			mediasyncControl->value = pInstance->mQueueVptsInterval;
 			ret = 0;
 			break;
 		}
