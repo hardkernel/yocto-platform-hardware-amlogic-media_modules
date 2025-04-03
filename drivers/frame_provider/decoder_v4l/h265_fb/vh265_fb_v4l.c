@@ -2284,6 +2284,7 @@ struct hevc_state_s {
 	bool check_suffix_data;
 	enum FenceModeBufStatus fence_mode_buf_status;
 	bool v4l_report_ud_flag;
+	spinlock_t tlock;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -2296,6 +2297,24 @@ struct hevc_RPS_s {
 	int RefPicSetLtCurr[16];
 #endif
 };
+
+#define TIMEOUT_INIT 0
+#define TIMEOUT_PROC 1
+#define TIMEOUT_DONE 2
+
+static inline ulong h265_timeout_lock(struct hevc_state_s *hevc)
+{
+	ulong flags;
+
+	spin_lock_irqsave(&hevc->tlock, flags);
+
+	return flags;
+}
+
+static inline void h265_timeout_unlock(struct hevc_state_s *hevc, ulong flags)
+{
+	spin_unlock_irqrestore(&hevc->tlock, flags);
+}
 
 static void init_buff_spec(struct hevc_state_s *hevc,
 	struct BuffInfo_s *buf_spec)
@@ -14362,6 +14381,20 @@ static irqreturn_t vh265_isr(int irq, void *data)
 	struct hevc_state_s *hevc = (struct hevc_state_s *)data;
 	struct aml_vcodec_ctx *ctx = hevc->v4l2_ctx;
 
+	ulong flags;
+
+	flags = h265_timeout_lock(hevc);
+	WRITE_VREG(hevc->ASSIST_MBOX0_CLR_REG, 1);
+
+	if (hevc->m_ins_flag)
+		reset_process_time(hevc);
+
+	if (hevc->timeout_flag) {
+		h265_timeout_unlock(hevc, flags);
+		return IRQ_HANDLED;
+	}
+	h265_timeout_unlock(hevc, flags);
+
 	dec_status = READ_VREG(HEVC_DEC_STATUS_REG);
 	if (dec_status == HEVC_DECPIC_DATA_DONE) {
 		vdec_profile(hw_to_vdec(hevc), VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_HEVC);
@@ -14411,9 +14444,6 @@ static irqreturn_t vh265_isr(int irq, void *data)
 	vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_2, dec_status);
 
 	hevc->dec_status = dec_status;
-
-	if (hevc->m_ins_flag)
-		reset_process_time(hevc);
 
 	if (hevc->pic_list_init_flag == 1)
 		return IRQ_HANDLED;
@@ -14536,6 +14566,8 @@ static void vh265_check_timer_func(struct timer_list *timer)
 	}
 #ifdef MULTI_INSTANCE_SUPPORT
 	if (hevc->m_ins_flag) {
+		ulong flags;
+		flags = h265_timeout_lock(hevc);
 		if (((get_dbg_flag(hevc) &
 			H265_DEBUG_DIS_LOC_ERROR_PROC) == 0) &&
 			(decode_timeout_val > 0) &&
@@ -14549,14 +14581,22 @@ static void vh265_check_timer_func(struct timer_list *timer)
 					if (hevc->decode_timeout_count > 0)
 						hevc->decode_timeout_count--;
 					if (hevc->decode_timeout_count == 0)
-						timeout_process(hevc);
+						hevc->timeout_flag = TIMEOUT_PROC;
 				} else
 					restart_process_time(hevc);
 				hevc->last_lcu_idx = current_lcu_idx;
 			} else {
-				hevc->pic_decoded_lcu_idx = current_lcu_idx;
-				timeout_process(hevc);
+				if ((dec_status != HEVC_SLICE_SEGMENT_DONE) &&
+					(dec_status != HEVC_DECPIC_DATA_DONE)) {
+					hevc->pic_decoded_lcu_idx = current_lcu_idx;
+					hevc->timeout_flag = TIMEOUT_PROC;
+				}
 			}
+		}
+		h265_timeout_unlock(hevc, flags);
+		if (hevc->timeout_flag == TIMEOUT_PROC) {
+			timeout_process(hevc);
+			hevc->timeout_flag = TIMEOUT_DONE;
 		}
 	} else {
 #endif
@@ -15430,18 +15470,6 @@ static void timeout_process(struct hevc_state_s *hevc)
 {
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
-	/*
-	 * In this very timeout point,the vh265_work arrives,
-	 * or in some cases the system become slow,  then come
-	 * this second timeout. In both cases we return.
-	 */
-	if (work_pending(&hevc->work) ||
-		work_busy(&hevc->work) ||
-		work_busy(&hevc->timeout_work) ||
-		work_pending(&hevc->timeout_work)) {
-		pr_err("%s h265[%d] work pending, do nothing.\n",__func__, hevc->index);
-		return;
-	}
 
 	hevc_print(hevc, 0, "%s decoder timeout HEVC_MPC_E=0x%x\n",
 		__func__, READ_VREG(HEVC_MPC_E));
@@ -15476,8 +15504,6 @@ static void timeout_process(struct hevc_state_s *hevc)
 	hevc->decoding_pic = NULL;
 	hevc->dec_result = DEC_RESULT_DONE;
 
-	if (work_pending(&hevc->work))
-		return;
 	vdec_schedule_work(&hevc->timeout_work);
 }
 
@@ -16957,8 +16983,6 @@ static void vh265_timeout_work(struct work_struct *work)
 		struct hevc_state_s, timeout_work);
 	struct vdec_s *vdec = hw_to_vdec(hevc);
 
-	if (work_pending(&hevc->work))
-		return;
 	hevc->timeout_processing = 1;
 	vh265_work_implement(hevc, vdec, 1);
 }
@@ -17890,6 +17914,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 
 	backup_decode_state(hevc);
 
+	hevc->timeout_flag = TIMEOUT_INIT;
 	start_process_time(hevc);
 	mod_timer(&hevc->timer, jiffies);
 	hevc->stat |= STAT_TIMER_ARM;
@@ -17959,6 +17984,7 @@ static void reset(struct vdec_s *vdec)
 		hevc->stat &= ~STAT_TIMER_ARM;
 	}
 	hevc->dec_result = DEC_RESULT_NONE;
+	hevc->timeout_flag = TIMEOUT_INIT;
 	reset_process_time(hevc);
 	hevc->pic_list_init_flag = 0;
 	//dealloc_mv_bufs(hevc);
@@ -18266,6 +18292,7 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 	}
 	memset(hevc, 0, sizeof(struct hevc_state_s));
 
+	spin_lock_init(&hevc->tlock);
 	/* the ctx from v4l2 driver. */
 	hevc->v4l2_ctx = pdata->private;
 	ctx = (struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
