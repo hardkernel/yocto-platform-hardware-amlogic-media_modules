@@ -1292,6 +1292,7 @@ void aml_creat_pipeline(struct aml_vcodec_ctx *ctx,
 		if (ctx->avbc_wrapper)
 			/* dec <==> avbcd. */
 			task->attach(task, get_avbc_ops(), ctx->avbc_wrapper);
+		else
 #endif
 		if (ctx->ge2d) {
 			/* dec <==> ge2d. */
@@ -1686,8 +1687,6 @@ static void aml_vdec_worker(struct work_struct *work)
 		goto out;
 	}
 
-	atomic_dec(&ctx->input_count);
-
 	vb = (struct vb2_buffer *)vb2_v4l2;
 
 	aml_vb = container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
@@ -1789,6 +1788,7 @@ static void aml_vdec_worker(struct work_struct *work)
 	}
 out:
 	v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
+	atomic_dec(&ctx->input_count);
 }
 
 static void aml_vdec_reset(struct aml_vcodec_ctx *ctx)
