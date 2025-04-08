@@ -121,7 +121,7 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define PAGE_NUM_ONE_MB	(256)
 //#define USEC_PER_SEC 1000000
 #define PREALLOC_YUV_BUF_NUM 10
-
+#define PREALLOC_SCATTER_SIZE 24
 #define INVALID_IDX -1
 #define DEMUX_ES_MAGIC_NUM 0x5a5a5a5a
 
@@ -382,6 +382,7 @@ extern int force_di_permission;
 extern int enable_di_post;
 extern int avbcd_work_mode;
 extern int force_nv12;
+extern bool enable_use_cma_first;
 
 extern int vdec_get_size_ratio(int dw_mode);
 static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type);
@@ -3563,6 +3564,29 @@ int cal_yuv_size(struct aml_vcodec_ctx *ctx, u32 dw)
 	return yuv_size;
 }
 
+u32 cal_slot_size(struct aml_vcodec_ctx *ctx, u32 dw, u32 slot_size)
+{
+	/* currently only support 2k */
+	if (hevc_is_support_4k())
+		return 0;
+
+	/* currently only for android */
+	if (multiplanar)
+		return 0;
+
+	if ((ctx->output_pix_fmt != V4L2_PIX_FMT_HEVC) &&
+		(ctx->output_pix_fmt != V4L2_PIX_FMT_VP9) &&
+		(ctx->output_pix_fmt != V4L2_PIX_FMT_AV1))
+		return 0;
+
+	if (dw == DM_YUV_ONLY)
+		return 0;
+
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "slot_size %u\n", slot_size);
+
+	return slot_size;
+}
+
 static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	struct v4l2_format *f)
 {
@@ -3663,9 +3687,19 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		if (ctx->state == AML_STATE_IDLE) {
 			if (ctx->is_drm_mode) {
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
+				u32 slot_size = codec_mm_scatter_get_slot_size(CODEC_MM_FLAGS_TVP);
+				u32 slot_num = (PREALLOC_SCATTER_SIZE * SZ_1M + slot_size -1) / slot_size;
+				int memflags = CODEC_MM_FLAGS_TVP;
+
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
 					cal_yuv_size(ctx, dec->cfg.double_write_mode),
-						PAGE_SHIFT, CODEC_MM_FLAGS_TVP, ctx->id);
+						PAGE_SHIFT, memflags, ctx->id);
+
+				if (enable_use_cma_first)
+					memflags |= CODEC_MM_FLAGS_CMA_FIRST;
+				submit_prealloc_job(PREALLOC_SC_TYPE, slot_num,
+					cal_slot_size(ctx, dec->cfg.double_write_mode, slot_size),
+						PAGE_SHIFT, memflags, ctx->id);
 			}
 
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
@@ -3716,9 +3750,19 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		if (ctx->state == AML_STATE_IDLE) {
 			if (ctx->is_drm_mode) {
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
+				u32 slot_size = codec_mm_scatter_get_slot_size(CODEC_MM_FLAGS_TVP);
+				u32 slot_num = (PREALLOC_SCATTER_SIZE * SZ_1M + slot_size -1) / slot_size;
+				int memflags = CODEC_MM_FLAGS_TVP;
+
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
 					cal_yuv_size(ctx, dec->cfg.double_write_mode),
-						PAGE_SHIFT, CODEC_MM_FLAGS_TVP, ctx->id);
+						PAGE_SHIFT, memflags, ctx->id);
+
+				if (enable_use_cma_first)
+					memflags |= CODEC_MM_FLAGS_CMA_FIRST;
+				submit_prealloc_job(PREALLOC_SC_TYPE, slot_num,
+					cal_slot_size(ctx, dec->cfg.double_write_mode, slot_size),
+						PAGE_SHIFT, memflags, ctx->id);
 			}
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
 			if (ret) {

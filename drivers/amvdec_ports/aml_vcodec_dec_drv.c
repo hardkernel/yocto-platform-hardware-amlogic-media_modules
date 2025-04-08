@@ -59,6 +59,7 @@
 
 bool param_sets_from_ucode = 1;
 bool enable_drm_mode;
+bool enable_use_cma_first;
 extern void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx);
 char dump_path[32] = "/data";
 
@@ -791,6 +792,9 @@ static void __exit amvdec_ports_exit(void)
 
 module_init(amvdec_ports_init);
 module_exit(amvdec_ports_exit);
+
+EXPORT_SYMBOL(enable_use_cma_first);
+MEDIA_PARAM(enable_use_cma_first, bool, 0644);
 
 EXPORT_SYMBOL(debug_mode);
 MEDIA_PARAM(debug_mode, uint, 0644);
