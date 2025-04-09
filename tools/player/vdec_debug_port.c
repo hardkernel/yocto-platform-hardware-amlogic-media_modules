@@ -135,6 +135,15 @@ void port_debug_config(int fd, int cmd, int vid, int pic_start, int pic_num, int
 			printf("config dump aux failed, err %d\n", errno);
 		}
 	}
+
+	if (cmd & CMD_DUMP_SIZE) {
+		param.type     = TYPE_SIZE;
+		param.id       = vid;
+		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);
+		if (ret < 0) {
+			printf("config dump crc failed, err %d\n", errno);
+		}
+	}
 }
 
 static void signal_handler(int signum)
@@ -153,7 +162,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 	char file_str[32] = "name-0-0";
 	char last_str[32] = {0};
 	char file_name[64] = {0};
-	const char *file_ext[TYPE_MAX] = {"info", "yuv", "crc", "es", "aux"};
+	const char *file_ext[TYPE_MAX] = {"info", "yuv", "crc", "es", "aux", "fsz"};
 
 	u32 no_data_wait_time = 0;
 	struct pollfd pfd;

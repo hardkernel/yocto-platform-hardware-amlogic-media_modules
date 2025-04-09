@@ -45,11 +45,13 @@ static int video_type;
 FILE* fp = NULL;
 static char *filename;
 static char *frame_size_file;
+static char *pix_name;
 int g_dw_mode = 16;
 int g_dump_dec_info_num = 5;
 static sem_t wait_for_end;
 int g_log_level = 0;
 int g_output_flag = 0;
+int g_nv21 = 1;
 
 static int write_es_data(const uint8_t *data, int size)
 {
@@ -1098,11 +1100,12 @@ static void usage()
 	printf("\tbit 12: dump frame info to /data/tmp\n");
 	printf("\tBefore dumping, run 'mkdir -p /data/tmp -m 777;setenforce 0;rm /data/tmp/* -rf' command\n");
 	printf(" -n, --number, dump decoder info num\n");
+	printf(" -p, --pix_fmt, set nv12 or nv21\n");
 	printf(" -h, --help,   usage\n");
 	printf("example : v4lplayer -f 2 -d 16 -i /data/h264.es -s /data/h264.fsz\n");
 }
 
-static const char short_options[] = "i:s:d:f:l:o:n:h";
+static const char short_options[] = "i:s:d:f:l:o:n:p:h";
 
 static const struct option
 long_options[] = {
@@ -1113,6 +1116,7 @@ long_options[] = {
         { "log",  required_argument, NULL, 'l' },
 		{ "output",  required_argument, NULL, 'o' },
 		{ "num",  required_argument, NULL, 'n' },
+		{ "pix_fmt",  required_argument, NULL, 'p' },
         { "help",   no_argument,       NULL, 'h' },
         { 0, 0, 0, 0 }
 };
@@ -1147,6 +1151,15 @@ static int parse_para(int argc, char *argv[])
 					debug_print(DEBUG_ERROR, "invalid dw_mode %d\n", g_dw_mode);
 					exit(1);
 				}
+				break;
+			case 'p':
+				pix_name = optarg;
+				if (!strcmp(pix_name, "nv12"))
+					g_nv21 = 0;
+				else if (!strcmp(pix_name, "nv21"))
+					g_nv21 = 1;
+				else
+					debug_print(DEBUG_ERROR, "invalid pix_name %s\n", pix_name);
 				break;
 			case 'f':
 				video_type = atoi(optarg);
@@ -1213,6 +1226,7 @@ int main(int argc, char *argv[])
 	}
 
 	g_dw_mode = 16;
+	g_nv21 = 1;
 	if (parse_para(argc, argv))
 		return -1;
 
@@ -1223,7 +1237,7 @@ int main(int argc, char *argv[])
 	}
 	memset(buffer, 0, BUFFER_SIZE);
 
-	debug_print(DEBUG_STATE, "set dw mode:%d\n", g_dw_mode);
+	debug_print(DEBUG_STATE, "set dw mode:%d, nv21:%d\n", g_dw_mode, g_nv21);
 	if (((frame_size_fp = fopen(frame_size_file, "rb")) == NULL) &&
 		video_type != VFORMAT_AV1) {
 		debug_print(DEBUG_ERROR, "open file %s error!, force stream mode\n", frame_size_file);

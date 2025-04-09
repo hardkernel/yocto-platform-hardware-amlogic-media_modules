@@ -75,6 +75,7 @@ enum data_type{
 	TYPE_CRC,
 	TYPE_ES,
 	TYPE_AUX,
+	TYPE_SIZE,
 	TYPE_MAX
 };
 

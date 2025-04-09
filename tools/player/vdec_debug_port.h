@@ -66,6 +66,7 @@ enum vformat_e {
 #define CMD_DUMP_CRC   0x2
 #define CMD_DUMP_ES    0x4
 #define CMD_DUMP_AUX   0x10
+#define CMD_DUMP_SIZE  0x20
 
 struct debug_config_param {
 	int type;
@@ -96,6 +97,7 @@ enum data_type{
 	TYPE_CRC,
 	TYPE_ES,
 	TYPE_AUX,
+	TYPE_SIZE,
 	TYPE_MAX
 };
 

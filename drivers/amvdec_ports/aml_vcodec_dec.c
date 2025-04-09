@@ -381,6 +381,7 @@ extern int es_node_expand;
 extern int force_di_permission;
 extern int enable_di_post;
 extern int avbcd_work_mode;
+extern int force_nv12;
 
 extern int vdec_get_size_ratio(int dw_mode);
 static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type);
@@ -3744,6 +3745,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 			update_ctx_dimension(ctx, f->type);
 			copy_v4l2_format_dimension(ctx, pix_mp, pix, q_data, f->type);
 		}
+		if (force_nv12)
+			ctx->cap_pix_fmt = V4L2_PIX_FMT_NV12;
 	}
 
 	return 0;

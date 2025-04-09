@@ -861,6 +861,10 @@ int bypass_vpp;
 EXPORT_SYMBOL(bypass_vpp);
 MEDIA_PARAM(bypass_vpp, int, 0644);
 
+int force_nv12;
+EXPORT_SYMBOL(force_nv12);
+MEDIA_PARAM(force_nv12, int, 0644);
+
 int bypass_ge2d;
 EXPORT_SYMBOL(bypass_ge2d);
 MEDIA_PARAM(bypass_ge2d, int, 0644);

@@ -44,6 +44,7 @@ static bool res_evt_pending;
 static bool eos_evt_pending;
 static bool eos_received;
 extern int g_dw_mode;
+extern int g_nv21;
 extern int g_dump_dec_info_num;
 extern int g_output_flag;
 extern int g_log_level;
@@ -364,7 +365,7 @@ static int setup_capture_port(int fd)
 
 	capture_p.sfmt.fmt.pix_mp.pixelformat =
 		(output_p.pixelformat == V4L2_PIX_FMT_MJPEG) ?
-		V4L2_PIX_FMT_YUV420 : V4L2_PIX_FMT_NV21;
+		V4L2_PIX_FMT_YUV420 : (g_nv21 ? V4L2_PIX_FMT_NV21: V4L2_PIX_FMT_NV12);
 
 	ret = ioctl(video_fd, VIDIOC_S_FMT, &capture_p.sfmt);
 	if (ret) {

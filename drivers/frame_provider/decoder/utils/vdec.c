@@ -2369,8 +2369,19 @@ int vdec_prepare_input(struct vdec_s *vdec, struct vframe_chunk_s **p)
 #ifdef DEBUG_PORT
 		if (debug_port_func_data_wr) {
 			if (input->last_wp != (block->start + chunk->offset)) {
+				char *size_addr = vzalloc(64);
+				int ret = 0;
+
 				debug_port_func_data_wr((void *)(block->start + chunk->offset),
 					chunk->size, vdec->id, (1 << 16) | 3);
+
+				if (size_addr) {
+					ret = snprintf(size_addr, 64, "%d\n", chunk->size);
+					debug_port_func_data_wr(size_addr,
+						strlen(size_addr), vdec->id, 5);
+					vfree(size_addr);
+					size_addr = NULL;
+				}
 			}
 			input->last_wp = block->start + chunk->offset;
 		}

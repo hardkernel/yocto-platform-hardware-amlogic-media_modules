@@ -89,6 +89,13 @@ static int debug_port_set_aux_dump(struct amvdec_debug_port_t *port, int vdec_id
 	return 0;
 }
 
+
+static int debug_port_set_size_dump(struct amvdec_debug_port_t *port, int vdec_id, bool on_off)
+{
+
+	return 0;
+}
+
 static int debug_port_set_es_dump(struct amvdec_debug_port_t *port, int vdec_id, int mode)
 {
 
@@ -117,6 +124,9 @@ int debug_port_debug_config(struct amvdec_debug_port_t *port, ulong arg)
 		break;
 	case TYPE_AUX:
 		debug_port_set_aux_dump(port, param.id, 1);
+		break;
+	case TYPE_SIZE:
+		debug_port_set_size_dump(port, param.id, 1);
 		break;
 	default:
 		pr_info("%s, can not find debug port config type\n", __func__);
@@ -616,6 +626,9 @@ static ssize_t vdec_dbg_port_write(struct file *file,
 
 		if (val & (1 << TYPE_ES))
 			ret += snprintf(cbuf + ret, sizeof(cbuf), "ES ");
+
+		if (val & (1 << TYPE_SIZE))
+			ret += snprintf(cbuf + ret, sizeof(cbuf), "SIZE ");
 
 		pr_info("enable instance %d ( %s) dump\n", id, cbuf);
 
