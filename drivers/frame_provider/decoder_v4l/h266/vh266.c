@@ -6196,17 +6196,12 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 			p += size;
 		}
 	}
-	if (hevc->video_signal_type & VIDEO_SIGNAL_TYPE_AVAILABLE_MASK) {
-		vf->signal_type = pic->video_signal_type;
 
+	if (hevc->video_signal_type & 0x1000000) {
+		/* h266 spec no video_signal_type_present_flag, set bit29=1
+		   h266 spec no video_format, set video_format unspecified(bit26~28 = 5) */
+		vf->signal_type = pic->video_signal_type | 0x20000000 | 0x14000000;
 		vf->ext_signal_type = 0;
-		/* When the matrix_coeffiecents, transfer_characteristics and colour_primaries
-		 * syntax elements are absent, their values shall be presumed to be equal to 2
-		 */
-		if ((vf->signal_type & 0x1000000) == 0) {
-			vf->signal_type = vf->signal_type & 0xff000000;
-			vf->signal_type = vf->signal_type | 0x20202;
-		}
 		if (pic->sei_present_flag & SEI_HDR10PLUS_MASK) {
 			u32 data;
 			data = vf->signal_type;
@@ -8618,6 +8613,14 @@ muti_output:
 			init_pic_list(hevc); //init_pic_list_hw(vvc_dec, buf_spec, mc_buf_spec);
 			init_pic_list_hw(hevc);
 			vvc_dec->init_hw_flag = 1;
+		}
+
+		if (hevc->video_signal_type !=
+			((param->p.video_signal_type << 16) | param->p.color_description)) {
+			u32 v = param->p.video_signal_type;
+			u32 c = param->p.color_description;
+			hevc->video_signal_type = (v << 16) | c;
+			video_signal_type = hevc->video_signal_type;
 		}
 
 		//new picture: vvc_dec->cur_pic == NULL (don't use param->p.sliceAddr == 0)

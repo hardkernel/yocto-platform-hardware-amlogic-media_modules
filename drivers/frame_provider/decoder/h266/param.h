@@ -225,8 +225,8 @@
             unsigned short picture_cnt;
             unsigned short debug_flag;
             unsigned short LevelIdc;
-            unsigned short reserved_d8;
-            unsigned short reserved_d9;
+            unsigned short color_description;
+            unsigned short video_signal_type;
             unsigned short reserved_da;
             unsigned short reserved_db;
             unsigned short reserved_dc;
