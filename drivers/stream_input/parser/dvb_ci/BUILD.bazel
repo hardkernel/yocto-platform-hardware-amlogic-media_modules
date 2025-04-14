@@ -12,7 +12,6 @@ ddk_module(
 		"cimcu/dvb_ca_en50221_cimcu.*",
     ]),
     hdrs = [
-        "//common_drivers:soc_headers",
     ],
     linux_includes = [
 		"../../../../drivers/common/media_utils",
@@ -25,5 +24,6 @@ ddk_module(
     deps = [
 		"//driver_modules/media_modules:media_clock",
 		"//common_drivers/drivers/gki_tool:amlogic-gkitool",
+		"//common_drivers/drivers/media/dvb-core:dvb-core",
     ],
 )

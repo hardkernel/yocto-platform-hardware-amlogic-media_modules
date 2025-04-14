@@ -37,7 +37,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
@@ -65,7 +64,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
@@ -96,7 +94,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
@@ -127,7 +124,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
@@ -154,7 +150,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],
@@ -180,7 +175,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
     ],

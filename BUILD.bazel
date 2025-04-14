@@ -1,4 +1,5 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
+load("//common_drivers/project/kernel:kernel_select.bzl", "kernel_select")
 
 TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
 
@@ -74,10 +75,7 @@ kernel_module(
         ],
     ),
     outs = outs,
-    kernel_build = select({
-        "//common:common_drivers_on_top_dir": "//common_drivers:amlogic",
-        "//conditions:default": "//common:amlogic",
-    }),
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
 )
 
@@ -137,7 +135,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[media_clock]: \" fmt"],
@@ -160,7 +157,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[firmware]: \" fmt"],
@@ -183,7 +179,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[pts_server]: \" fmt"],
     out = "pts_server.ko",
@@ -240,7 +235,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[decoder_common]: \" fmt"],
@@ -274,7 +268,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[stream_input]: \" fmt"],
@@ -302,7 +295,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[video_framerate_adapter]: \" fmt"],
@@ -360,7 +352,6 @@ ddk_module(
         },
     },
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_ports]: \" fmt"],
@@ -389,7 +380,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[aml_dhp]: \" fmt"],
@@ -413,7 +403,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_debug_port]: \" fmt"],
@@ -437,7 +426,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1]: \" fmt"],
@@ -467,7 +455,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb]: \" fmt"],
@@ -495,7 +482,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_v4l]: \" fmt"],
@@ -525,7 +511,6 @@ ddk_module(
        ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb_v4l]: \" fmt"],
@@ -553,7 +538,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_t5d_v4l]: \" fmt"],
@@ -581,7 +565,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2]: \" fmt"],
@@ -612,7 +595,6 @@ ddk_module(
        ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb]: \" fmt"],
@@ -640,7 +622,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_v4l]: \" fmt"],
@@ -669,7 +650,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb_v4l]: \" fmt"],
@@ -705,7 +685,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3]: \" fmt"],
@@ -740,7 +719,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3_v4l]: \" fmt"],
@@ -768,7 +746,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265]: \" fmt"],
@@ -796,7 +773,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb]: \" fmt"],
@@ -824,7 +800,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_v4l]: \" fmt"],
@@ -851,7 +826,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb_v4l]: \" fmt"],
@@ -882,7 +856,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h266]: \" fmt"],
@@ -913,7 +886,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h266_v4l]: \" fmt"],
@@ -942,7 +914,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs]: \" fmt"],
@@ -970,7 +941,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs_v4l]: \" fmt"],
@@ -998,7 +968,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264]: \" fmt"],
@@ -1026,7 +995,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264_v4l]: \" fmt"],
@@ -1054,7 +1022,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h264mvc]: \" fmt"],
@@ -1079,7 +1046,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg]: \" fmt"],
@@ -1105,7 +1071,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg_v4l]: \" fmt"],
@@ -1131,7 +1096,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12]: \" fmt"],
@@ -1158,7 +1122,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12_v4l]: \" fmt"],
@@ -1185,7 +1148,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4]: \" fmt"],
@@ -1211,7 +1173,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4_v4l]: \" fmt"],
@@ -1238,7 +1199,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1]: \" fmt"],
@@ -1264,7 +1224,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt"],
@@ -1291,7 +1250,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9]: \" fmt"],
@@ -1320,7 +1278,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb]: \" fmt"],
@@ -1349,7 +1306,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_v4l]: \" fmt"],
@@ -1377,7 +1333,6 @@ ddk_module(
         ],
     ),
     hdrs = [
-        "//common_drivers:soc_headers",
         "//driver_modules/media_modules:media_headers",
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb_v4l]: \" fmt"],
@@ -1404,7 +1359,6 @@ ddk_module(
     ]),
 
     hdrs = [
-        "//common_drivers:soc_headers",
     ],
     local_defines = ["pr_fmt(fmt)=\"[media_sync]: \" fmt"],
     out = "media_sync.ko",
