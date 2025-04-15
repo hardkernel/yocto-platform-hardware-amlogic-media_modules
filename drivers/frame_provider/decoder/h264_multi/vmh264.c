@@ -1774,7 +1774,7 @@ static void hevc_mcr_sao_global_hw_init(struct vdec_h264_hw_s *hw,
 		if (dw_mode == 2 ||
 			dw_mode == 3)
 			data32 |= (0xff<<16);
-		else if (dw_mode == 4)
+		else if ((dw_mode == 4) || (dw_mode == 5))
 			data32 |= (0x33<<16);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 	}
@@ -3573,7 +3573,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				vf->type |= VIDTYPE_PROGRESSIVE
 					| VIDTYPE_VIU_FIELD;
 				vf->type |= nv_order;
-				if (hw->double_write_mode == 3)
+				if ((hw->double_write_mode == 3) || (hw->double_write_mode == 5))
 					vf->type |= VIDTYPE_COMPRESS;
 
 				vf->canvas0Addr = vf->canvas1Addr = -1;

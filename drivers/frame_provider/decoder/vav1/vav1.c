@@ -6864,7 +6864,7 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 	struct aml_vcodec_ctx * v4l2_ctx = hw->v4l2_ctx;
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	struct aml_buf *aml_buf = NULL;
-	ulong nv_order = VIDTYPE_VIU_NV21;
+	ulong nv_order = VIDTYPE_VIU_NV12;
 	u32 pts_valid = 0, pts_us64_valid = 0;
 	u32 frame_size = 0;
 
@@ -7028,7 +7028,7 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 					spec2canvas(pic_config);
 		} else {
 			vf->canvas0Addr = vf->canvas1Addr = 0;
-			vf->type = VIDTYPE_COMPRESS | VIDTYPE_VIU_FIELD;
+			vf->type = VIDTYPE_COMPRESS | VIDTYPE_VIU_FIELD | nv_order;
 			if (hw->mmu_enable)
 				vf->type |= VIDTYPE_SCATTER;
 		}
@@ -7104,6 +7104,10 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		if (hw->high_bandwidth_flag) {
 			vf->flag |= VFRAME_FLAG_HIGH_BANDWIDTH;
 		}
+		if ((hw->mem_map_mode == 0) &&
+			((hw->endian == HEVC_CONFIG_LITTLE_ENDIAN) ||
+			(hw->endian == HEVC_CONFIG_P010_LE)))
+			vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 
 		if (force_fps & 0x100) {
 			u32 rate = force_fps & 0xff;

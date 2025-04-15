@@ -10053,7 +10053,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 	struct vframe_s *vf = NULL;
 	unsigned int stream_offset = pic->stream_offset;
 	unsigned short slice_type = pic->slice_type;
-	ulong nv_order = VIDTYPE_VIU_NV21;
+	ulong nv_order = VIDTYPE_VIU_NV12;
 	u32 frame_size = 0;
 	struct vdec_info tmp4x;
 	int index;
@@ -10219,7 +10219,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 				vf->canvas0Addr = vf->canvas1Addr = spec2canvas(pic);
 		} else {
 			vf->canvas0Addr = vf->canvas1Addr = 0;
-			vf->type = VIDTYPE_COMPRESS | VIDTYPE_VIU_FIELD;
+			vf->type = VIDTYPE_COMPRESS | VIDTYPE_VIU_FIELD | nv_order;
 			if (hevc->mmu_enable)
 				vf->type |= VIDTYPE_SCATTER;
 		}
@@ -10272,6 +10272,10 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		if (hevc->enable_fence) {
 			vf->flag |= VFRAME_FLAG_GAME_MODE;
 		}
+		if ((hevc->mem_map_mode == 0) &&
+			((hevc->endian == HEVC_CONFIG_LITTLE_ENDIAN) ||
+			(hevc->endian == HEVC_CONFIG_P010_LE)))
+			vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 
 		vf->width = pic->crop_w;
 		vf->height = pic->crop_h;
@@ -16476,7 +16480,6 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 		hevc->endian = HEVC_CONFIG_BIG_ENDIAN;
 	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S1A)
 		hevc->endian = 0;
-
 
 	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5) &&
 			(hevc->double_write_mode == 3))
