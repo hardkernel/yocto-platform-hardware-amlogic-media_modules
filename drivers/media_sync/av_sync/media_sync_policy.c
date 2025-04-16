@@ -1522,6 +1522,11 @@ int mediasync_video_process(ulong handle,s64 vpts,struct mediasync_video_policy*
 	VideoTrickMode = policyInst->mVideoTrickMode;
 	mediasync_get_update_info(policyInst);
 
+	if (policyInst->mVideoTrickMode == VIDEO_TRICK_MODE_IONLY_AVSYNC_BYPASS) {
+		vsyncPolicy->videopolicy = MEDIASYNC_VIDEO_NORMAL_OUTPUT;
+		return ret;
+	}
+
 	if (policyInst->mVideoTrickMode == VIDEO_TRICK_MODE_PAUSE_NEXT) {
 		if (policyInst->firstVFrameInfo.framePts == -1 &&
 			policyInst->firstVFrameInfo.frameSystemTime == -1) {
