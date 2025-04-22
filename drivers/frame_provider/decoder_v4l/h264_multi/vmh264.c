@@ -8015,11 +8015,12 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 					pic_struct == PIC_BOT_TOP ||
 					ctx->picinfo.field == V4L2_FIELD_INTERLACED) {
 					aml_buf_put_ref(&ctx->bm, aml_buf);
+				} else if (check_force_interlace(hw, hw->frame_width, hw->frame_height)) {
+					aml_buf_put_ref(&ctx->bm, aml_buf);
 				}
 
 				if (((pic_struct == PIC_TOP_BOT_TOP || pic_struct == PIC_BOT_TOP_BOT)
-					&& structure == FRAME) ||
-					check_force_interlace(hw, hw->frame_width, hw->frame_height))
+					&& structure == FRAME))
 					aml_buf_put_ref(&ctx->bm, aml_buf);
 			}
 		}
