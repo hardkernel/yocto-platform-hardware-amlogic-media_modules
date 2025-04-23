@@ -12375,13 +12375,15 @@ static void run_front(struct vdec_s *vdec)
 					hw->data_offset;
 
 			//print_hex_debug(data, size, size > 64 ? 64 : size);
-			av1_print(hw, 0,
-				"%s: size 0x%x sum 0x%x %02x %02x %02x %02x %02x %02x .. %02x %02x %02x %02x\n",
-				__func__, size, get_data_check_sum(hw, size),
-				data[0], data[1], data[2], data[3],
-				data[4], data[5], data[size - 4],
-				data[size - 3], data[size - 2],
-				data[size - 1]);
+			if (size >= 6) {
+				av1_print(hw, 0,
+					"%s: size 0x%x sum 0x%x %02x %02x %02x %02x %02x %02x .. %02x %02x %02x %02x\n",
+					__func__, size, get_data_check_sum(hw, size),
+					data[0], data[1], data[2], data[3],
+					data[4], data[5], data[size - 4],
+					data[size - 3], data[size - 2],
+					data[size - 1]);
+			}
 			av1_print(hw, 0,
 				"%s frm cnt (%d): chunk (0x%x 0x%x) (%x %x %x %x %x) bytes 0x%x\n",
 				__func__, hw->frame_count, hw->data_size, hw->data_offset,
