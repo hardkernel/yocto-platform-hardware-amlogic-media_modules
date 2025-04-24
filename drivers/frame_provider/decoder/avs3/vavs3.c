@@ -1338,6 +1338,7 @@ static __inline__ bool is_tw_p010(struct AVS2Decoder_s *dec)
 }
 #endif
 
+#if 0
 /* for double write buf alloc */
 static int get_double_write_mode_init(struct AVS3Decoder_s *dec)
 {
@@ -1366,6 +1367,7 @@ static int get_double_write_mode_init(struct AVS3Decoder_s *dec)
 	}
 	return dw;
 }
+#endif
 
 //#define	MAX_4K_NUM		0x1200
 #ifdef AVS3_10B_MMU
@@ -2955,7 +2957,7 @@ static int config_pic(struct AVS3Decoder_s *dec,
 	//int mc_buffer_size_u_v = 0;
 	int mc_buffer_size_u_v_h = 0;
 	int dw_uv_size;
-	int dw_mode = get_double_write_mode_init(dec);
+	int dw_mode = get_double_write_mode(dec);
 #ifdef OW_TRIPLE_WRITE
 	int tw_mode = get_triple_write_mode(dec);
 #endif
