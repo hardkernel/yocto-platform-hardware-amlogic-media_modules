@@ -1035,6 +1035,7 @@ struct aml_signal_type_info {
  * @force_tw_output: The flag for T3X output TW YUV.
  * @avbcd_work_mode: Indicate avbcd mode.
  * @avbc_wrapper: Point to avbc wrapper context.
+ * @priority: Indicates the channel display priority;The lower the value, the higher the priority.
  */
 struct aml_vcodec_ctx {
 	int				id;
@@ -1193,6 +1194,7 @@ struct aml_vcodec_ctx {
 	void			*k_producer_session;
 	int			avbcd_work_mode;
 	void			 *avbc_wrapper;
+	u32			priority;
 	u32			alloced_yuv_num;
 	u32			replaced_frame_num;
 	struct aml_signal_type_info signal_type_info;

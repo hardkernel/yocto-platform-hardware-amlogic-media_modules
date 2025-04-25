@@ -112,6 +112,7 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define AML_V4L2_SET_TRICKMODE (V4L2_CID_USER_AMLOGIC_BASE + 14)
 #define AML_V4L2_SET_SCREEN_MODE (V4L2_CID_USER_AMLOGIC_BASE + 15)
 #define AML_V4L2_GET_HEIGHT_ALIGN (V4L2_CID_USER_AMLOGIC_BASE + 16)
+#define AML_V4L2_SET_CHANNEL_PRIORITY (V4L2_CID_USER_AMLOGIC_BASE + 17)
 
 #define V4L2_EVENT_PRIVATE_EXT_VSC_BASE (V4L2_EVENT_PRIVATE_START + 0x2000)
 #define V4L2_EVENT_PRIVATE_EXT_VSC_EVENT (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 1)
@@ -796,6 +797,7 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
+	config.priority		= ctx->priority;
 
 	aml_buf_configure(&ctx->bm, &config);
 }
@@ -869,6 +871,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 		config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
+	config.priority		= ctx->priority;
 
 	aml_buf_configure(&ctx->bm, &config);
 
@@ -1100,9 +1103,11 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 	vf->flag |= is_game_mode(ctx->config.parm.dec.cfg.low_latency_mode) ?
 		VFRAME_FLAG_GAME_MODE : 0;
 
+	vf->priority = ctx->priority;
+
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
 		"OUT_BUFF (%s, st:%d, seq:%d, idx:%d) vb:(%d, %px), vf:(%d, %px), ts:%llu, flag: 0x%x "
-		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u) bitdepth %x\n",
+		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u) bitdepth(%x), priority(%u)\n",
 		ctx->ada_ctx->frm_name, aml_buf->state, ctx->out_buff_cnt, aml_buf->index,
 		vb2_buf->index, vb2_buf,
 		vf->index & 0xff, vf,
@@ -1111,7 +1116,8 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		planes[0].addr, planes[0].length,
 		planes[1].addr, planes[1].length,
 		planes[2].addr, planes[2].length,
-		vf->bitdepth);
+		vf->bitdepth,
+		vf->priority);
 	ctx->out_buff_cnt++;
 
 	if (dstbuf->aml_buf->num_planes == 1) {
@@ -5114,6 +5120,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
+	config.priority		= ctx->priority;
+
 	aml_buf_configure(&ctx->bm, &config);
 	if (ctx->bm.config.enable_fbc) {
 		int ret;
@@ -5665,6 +5673,18 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 		vdec_set_screen_mode(ctx->ada_ctx, ctrl->val);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
 			"set screenmode: %x\n", ctrl->val);
+	} else if (ctrl->id == AML_V4L2_SET_CHANNEL_PRIORITY) {
+		struct aml_buf_config config = { 0 };
+		if (!ctx->ada_ctx) {
+			v4l_dbg(ctx, 0, "%s ctx->ada_ctx is NULL!\n", __func__);
+			return 0;
+		}
+		ctx->priority = ctrl->val;
+		aml_buf_get_configure(&ctx->bm, &config);
+		config.priority	= ctx->priority;
+		aml_buf_configure(&ctx->bm, &config);
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+			"set channel priority: %x\n", ctrl->val);
 	}
 	return 0;
 }
@@ -5765,6 +5785,17 @@ static const struct v4l2_ctrl_config ctrl_st_screenmode = {
 	.flags	= V4L2_CTRL_FLAG_WRITE_ONLY,
 	.min	= 0,
 	.max	= 0xff,
+	.step	= 1,
+	.def	= 0,
+};
+
+static const struct v4l2_ctrl_config ctrl_st_channel_priority = {
+	.name	= "priority",
+	.id	= AML_V4L2_SET_CHANNEL_PRIORITY,
+	.ops	= &aml_vcodec_dec_ctrl_ops,
+	.type	= V4L2_CTRL_TYPE_INTEGER,
+	.min	= 0,
+	.max	= 128,
 	.step	= 1,
 	.def	= 0,
 };
@@ -5949,6 +5980,13 @@ int aml_vcodec_dec_ctrls_setup(struct aml_vcodec_ctx *ctx)
 	}
 
 	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &ctrl_st_screenmode, NULL);
+	if ((ctrl == NULL) || (ctx->ctrl_hdl.error)) {
+		ret = ctx->ctrl_hdl.error;
+		goto err;
+	}
+
+
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &ctrl_st_channel_priority, NULL);
 	if ((ctrl == NULL) || (ctx->ctrl_hdl.error)) {
 		ret = ctx->ctrl_hdl.error;
 		goto err;

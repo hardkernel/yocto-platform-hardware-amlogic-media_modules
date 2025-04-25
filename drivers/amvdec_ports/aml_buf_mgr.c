@@ -134,6 +134,7 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
+	vf->priority	= bm->config.priority;
 
 	bm->frm_cnt++;
 
@@ -158,13 +159,13 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 
 	if (buf->dma && bc->is_dynamic_mode_init(bc))
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), ret: %d\n",
-			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, ret);
+		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), priority(%d), ret: %d\n",
+			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, vf->priority, ret);
 	else
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d ret: %d\n",
+			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d, priority(%d), ret: %d\n",
 			__func__, vf, vf->index, vf->frame_index, vf->timestamp,
-			buf->planes[0].dbuf, buf->index, ret);
+			buf->planes[0].dbuf, buf->index, vf->priority, ret);
 
 
 	return ret;
