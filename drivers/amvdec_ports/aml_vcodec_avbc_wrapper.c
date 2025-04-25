@@ -14,7 +14,11 @@
 #include <linux/amlogic/media/codec_mm/dmabuf_manage.h>
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
+#include <linux/amlogic/meson_uvm_allocator.h>
+#else
 #include <linux/amlogic/media/meson_uvm_allocator.h>
+#endif
 #include <linux/amlogic/media/vfm/amlogic_fbc_hook_v1.h>
 #include <linux/amlogic/media/vfm/vframe.h>
 #include <linux/types.h>
