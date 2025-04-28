@@ -628,6 +628,7 @@ struct vdec_s {
 	char bandwidth_name[32];
 	bool reset_input_flag;
 	bool input_underrun;
+	char sched_priority;
 };
 
 #define CODEC_MODE(a, b, c, d)\
@@ -755,6 +756,8 @@ extern int vdec_set_format(struct vdec_s *vdec, int format);
 extern int vdec_set_pts(struct vdec_s *vdec, u32 pts);
 
 extern int vdec_set_pts64(struct vdec_s *vdec, u64 pts64);
+
+extern void vdec_set_sched_priority(int vdec_id, char priority);
 
 /* set vfm map when use frame base decoder */
 extern int vdec_set_video_path(struct vdec_s *vdec, int video_path);

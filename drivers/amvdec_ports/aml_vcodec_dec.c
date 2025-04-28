@@ -5677,12 +5677,14 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			return 0;
 		}
 		ctx->priority = ctrl->val;
+		vdec_set_sched_priority_adapt(ctx->ada_ctx, ctrl->val);
 		aml_buf_get_configure(&ctx->bm, &config);
 		config.priority	= ctx->priority;
 		aml_buf_configure(&ctx->bm, &config);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
 			"set channel priority: %x\n", ctrl->val);
 	}
+
 	return 0;
 }
 

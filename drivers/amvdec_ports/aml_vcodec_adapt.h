@@ -108,6 +108,8 @@ void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmx_dma_buf_se
 
 int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value);
 
+void vdec_set_sched_priority_adapt(struct aml_vdec_adapt *ada_ctx, u32 value);
+
 int vdec_get_vdec_id(struct aml_vdec_adapt *ada_ctx);
 
 void vdec_thread_wakeup(struct aml_vdec_adapt *ada_ctx);

@@ -741,6 +741,13 @@ int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value)
 	return r;
 }
 
+void vdec_set_sched_priority_adapt(struct aml_vdec_adapt *ada_ctx, u32 value)
+{
+	struct vdec_s *vdec = ada_ctx->vdec;
+
+	vdec_set_sched_priority(vdec->id, value);
+}
+
 void aml_vdec_recycle_dec_resource(struct aml_vcodec_ctx * ctx,
 					struct aml_buf *aml_buf)
 {

@@ -122,6 +122,7 @@ static int keep_vdec_mem;
 static unsigned int debug_trace_num = 16 * 20;
 static int step_mode;
 static unsigned int clk_config;
+#define MAX_PRIORITY 100
 
 unsigned int fc_debug;
 unsigned int size_yuv_buf;
@@ -166,6 +167,7 @@ static int one_pack_multi_f_set_align_size = 0;
 #define VDEC_DBG_ENABLE_CODE_RATE_DEBUG (0x1000)
 #define VDEC_DBG_AUTO_CLK_GATE_DISABLE (0x2000)
 #define VDEC_DBG_DDR_BW_DEBUG (0x8000)
+#define VDEC_DBG_DISABLE_PRIORITY (0x10000)
 
 #define FRAME_BASE_PATH_DI_V4LVIDEO_0 (29)
 #define FRAME_BASE_PATH_DI_V4LVIDEO_1 (30)
@@ -310,6 +312,8 @@ struct vdec_core_s {
 	u32 vdec_cnt;
 	u32 hevc_cnt;
 	u32 hevcb_cnt;
+	bool enable_sched_priority;
+	int max_priority;
 };
 
 struct prefix_s {
@@ -1984,6 +1988,67 @@ void vdec_set_timestamp(struct vdec_s *vdec, u64 timestamp)
 	vdec->timestamp_valid = true;
 }
 EXPORT_SYMBOL(vdec_set_timestamp);
+
+static void vdec_core_set_sched_priority_flag(void)
+{
+	struct vdec_s *vdec;
+	struct vdec_core_s *core = vdec_core;
+	unsigned long flags;
+	int inst_cnt = 0;
+	int priority_cnt = 0;
+
+	flags = vdec_core_lock(vdec_core);
+	list_for_each_entry(vdec,
+		&core->connected_vdec_list, list) {
+		inst_cnt++;
+		if (vdec->sched_priority) {
+			priority_cnt++;
+			if (vdec_core->max_priority < vdec->sched_priority)
+				vdec_core->max_priority = vdec->sched_priority;
+		}
+	}
+
+	if (inst_cnt == (inst_cnt - priority_cnt)) {
+		vdec_core->enable_sched_priority = false;
+		vdec_core->max_priority = 0;
+	} else {
+		vdec_core->enable_sched_priority = true;
+	}
+	vdec_core_unlock(vdec_core, flags);
+
+	if (debug & 0x8)
+		pr_info("%s: set enable_sched_priority is %d\n",
+			__func__, vdec_core->enable_sched_priority);
+}
+
+void vdec_set_sched_priority(int vdec_id, char priority)
+{
+	struct vdec_s *vdec;
+	struct vdec_core_s *core = vdec_core;
+	unsigned long flags;
+
+	if (debug & VDEC_DBG_DISABLE_PRIORITY)
+		return ;
+
+	if (list_empty(&core->connected_vdec_list)) {
+		pr_info("%s:no vdec\n", __func__);
+		return;
+	} else {
+		flags = vdec_core_lock(vdec_core);
+		list_for_each_entry(vdec,
+			&core->connected_vdec_list, list) {
+			if ((vdec->id == vdec_id) && (priority >= 0)
+				&& (priority <= MAX_PRIORITY)) {
+				vdec->sched_priority = priority;
+				pr_info("%s: set vdec id %d priority is %d\n",
+					__func__, vdec->id, priority);
+			}
+		}
+		vdec_core_unlock(vdec_core, flags);
+		vdec_core_set_sched_priority_flag();
+	}
+}
+EXPORT_SYMBOL(vdec_set_sched_priority);
 
 void vdec_set_metadata(struct vdec_s *vdec, ulong meta_ptr)
 {
@@ -4428,6 +4493,7 @@ void vdec_release(struct vdec_s *vdec)
 		vdec_disable_DMC(vdec);
 		vdec_set_vf_dur(0);
 		vdec_set_mmu_copy_flag(false);
+		vdec_core->enable_sched_priority = false;
 	}
 
 	platform_device_unregister(vdec->dev);
@@ -5281,6 +5347,7 @@ static int vdec_core_thread(void *data)
 	int i;
 	u64 thread_start_timestamp = 0;
 	u64 run_start_timestamp = 0;
+	int priority = 0;
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
@@ -5385,95 +5452,114 @@ static int vdec_core_thread(void *data)
 		vdec_core_unlock(vdec_core, flags);
 		mutex_unlock(&vdec_mutex);
 
-		for (i = VDEC_MAX - 1; i >= VDEC_1; i--) {
-			if (debug & 0x8)
-				pr_info("%s:i:%d core sched_mask 0x%lx\n",
-					__func__, i, core->sched_mask);
-			if (!cores_used[i] || (core->sched_mask & (1 << i))) {
-				vdec = NULL;
-				continue;
-			}
+		for (priority = 0; priority <= vdec_core->max_priority; priority++) {
+			for (i = VDEC_MAX - 1; i >= VDEC_1; i--) {
+				if (debug & 0x8)
+					pr_info("%s:i:%d core sched_mask 0x%lx\n",
+						__func__, i, core->sched_mask);
+				if (!cores_used[i] || (core->sched_mask & (1 << i))) {
+					vdec = NULL;
+					continue;
+				}
 
-			/* elect next vdec to be scheduled */
-			if (core->vdec_combine_flag != 0)
-				vdec = core->last_run_vdec;
-			else
-				vdec = vdec_get_last_vdec(i);
-			if (vdec) {
-				mutex_lock(&vdec_mutex);
-				vdec = list_entry(vdec->list.next, struct vdec_s, list);
-				list_for_each_entry_from(vdec, &core->connected_vdec_list, list) {
-					sched_mask = vdec_schedule_mask(vdec, core->sched_mask);
+				/* elect next vdec to be scheduled */
+				if (core->vdec_combine_flag != 0)
+					vdec = core->last_run_vdec;
+				else
+					vdec = vdec_get_last_vdec(i);
+				if (vdec) {
+					mutex_lock(&vdec_mutex);
+					vdec = list_entry(vdec->list.next, struct vdec_s, list);
+					list_for_each_entry_from(vdec, &core->connected_vdec_list, list) {
+						sched_mask = vdec_schedule_mask(vdec, core->sched_mask);
 
-					if (core->vdec_combine_flag == 0)
-						sched_mask &= (1 << i);
+						if (core->vdec_combine_flag == 0)
+							sched_mask &= (1 << i);
 
-					if (debug & 0x8)
-						pr_info("%s id:%d vdec sched_mask 0x%lx, sched_mask 0x%lx\n",
-							__func__, vdec->id, vdec->sched_mask, sched_mask);
+						if (debug & 0x8)
+							pr_info("%s id:%d vdec sched_mask 0x%lx, sched_mask 0x%lx\n",
+								__func__, vdec->id, vdec->sched_mask, sched_mask);
 
-					if (!(sched_mask))
-						continue;
+						if (!(sched_mask))
+							continue;
 
-					sched_mask = vdec_ready_to_run(vdec, sched_mask);
-					if (sched_mask)
+						sched_mask = vdec_ready_to_run(vdec, sched_mask);
+						if (sched_mask) {
+							if (!vdec_core->enable_sched_priority ||
+								vdec->sched_priority == priority) {
+								break;
+							} else
+								continue;
+						}
+					}
+					mutex_unlock(&vdec_mutex);
+					if (&vdec->list == &core->connected_vdec_list) {
+						vdec = NULL;
+					}
+
+					if (vdec)
 						break;
 				}
-				mutex_unlock(&vdec_mutex);
-				if (&vdec->list == &core->connected_vdec_list)
-					vdec = NULL;
 
-				if (vdec)
-					break;
-			}
+				if (!vdec) {
+					mutex_lock(&vdec_mutex);
 
-			if (!vdec) {
-				mutex_lock(&vdec_mutex);
-				/* search from beginning */
-				list_for_each_entry(vdec, &core->connected_vdec_list, list) {
-					struct vdec_s *last_vdec;
-					sched_mask = vdec_schedule_mask(vdec, core->sched_mask);
+					/* search from beginning */
+					list_for_each_entry(vdec, &core->connected_vdec_list, list) {
+						struct vdec_s *last_vdec;
+						sched_mask = vdec_schedule_mask(vdec, core->sched_mask);
 
-					if (core->vdec_combine_flag == 0)
-						sched_mask &= (1 << i);
+						if (core->vdec_combine_flag == 0)
+							sched_mask &= (1 << i);
 
-					if (debug & 0x8)
-						pr_info("%s id:%d vdec sched_mask 0x%lx, sched_mask 0x%lx\n",
-							__func__, vdec->id, vdec->sched_mask, sched_mask);
+						if (debug & 0x8)
+							pr_info("%s id:%d vdec sched_mask 0x%lx, sched_mask 0x%lx\n",
+								__func__, vdec->id, vdec->sched_mask, sched_mask);
 
-					if (core->vdec_combine_flag != 0)
-						last_vdec = core->last_run_vdec;
-					else
-						last_vdec = vdec_get_last_vdec(i);
+						if (core->vdec_combine_flag != 0)
+							last_vdec = core->last_run_vdec;
+						else
+							last_vdec = vdec_get_last_vdec(i);
 
-					if (vdec == last_vdec) {
-						if (!sched_mask) {
-							vdec = NULL;
+						if ((vdec == last_vdec) &&
+							(vdec_core->enable_sched_priority == 0)) {
+							if (!sched_mask) {
+								vdec = NULL;
+								break;
+							}
+
+							sched_mask = vdec_ready_to_run(vdec, sched_mask);
+							if (!sched_mask) {
+								vdec = NULL;
+							}
 							break;
 						}
 
+						if (!sched_mask)
+							continue;
+
 						sched_mask = vdec_ready_to_run(vdec, sched_mask);
-						if (!sched_mask) {
-							vdec = NULL;
+						if (sched_mask) {
+							if (!vdec_core->enable_sched_priority ||
+								vdec->sched_priority == priority) {
+								break;
+							} else
+								continue;
 						}
-						break;
+					}
+					mutex_unlock(&vdec_mutex);
+
+					if (&vdec->list == &core->connected_vdec_list) {
+						vdec = NULL;
 					}
 
-					if (!sched_mask)
-						continue;
-
-					sched_mask = vdec_ready_to_run(vdec, sched_mask);
-					if (sched_mask)
+					if (vdec)
 						break;
 				}
-				mutex_unlock(&vdec_mutex);
-
-				if (&vdec->list == &core->connected_vdec_list)
-					vdec = NULL;
-
-				if (vdec)
-					break;
 			}
+
+			if (vdec)
+				break;
 		}
 
 		worker = vdec;
@@ -6367,6 +6453,8 @@ static ssize_t debug_store(KV_CLASS_CONST struct class *class,
 		prog_only ^= 1;
 		pr_info("set prog only %d, %s output\n",
 			prog_only, prog_only?"force one filed only":"interlace");
+	} else if (strcmp(cbuf, "priority") == 0) {
+		vdec_set_sched_priority(id, val);
 	}
 
 	flags = vdec_core_lock(vdec_core);
@@ -6412,6 +6500,8 @@ static ssize_t debug_show(KV_CLASS_CONST struct class *class,
 		"read_hevc_clk_reg - read HHI register for hevc clk\n");
 	pbuf += sprintf(pbuf,
 		"no_interlace - force v4l no_interlace output. %d\n", prog_only);
+	pbuf += sprintf(pbuf,
+		"priority - set schedule priority to vdec\n");
 	pbuf += sprintf(pbuf,
 		"===================\n");
 
@@ -7005,21 +7095,23 @@ static ssize_t core_show(KV_CLASS_CONST struct class *class, KV_CLASS_ATTR_CONST
 		struct vdec_s *vdec;
 
 		pbuf += sprintf(pbuf,
-			" Core: last_sched %p, sched_mask %lx, vdec_combine_flag %d\n",
+			" Core: last_sched %p, sched_mask %lx, vdec_combine_flag %d, enable_sched_priority %d\n",
 			core->last_vdec,
 			core->sched_mask,
-			core->vdec_combine_flag);
+			core->vdec_combine_flag,
+			core->enable_sched_priority);
 
 		list_for_each_entry(vdec, &core->connected_vdec_list, list) {
 			pbuf += sprintf(pbuf,
-				"\tvdec.%d (%p (%s%s)), status = %s,\ttype = %s, \tactive_mask = %lx\n",
+				"\tvdec.%d (%p (%s%s)), status = %s,\ttype = %s, \tactive_mask = %lx, sched_priority = %d\n",
 				vdec->id,
 				vdec,
 				vdec_device_name[vdec->format * 2],
 				(vdec->is_v4l == 1) ? "_v4l" : "",
 				vdec_status_str(vdec),
 				vdec_type_str(vdec),
-				vdec->active_mask);
+				vdec->active_mask,
+				vdec->sched_priority);
 		}
 	}
 
