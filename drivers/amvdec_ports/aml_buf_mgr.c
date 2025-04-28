@@ -1134,6 +1134,8 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 	struct aml_buf *buf;
 
 	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
+
+	mutex_lock(&bc->mutex);
 	*entry = NULL;
 	hash_for_each_safe(bc->buf_table, bucket, h_tmp, entry1, h_node) {
 		if (entry1->unbind) {
