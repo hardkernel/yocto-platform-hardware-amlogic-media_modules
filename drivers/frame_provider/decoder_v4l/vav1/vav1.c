@@ -3844,7 +3844,7 @@ static void config_mpred_hw(struct AV1HW_s *hw, unsigned char inter_flag)
 		cur_pic_config->mpred_mv_wr_start_addr);
 
 	if (inter_flag) {
-		for (i = 0; i < mv_cal_tpl_count; i++) {
+		for (i = 0; i < mv_cal_tpl_count && i < MFMV_STACK_SIZE; i++) {
 			PIC_BUFFER_CONFIG *pic_config =
 			av1_get_ref_frame_spec_buf(cm, mv_ref_id[i]);
 			if (pic_config == NULL)

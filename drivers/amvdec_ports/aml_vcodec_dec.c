@@ -4637,7 +4637,7 @@ int aml_uvm_buff_attach(struct vb2_buffer * vb)
 {
 	int ret = 0;
 	struct dma_buf *dbuf = vb->planes[0].dbuf;
-	struct uvm_hook_mod_info u_info;
+	struct uvm_hook_mod_info u_info = {0};
 	struct aml_vcodec_ctx *ctx =
 		vb2_get_drv_priv(vb->vb2_queue);
 	struct aml_uvm_buff_ref *ubuf = NULL;
