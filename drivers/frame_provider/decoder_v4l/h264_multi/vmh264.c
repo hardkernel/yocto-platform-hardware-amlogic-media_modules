@@ -13067,7 +13067,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	config_decode_mode(hw);
 	vdec_enable_input(vdec);
 	if (enable_hw_timer)
-		WRITE_VREG(NAL_SEARCH_CTL, 1 << 3);
+		WRITE_VREG(NAL_SEARCH_CTL, 1 << 16);
 	else
 		WRITE_VREG(NAL_SEARCH_CTL, 0);
 
