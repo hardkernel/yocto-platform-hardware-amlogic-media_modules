@@ -1,47 +1,28 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
 
+
+# decoder ko format to be compiled
 TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
+TARGET_VENDOR_MEDIA_VC1_SUPPORT = True
+TARGET_VENDOR_MEDIA_H264_SUPPORT = True
+TARGET_VENDOR_MEDIA_H265_SUPPORT = True
+TARGET_VENDOR_MEDIA_MPEG2_SUPPORT = True
+TARGET_VENDOR_MEDIA_MPEG4_SUPPORT = True
+TARGET_VENDOR_MEDIA_VP9_SUPPORT = True
+TARGET_VENDOR_MEDIA_MJPEG_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS2_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS3_SUPPORT = True
+TARGET_VENDOR_MEDIA_AV1_SUPPORT = True
 
 outs_common = [
     "amvdec_ports/amvdec_ports.ko",
         "common/firmware/firmware.ko",
         "common/media_clock/media_clock.ko",
-        "frame_provider/decoder/avs2/amvdec_avs2.ko",
-        "frame_provider/decoder/avs2_fb/amvdec_avs2_fb.ko",
-        "frame_provider/decoder/avs3/amvdec_avs3.ko",
-        "frame_provider/decoder/avs_multi/amvdec_mavs.ko",
-        "frame_provider/decoder/h264_multi/amvdec_mh264.ko",
-        "frame_provider/decoder/h264_mvc/amvdec_h264mvc.ko",
-        "frame_provider/decoder/h265/amvdec_h265.ko",
-        "frame_provider/decoder/h265_fb/amvdec_h265_fb.ko",
-        "frame_provider/decoder/mjpeg/amvdec_mmjpeg.ko",
-        "frame_provider/decoder/mpeg12/amvdec_mmpeg12.ko",
-        "frame_provider/decoder/mpeg4/amvdec_mmpeg4.ko",
         "frame_provider/decoder/avbcd/amvdec_avbcd.ko",
         "frame_provider/decoder/utils/amvdec_debug_port.ko",
         "frame_provider/decoder/utils/decoder_common.ko",
-        "frame_provider/decoder_v4l/avs2/amvdec_avs2_v4l.ko",
-        "frame_provider/decoder_v4l/avs2_fb/amvdec_avs2_fb_v4l.ko",
-        "frame_provider/decoder_v4l/avs3/amvdec_avs3_v4l.ko",
-        "frame_provider/decoder_v4l/avs_multi/amvdec_mavs_v4l.ko",
-        "frame_provider/decoder_v4l/h264_multi/amvdec_mh264_v4l.ko",
-        "frame_provider/decoder_v4l/h265/amvdec_h265_v4l.ko",
-        "frame_provider/decoder_v4l/h265_fb/amvdec_h265_fb_v4l.ko",
-        "frame_provider/decoder_v4l/mjpeg/amvdec_mmjpeg_v4l.ko",
-        "frame_provider/decoder_v4l/mpeg12/amvdec_mmpeg12_v4l.ko",
-        "frame_provider/decoder_v4l/mpeg4/amvdec_mmpeg4_v4l.ko",
-        "frame_provider/decoder_v4l/vav1/amvdec_av1_v4l.ko",
-        "frame_provider/decoder_v4l/vav1_fb/amvdec_av1_fb_v4l.ko",
-        "frame_provider/decoder_v4l/vav1_t5d/amvdec_av1_t5d_v4l.ko",
-        "frame_provider/decoder_v4l/vp9/amvdec_vp9_v4l.ko",
-        "frame_provider/decoder_v4l/vp9_fb/amvdec_vp9_fb_v4l.ko",
-        "frame_provider/decoder/vav1/amvdec_av1.ko",
-        "frame_provider/decoder/vav1_fb/amvdec_av1_fb.ko",
-        "frame_provider/decoder/vc1/amvdec_vc1.ko",
-        "frame_provider/decoder_v4l/vc1/amvdec_vc1_v4l.ko",
-        "frame_provider/decoder/vp9/amvdec_vp9.ko",
-        "frame_provider/decoder/vp9_fb/amvdec_vp9_fb.ko",
         "frame_provider/aml_dhp/aml_dhp.ko",
         "framerate_adapter/video_framerate_adapter.ko",
         "frame_sink/encoder/common/encoder_common.ko",
@@ -62,7 +43,81 @@ outs_h266 = [
     "frame_provider/decoder_v4l/h266/amvdec_h266_v4l.ko",
 ]
 
+outs_vc1 = [
+    "frame_provider/decoder/vc1/amvdec_vc1.ko",
+    "frame_provider/decoder_v4l/vc1/amvdec_vc1_v4l.ko",
+]
+
+outs_h264 = [
+    "frame_provider/decoder/h264_multi/amvdec_mh264.ko",
+    "frame_provider/decoder/h264_mvc/amvdec_h264mvc.ko",
+    "frame_provider/decoder_v4l/h264_multi/amvdec_mh264_v4l.ko",
+]
+
+outs_h265 = [
+    "frame_provider/decoder/h265/amvdec_h265.ko",
+    "frame_provider/decoder/h265_fb/amvdec_h265_fb.ko",
+    "frame_provider/decoder_v4l/h265/amvdec_h265_v4l.ko",
+    "frame_provider/decoder_v4l/h265_fb/amvdec_h265_fb_v4l.ko",
+]
+
+outs_mpeg12 = [
+    "frame_provider/decoder/mpeg12/amvdec_mmpeg12.ko",
+    "frame_provider/decoder_v4l/mpeg12/amvdec_mmpeg12_v4l.ko",
+]
+outs_mpeg4 = [
+    "frame_provider/decoder_v4l/mpeg4/amvdec_mmpeg4_v4l.ko",
+    "frame_provider/decoder/mpeg4/amvdec_mmpeg4.ko",
+]
+outs_vp9 = [
+    "frame_provider/decoder_v4l/vp9/amvdec_vp9_v4l.ko",
+    "frame_provider/decoder_v4l/vp9_fb/amvdec_vp9_fb_v4l.ko",
+    "frame_provider/decoder/vp9/amvdec_vp9.ko",
+    "frame_provider/decoder/vp9_fb/amvdec_vp9_fb.ko",
+]
+outs_mjpeg = [
+    "frame_provider/decoder/mjpeg/amvdec_mmjpeg.ko",
+    "frame_provider/decoder_v4l/mjpeg/amvdec_mmjpeg_v4l.ko",
+]
+
+outs_avs = [
+    "frame_provider/decoder/avs_multi/amvdec_mavs.ko",
+    "frame_provider/decoder_v4l/avs_multi/amvdec_mavs_v4l.ko",
+]
+
+outs_avs2 = [
+    "frame_provider/decoder/avs2/amvdec_avs2.ko",
+    "frame_provider/decoder/avs2_fb/amvdec_avs2_fb.ko",
+    "frame_provider/decoder_v4l/avs2/amvdec_avs2_v4l.ko",
+    "frame_provider/decoder_v4l/avs2_fb/amvdec_avs2_fb_v4l.ko",
+]
+
+outs_avs3 = [
+    "frame_provider/decoder/avs3/amvdec_avs3.ko",
+    "frame_provider/decoder_v4l/avs3/amvdec_avs3_v4l.ko",
+]
+
+outs_av1 = [
+    "frame_provider/decoder_v4l/vav1/amvdec_av1_v4l.ko",
+    "frame_provider/decoder_v4l/vav1_fb/amvdec_av1_fb_v4l.ko",
+    "frame_provider/decoder_v4l/vav1_t5d/amvdec_av1_t5d_v4l.ko",
+    "frame_provider/decoder/vav1/amvdec_av1.ko",
+    "frame_provider/decoder/vav1_fb/amvdec_av1_fb.ko",
+]
 outs = outs_common + (outs_h266 if TARGET_VENDOR_MEDIA_VVC_SUPPORT else [])
+outs = outs + (outs_vc1 if TARGET_VENDOR_MEDIA_VC1_SUPPORT else [])
+
+outs = outs + (outs_h264 if TARGET_VENDOR_MEDIA_H264_SUPPORT else [])
+outs = outs + (outs_h265 if TARGET_VENDOR_MEDIA_H265_SUPPORT else [])
+outs = outs + (outs_mpeg12 if TARGET_VENDOR_MEDIA_MPEG2_SUPPORT else [])
+outs = outs + (outs_mpeg4 if TARGET_VENDOR_MEDIA_MPEG4_SUPPORT else [])
+outs = outs + (outs_vp9 if TARGET_VENDOR_MEDIA_VP9_SUPPORT else [])
+outs = outs + (outs_mjpeg if TARGET_VENDOR_MEDIA_MJPEG_SUPPORT else [])
+outs = outs + (outs_avs if TARGET_VENDOR_MEDIA_AVS_SUPPORT else [])
+outs = outs + (outs_avs2 if TARGET_VENDOR_MEDIA_AVS2_SUPPORT else [])
+outs = outs + (outs_avs3 if TARGET_VENDOR_MEDIA_AVS3_SUPPORT else [])
+outs = outs + (outs_av1 if TARGET_VENDOR_MEDIA_AV1_SUPPORT else [])
+
 
 kernel_module(
     name = "media",
