@@ -850,6 +850,10 @@ enum NalUnitType {
 #define DECODE_MODE_MULTI_DVBAL				0x3
 #define DECODE_MODE_MULTI_DVENL				0x4
 
+#define EE_ASSIST_MBOX0_IRQ_REG    0x3f70
+#define EE_ASSIST_MBOX0_CLR_REG    0x3f71
+#define EE_ASSIST_MBOX0_MASK       0x3f72
+
 #define MAX_INT 0x7FFFFFFF
 
 #define RPM_BEGIN                                              0x100
@@ -1943,6 +1947,12 @@ struct hevc_state_s {
 	struct timeval start;
 	struct timeval end;
 	u32 count;
+	uint32_t ASSIST_MBOX0_IRQ_REG;
+	uint32_t ASSIST_MBOX0_CLR_REG;
+	uint32_t ASSIST_MBOX0_MASK;
+	uint32_t backend_ASSIST_MBOX0_IRQ_REG;
+	uint32_t backend_ASSIST_MBOX0_CLR_REG;
+	uint32_t backend_ASSIST_MBOX0_MASK;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -8910,7 +8920,7 @@ static void avbcd_check_timer_func(struct timer_list *timer)
 						hevc->error_watchdog_count = 0;
 						hevc->error_skip_nal_wt_cnt = 0;
 						hevc->error_system_watchdog_count++;
-						WRITE_VREG(HEVC_ASSIST_MBOX0_IRQ_REG, 0x1);
+						WRITE_VREG(hevc->ASSIST_MBOX0_IRQ_REG, 0x1);
 					}
 				} else if (hevc->error_flag == 2) {
 					int th = error_handle_nal_skip_threshold;
@@ -8919,7 +8929,7 @@ static void avbcd_check_timer_func(struct timer_list *timer)
 						hevc->error_flag = 3;
 						hevc->error_watchdog_count = 0;
 						hevc->error_skip_nal_wt_cnt = 0;
-						WRITE_VREG(HEVC_ASSIST_MBOX0_IRQ_REG, 0x1);
+						WRITE_VREG(hevc->ASSIST_MBOX0_IRQ_REG, 0x1);
 					}
 				}
 			}
@@ -8962,7 +8972,7 @@ static void avbcd_check_timer_func(struct timer_list *timer)
 		debug &= ~AVBCD_DEBUG_DUMP_PIC_LIST;
 	}
 	if (get_dbg_flag(hevc) & AVBCD_DEBUG_TRIG_SLICE_SEGMENT_PROC) {
-		WRITE_VREG(HEVC_ASSIST_MBOX0_IRQ_REG, 0x1);
+		WRITE_VREG(hevc->ASSIST_MBOX0_IRQ_REG, 0x1);
 		debug &= ~AVBCD_DEBUG_TRIG_SLICE_SEGMENT_PROC;
 	}
 
@@ -9028,7 +9038,7 @@ static int avbcd_task_handle(void *data)
 			init_buf_spec(hevc);
 			hevc->pic_list_init_flag = 2;
 			hevc_print(hevc, 0, "set pic_list_init_flag to 2\n");
-			WRITE_VREG(HEVC_ASSIST_MBOX0_IRQ_REG, 0x1);
+			WRITE_VREG(hevc->ASSIST_MBOX0_IRQ_REG, 0x1);
 		}
 
 		if (hevc->uninit_list) {
@@ -10137,7 +10147,7 @@ static void avbcd_work_implement(struct hevc_state_s *hevc,
 		init_buf_spec(hevc);
 		hevc_print(hevc, 0, "set pic_list_init_flag to 2\n");
 
-		WRITE_VREG(HEVC_ASSIST_MBOX0_IRQ_REG, 0x1);
+		WRITE_VREG(hevc->ASSIST_MBOX0_IRQ_REG, 0x1);
 		return;
 	}
 
@@ -11211,6 +11221,26 @@ static void avbcd_dump_state(struct vdec_s *vdec)
 
 }
 
+static void config_hevc_irq_num(struct hevc_state_s *hevc)
+{
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X)) {
+		hevc->ASSIST_MBOX0_IRQ_REG = EE_ASSIST_MBOX0_IRQ_REG;
+		hevc->ASSIST_MBOX0_CLR_REG = EE_ASSIST_MBOX0_CLR_REG;
+		hevc->ASSIST_MBOX0_MASK    = EE_ASSIST_MBOX0_MASK;
+		hevc->backend_ASSIST_MBOX0_IRQ_REG = HEVC_ASSIST_MBOX0_IRQ_REG;
+		hevc->backend_ASSIST_MBOX0_CLR_REG = HEVC_ASSIST_MBOX0_CLR_REG;
+		hevc->backend_ASSIST_MBOX0_MASK    = HEVC_ASSIST_MBOX0_MASK;
+	} else {
+		hevc->ASSIST_MBOX0_IRQ_REG = HEVC_ASSIST_MBOX0_IRQ_REG;
+		hevc->ASSIST_MBOX0_CLR_REG = HEVC_ASSIST_MBOX0_CLR_REG;
+		hevc->ASSIST_MBOX0_MASK    = HEVC_ASSIST_MBOX0_MASK;
+		hevc->backend_ASSIST_MBOX0_IRQ_REG = EE_ASSIST_MBOX0_IRQ_REG;
+		hevc->backend_ASSIST_MBOX0_CLR_REG = EE_ASSIST_MBOX0_CLR_REG;
+		hevc->backend_ASSIST_MBOX0_MASK    = EE_ASSIST_MBOX0_MASK;
+	}
+}
+
 static int ammvdec_avbcd_probe(struct platform_device *pdev)
 {
 	struct vdec_s *pdata = *(struct vdec_s **)pdev->dev.platform_data;
@@ -11256,6 +11286,7 @@ static int ammvdec_avbcd_probe(struct platform_device *pdev)
 
 	hevc->index = pdev->id;
 	hevc->m_ins_flag = 1;
+	config_hevc_irq_num(hevc);
 
 	if (is_rdma_enable()) {
 		hevc->rdma_adr = decoder_dma_alloc_coherent(&hevc->rdma_mem_handle,

@@ -1054,7 +1054,9 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 	}
 
 	if (!(avbcd_work_mode & 0x8000)) {
-		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6)
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6) ||
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6D) ||
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X))
 			avbcd_work_mode |= 0x10;
 		else if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W)
 			avbcd_work_mode = 0xc;
@@ -1142,7 +1144,7 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 	g_wrapper = wrapper;
 	*pwrapper = wrapper;
 
-	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s success! avbcd_work_mode %d\n", __func__, avbcd_work_mode);
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s success! avbcd_work_mode 0x%x\n", __func__, avbcd_work_mode);
 
 	mutex_unlock(&avbc_mutex);
 
