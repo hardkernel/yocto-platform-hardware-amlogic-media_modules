@@ -2642,6 +2642,15 @@ static int vidioc_decoder_reqbufs(struct file *file, void *priv,
 					ctx->vpp_size);
 			//rb->count = ctx->dpb_size;
 		}
+
+		if (rb->count > 0 && ctx->bm.config.enable_fbc) {
+			/* get page size */
+			if (!vdec_if_get_param(ctx, GET_PARAM_COMP_BUF_INFO, &ctx->comp_info)) {
+				decoder_mmu_box_set_limited_size(ctx->bm.mmu, rb->count,
+					ctx->comp_info.frame_buffer_size);
+			}
+		}
+
 		ctx->v4l_reqbuff_flag = true;
 		ctx->capture_memory_mode = rb->memory;
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,

@@ -51,4 +51,6 @@ int decoder_mmu_box_init(void);
 
 void decoder_mmu_box_exit(void);
 
+int decoder_mmu_box_set_limited_size(void *handle, int num, int frame_size);
+
 #endif

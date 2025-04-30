@@ -33,6 +33,9 @@
 #include <linux/platform_device.h>
 #include "../../../common/media_utils/media_kernel_version.h"
 
+static int mmu_percent = 100;
+MEDIA_PARAM(mmu_percent, int, 0644);
+
 extern int is_mmu_copy_enable(void);
 
 struct sc_list_expand {
@@ -46,6 +49,7 @@ struct decoder_mmu_box {
 	const char *name;
 	int channel_id;
 	int tvp_mode;
+	int owner_id;
 	struct mutex mutex;
 	struct list_head list;
 	struct sc_list_expand exp_sc_list;
@@ -54,6 +58,8 @@ struct decoder_mmu_box {
 #define MAX_KEEP_FRAME 4
 #define START_KEEP_ID 0x9
 #define MAX_KEEP_ID    (INT_MAX - 1)
+#define SCATTER_OWNER_NAME "decoder"
+
 struct decoder_mmu_box_mgr {
 	int num;
 	struct mutex mutex;
@@ -99,6 +105,27 @@ int decoder_mmu_box_sc_check(void *handle, int is_tvp)
 }
 EXPORT_SYMBOL(decoder_mmu_box_sc_check);
 
+void decoder_mmu_box_set_limited_size(void *handle, int num, int frame_size)
+{
+	struct decoder_mmu_box *box = handle;
+	int ret;
+	int limited_size;
+
+	if (!box) {
+		pr_err("can't set limited size:%d\n", frame_size);
+		return;
+	}
+
+	limited_size = frame_size + (num - 1) * frame_size * mmu_percent / 100;
+	pr_debug("frame_num is %d, frame_size is %d limited_size is %d\n",
+		num, frame_size, limited_size);
+	ret = codec_mm_scatter_set_limited_size(box->owner_id, limited_size, box->tvp_mode);
+	if (ret < 0)
+		pr_err("decoder mmu box set limited_size fail ret is %d\n", ret);
+
+	return;
+}
+EXPORT_SYMBOL(decoder_mmu_box_set_limited_size);
 
 void *decoder_mmu_box_alloc_box(const char *name,
 	int channel_id,
@@ -129,6 +156,8 @@ void *decoder_mmu_box_alloc_box(const char *name,
 	box->exp_sc_list.index = -1;
 	box->sc_list = (struct codec_mm_scatter **)(box + 1);
 	INIT_LIST_HEAD(&box->exp_sc_list.sc_list);
+	box->owner_id = codec_mm_scatter_owner_register(SCATTER_OWNER_NAME,
+		0, box->tvp_mode);
 
 	mutex_init(&box->mutex);
 	INIT_LIST_HEAD(&box->list);
@@ -337,6 +366,7 @@ int decoder_mmu_box_free(void *handle)
 		box->exp_num--;
 	}
 
+	codec_mm_scatter_owner_unregister(box->owner_id, box->tvp_mode);
 	codec_mm_scatter_mgt_delay_free_switch(0, 0, 0, box->tvp_mode);
 
 	mutex_unlock(&box->mutex);
