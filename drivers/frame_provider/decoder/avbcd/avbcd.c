@@ -5625,7 +5625,6 @@ static void config_mpred_hw(struct hevc_state_s *hevc)
 
 static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 {
-	struct vdec_s *vdec = hw_to_vdec(hevc);
 	unsigned int data32, data32_2;
 	int misc_flag0 = hevc->misc_flag0;
 	int slice_deblocking_filter_disabled_flag = 0;
@@ -5956,8 +5955,6 @@ static void config_sao_hw(struct hevc_state_s *hevc, union param_u *params)
 		data32 |= (2 << 8);
 	}
 
-	hevc_print(hevc, AVBCD_DEBUG_BUFMGR,
-				"format 0x%x, nv12: 0x%x\n", vdec->avbc_info.format, AML_PIX_FMT_NV12);
 	//if (!vdec->avbc_info.format || vdec->avbc_info.format == AML_PIX_FMT_NV12)
 	SET_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
 	/*
