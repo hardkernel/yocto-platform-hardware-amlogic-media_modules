@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/version.h>
 #include <linux/amlogic/media/utils/amstream.h>
 #include <linux/amlogic/media/frame_sync/ptsserv.h>
 #include <linux/amlogic/media/vfm/vframe.h>
@@ -34,6 +35,11 @@
 #include <linux/amlogic/media/vfm/vframe_receiver.h>
 #include <linux/amlogic/media/canvas/canvas.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
+#include <linux/amlogic/meson_uvm_allocator.h>
+#else
+#include <linux/amlogic/media/meson_uvm_allocator.h>
+#endif
 #include <uapi/linux/tee.h>
 #include <linux/sched/clock.h>
 #include <linux/amlogic/media/codec_mm/configs.h>
@@ -841,8 +847,17 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 
-	if (v4l2_ctx->enable_di_post && pic->pic_info & INTERLACE_FLAG)
+	if (v4l2_ctx->enable_di_post && pic->pic_info & INTERLACE_FLAG) {
+		struct mua_buffer *mbuf = NULL;
+		struct uvm_buf_obj *obj = NULL;
+
+		obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
+		mbuf = container_of(obj, struct mua_buffer, base);
+		aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
+		dma_buf_put(mbuf->idmabuf[0]);
+		mbuf->idmabuf[0] = NULL;
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+	}
 
 	if (pic->pic_info & INTERLACE_FLAG) {
 		if (kfifo_get(&hw->newframe_q, &vf) == 0) {
@@ -3597,5 +3612,6 @@ module_exit(ammvdec_mpeg4_driver_remove_module);
 
 MODULE_DESCRIPTION("AMLOGIC MPEG4 Video Decoder Driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(DMA_BUF);
 MODULE_AUTHOR("Tim Yao <timyao@amlogic.com>");
 

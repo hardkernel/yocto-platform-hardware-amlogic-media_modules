@@ -370,6 +370,7 @@ struct buf_core_mgr_s {
 
 	int			buf_num;
 	int			internal_num;
+	u32			unbind_num;
 	DECLARE_HASHTABLE(buf_table, BUF_HASH_BITS);
 	int			dma_num;
 	int			dma_free_num;

@@ -26,6 +26,7 @@
 #include <linux/kfifo.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 #include <linux/amlogic/media/utils/amstream.h>
 #include <linux/amlogic/media/frame_sync/ptsserv.h>
 #include <linux/amlogic/media/canvas/canvas.h>
@@ -34,6 +35,11 @@
 #include <linux/amlogic/media/vfm/vframe.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/configs.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
+#include <linux/amlogic/meson_uvm_allocator.h>
+#else
+#include <linux/amlogic/media/meson_uvm_allocator.h>
+#endif
 #include <linux/amlogic/tee.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
@@ -3674,8 +3680,17 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 
-	if (v4l2_ctx->enable_di_post && hw->interlace_flag)
+	if (v4l2_ctx->enable_di_post && hw->interlace_flag) {
+		struct mua_buffer *mbuf = NULL;
+		struct uvm_buf_obj *obj = NULL;
+
+		obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
+		mbuf = container_of(obj, struct mua_buffer, base);
+		aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
+		dma_buf_put(mbuf->idmabuf[0]);
+		mbuf->idmabuf[0] = NULL;
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+	}
 
 	if (hw->interlace_flag &&
 		(v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post)) {	/* interlace */
@@ -5995,4 +6010,5 @@ module_exit(ammvdec_avs_driver_remove_module);
 
 MODULE_DESCRIPTION("AMLOGIC AVS Video Decoder Driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(DMA_BUF);
 MODULE_AUTHOR("Qi Wang <qi.wang@amlogic.com>");

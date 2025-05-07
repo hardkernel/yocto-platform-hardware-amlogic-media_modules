@@ -417,7 +417,7 @@ static void buf_core_reset_dma(struct buf_core_mgr_s *bc)
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = bc->dma[i];
-		if (dma->dec_ref && !dma->inited) {
+		if (dma->dec_ref && dma->inited) {
 			if (!atomic_dec_return(&dma->ref)) {
 				list_add_tail(&dma->node, &bc->dma_free_que);
 				bc->dma_free_num++;
@@ -1171,6 +1171,7 @@ static void buf_core_reset(struct buf_core_mgr_s *bc)
 
 	bc->free_num = 0;
 	bc->internal_num = 0;
+	bc->unbind_num = 0;
 
 	mutex_unlock(&bc->mutex);
 }

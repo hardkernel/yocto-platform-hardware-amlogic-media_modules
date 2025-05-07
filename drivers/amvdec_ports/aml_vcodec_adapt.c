@@ -554,6 +554,8 @@ int aml_codec_reset(struct aml_vdec_adapt *ada_ctx, int *mode)
 			*mode = V4L_RESET_MODE_LIGHT;
 			aml_buf_init_dma(&ada_ctx->ctx->bm);
 			aml_buf_clean_dma(&ada_ctx->ctx->bm);
+			ada_ctx->ctx->replaced_frame_num = 0;
+			ada_ctx->ctx->alloced_yuv_num = 0;
 		} else
 			vdec_set_eos(vdec, false);
 

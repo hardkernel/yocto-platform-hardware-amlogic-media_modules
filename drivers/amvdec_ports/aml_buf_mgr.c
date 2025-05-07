@@ -1146,23 +1146,10 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 	struct aml_buf *buf;
 
 	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
-
 	mutex_lock(&bc->mutex);
 	*entry = NULL;
 	hash_for_each_safe(bc->buf_table, bucket, h_tmp, entry1, h_node) {
 		if (entry1->unbind) {
-			v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-				"%s(entry %px), user:%d, key:%lx, st:(%d, %d), ref:(%d, %d), free:%d\n",
-				__func__,
-				entry,
-				entry1->user,
-				entry1->key,
-				entry1->state,
-				bc->state,
-				atomic_read(&entry1->ref),
-				kref_read(&bc->core_ref),
-				bc->free_num);
-
 			entry1->ref_bit_map = 0;
 			entry1->master_entry = NULL;
 			entry1->pair = 0;
@@ -1177,8 +1164,23 @@ static void aml_get_unbind_dmabuf(struct buf_core_mgr_s *bc, struct buf_core_ent
 			buf->pair = 0;
 			buf->pair_state = 0;
 			buf->inited = 0;
-
+			buf->unbind = false;
+			bc->unbind_num--;
 			*entry = entry1;
+
+			v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
+				"%s(entry %px, unbind %d), user:%d, key:%lx, st:(%d, %d), ref:(%d, %d), free:%d\n",
+				__func__,
+				entry1,
+				bc->unbind_num,
+				entry1->user,
+				entry1->key,
+				entry1->state,
+				bc->state,
+				atomic_read(&entry1->ref),
+				kref_read(&bc->core_ref),
+				bc->free_num);
+
 			break;
 		}
 	}
@@ -1189,15 +1191,22 @@ static void aml_set_unbind_dmabuf(struct buf_core_mgr_s *bc, ulong key)
 {
 	struct buf_core_entry *entry;
 	struct hlist_node *tmp;
+	struct aml_buf *buf;
 
 	mutex_lock(&bc->mutex);
 	hash_for_each_possible_safe(bc->buf_table, entry, tmp, h_node, key) {
 		if (key == entry->key) {
+			entry->unbind = true;
+			bc->unbind_num++;
+			buf = entry_to_aml_buf(entry);
+			buf->unbind = entry->unbind;
+
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-				"%s(entry %px), user:%d, key:%lx, phy:%lx idx:%d, "
+				"%s(entry %px, unbind %d), user:%d, key:%lx, phy:%lx idx:%d, "
 				"st:(%d, %d), ref:(%d, %d, %d), free:%d\n",
 				__func__,
 				entry,
+				bc->unbind_num,
 				entry->user,
 				entry->key,
 				entry->phy_addr,
@@ -1209,7 +1218,6 @@ static void aml_set_unbind_dmabuf(struct buf_core_mgr_s *bc, ulong key)
 				kref_read(&bc->core_ref),
 				bc->free_num);
 
-			entry->unbind = true;
 			break;
 		}
 	}

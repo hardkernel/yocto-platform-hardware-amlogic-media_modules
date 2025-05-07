@@ -30,6 +30,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/sched/clock.h>
+#include <linux/version.h>
 #include <linux/amlogic/media/frame_sync/ptsserv.h>
 #include <linux/amlogic/media/utils/amstream.h>
 #include <linux/amlogic/media/canvas/canvas.h>
@@ -38,6 +39,11 @@
 #include <linux/amlogic/media/vfm/vframe_receiver.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/configs.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
+#include <linux/amlogic/meson_uvm_allocator.h>
+#else
+#include <linux/amlogic/media/meson_uvm_allocator.h>
+#endif
 #include <linux/vmalloc.h>
 #include <media/v4l2-mem2mem.h>
 #include <uapi/linux/tee.h>
@@ -1972,8 +1978,17 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 				!((error_skip(hw, pic->buffer_info, vf)) ||
 				(((hw->first_i_frame_ready == 0) || pb_skip) &&
 				((PICINFO_TYPE_MASK & pic->buffer_info) !=
-				 PICINFO_TYPE_I))))
+				 PICINFO_TYPE_I)))) {
+				struct mua_buffer *mbuf = NULL;
+				struct uvm_buf_obj *obj = NULL;
+
+				obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
+				mbuf = container_of(obj, struct mua_buffer, base);
+				aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
+				dma_buf_put(mbuf->idmabuf[0]);
+				mbuf->idmabuf[0] = NULL;
 				aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+			}
 		}
 	}
 
@@ -5162,5 +5177,5 @@ module_exit(ammvdec_mpeg12_driver_remove_module);
 
 MODULE_DESCRIPTION("AMLOGIC MULTI MPEG1/2 Video Decoder Driver");
 MODULE_LICENSE("GPL");
-
+MODULE_IMPORT_NS(DMA_BUF);
 

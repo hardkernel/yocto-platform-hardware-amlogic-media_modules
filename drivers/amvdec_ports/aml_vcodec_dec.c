@@ -2145,6 +2145,32 @@ static struct sg_table *aml_uvm_alloc_sgt(struct sg_table *src_table)
 }
 #endif
 
+static bool is_there_enough_yuv_dmabuf(struct aml_vcodec_ctx *ctx, struct dma_buf *dbuf)
+{
+	struct uvm_buf_obj *obj = NULL;
+	struct mua_buffer *mbuf = NULL;
+
+	obj = dmabuf_get_uvm_buf_obj(dbuf);
+	mbuf = container_of(obj, struct mua_buffer, base);
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+				"replaced_frame_num(%d), dpb_frames(%d), dpb_margin(%d), dpb_size(%d), dma_free_num(%d), alloced_yuv_num(%d)\n",
+				ctx->replaced_frame_num,
+				ctx->picinfo.dpb_frames,
+				ctx->picinfo.dpb_margin,
+				ctx->dpb_size,
+				ctx->bm.bc.dma_free_num,
+				ctx->alloced_yuv_num);
+	if (ctx->alloced_yuv_num < (ctx->picinfo.dpb_frames + ctx->picinfo.dpb_margin))
+		return true;
+	if (ctx->bm.bc.dma_free_num)
+		return true;
+	if ((ctx->replaced_frame_num > ctx->dpb_size) &&
+		mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
+		return true;
+
+	return false;
+}
+
 static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 				  struct vb2_v4l2_buffer *vb)
 {
@@ -2184,11 +2210,25 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 		!is_vdec_core_fmt(ctx->output_pix_fmt))
 		return 0;
 
+	if (!ctx->master_buf && !is_there_enough_yuv_dmabuf(ctx, dbuf)) {
+		if (mbuf->idmabuf[0]) {
+			aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
+			dma_buf_put(mbuf->idmabuf[0]);
+			mbuf->idmabuf[0] = NULL;
+		}
+		if (!buf->aml_buf->unbind)
+			aml_buf_set_unbind_dmabuf(&ctx->bm, buf->aml_buf);
+		return -1;
+	}
+
 	/* free fake dma buffer. */
 	if (mbuf->idmabuf[0]) {
 		aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
 		dma_buf_put(mbuf->idmabuf[0]);
 	}
+
+	if (mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
+		ctx->replaced_frame_num++;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 				"dma buffer size(fake: %zu, real: %d), idmabuf[0] %px\n",
@@ -2264,6 +2304,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 				aml_buf_alloc_dma(&ctx->bm, &dma);
 				dma->dmabuf = (ulong)idbuf;
 				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+				ctx->alloced_yuv_num = dma->index + 1;
 			}
 
 			if (IS_ERR(idbuf) || !idbuf->priv) {
@@ -2309,6 +2350,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 
 				dma->dmabuf = (ulong)idbuf;
 				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+				ctx->alloced_yuv_num = dma->index + 1;
 
 				/* create attachment for the dmabuf with the user device */
 				dba = dma_buf_attach(idbuf, dev);
@@ -4749,29 +4791,31 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		struct aml_buf *aml_buf = buf->aml_buf;
 		struct aml_buf *buf_pair;
 		struct vframe_s *vf;
-		struct sg_table *sgt;
 		ulong pyh_addr;
+		struct device *dev = vb->vb2_queue->alloc_devs[0] ? :
+							vb->vb2_queue->dev;
 
 		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
-			sgt = vb2_dma_sg_plane_desc(vb, 0);
-			pyh_addr = sg_dma_address(sgt->sgl);
+			pyh_addr = prepare_get_addr(vb->planes[0].dbuf, dev);
 
 			ret = aml_buf_attach(&ctx->bm, (ulong)vb->planes[0].dbuf,
 				pyh_addr, vb);
 			if (ret)
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"aml_buf_attach fail!\n");
-			aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+			ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
 			aml_buf = buf->aml_buf;
-			v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-				"%s pair_state %d pyh_addr %lx\n", __func__,
-				buf->aml_buf->pair_state, pyh_addr);
-			if (buf->aml_buf->pair_state == SUB0_DONE) {
+			if (!ret && (buf->aml_buf->pair_state == MASTER_DONE ||
+				buf->aml_buf->pair_state == SUB0_DONE)) {
 				struct vb2_v4l2_buffer *vb2_v4l2;
-				buf_pair = aml_buf_get_unbind_dmabuf(&ctx->bm);
-				if (buf_pair) {
+				for (; buf->aml_buf->pair_state < PAIR_DONE && !ret;) {
+					buf_pair = aml_buf_get_unbind_dmabuf(&ctx->bm);
+					if (!buf_pair || ret)
+						break;
 					vb2_v4l2 = container_of(buf_pair->vb, struct vb2_v4l2_buffer, vb2_buf);
-					aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+					ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+					if (ret)
+						break;
 					if (buf_pair->master_buf)
 						buf_pair = (struct aml_buf *)buf_pair->master_buf;
 					aml_buf_put_ref(&ctx->bm, buf_pair);
@@ -4828,7 +4872,12 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			CTX_BUF_TOTAL(ctx) + ctx->out_buff_cnt - ctx->in_buff_cnt);
 		vdec_tracing(&ctx->vtr, VTRACE_V4L_PIC_4, vb->index);
 
-		aml_buf_fill(&ctx->bm, aml_buf, BUF_USER_VSINK);
+		if (!aml_buf->unbind)
+			aml_buf_fill(&ctx->bm, aml_buf, BUF_USER_VSINK);
+		else
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
+						"%s unbind buf(%d)\n",
+						__func__, aml_buf->index);
 
 		vdec_thread_wakeup(ctx->ada_ctx);
 
@@ -5112,13 +5161,19 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 				"aml_buf_attach fail!\n");
 			return ret;
 		}
-		aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
-		if (buf->aml_buf->pair_state == SUB0_DONE) {
+
+		ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+		if (!ret && (buf->aml_buf->pair_state == MASTER_DONE ||
+			buf->aml_buf->pair_state == SUB0_DONE)) {
 			struct vb2_v4l2_buffer *vb2_v4l2;
-			am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
-			if (am_buf) {
+			for (; buf->aml_buf->pair_state < PAIR_DONE && !ret;) {
+				am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
+				if (!am_buf || ret)
+					break;
 				vb2_v4l2 = container_of(am_buf->vb, struct vb2_v4l2_buffer, vb2_buf);
-				aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+				ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+				if (ret)
+					break;
 				if (am_buf->master_buf)
 					am_buf = (struct aml_buf *)am_buf->master_buf;
 				aml_buf_put_ref(&ctx->bm, am_buf);

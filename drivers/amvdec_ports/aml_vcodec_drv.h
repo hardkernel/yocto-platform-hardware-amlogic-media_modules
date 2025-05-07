@@ -1187,6 +1187,8 @@ struct aml_vcodec_ctx {
 	void			*k_producer_session;
 	int			avbcd_work_mode;
 	void			 *avbc_wrapper;
+	u32			alloced_yuv_num;
+	u32			replaced_frame_num;
 };
 
 /**

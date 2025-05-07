@@ -76,6 +76,11 @@
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 #include "../../../amvdec_ports/aml_vcodec_avbc_wrapper.h"
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
+#include <linux/amlogic/meson_uvm_allocator.h>
+#else
+#include <linux/amlogic/media/meson_uvm_allocator.h>
+#endif
 
 #define DETECT_WRONG_MULTI_SLICE
 #define MCRCC_ENABLE
@@ -3785,11 +3790,21 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 
 		return -1;
 	}
+
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm)
-		&& vf_count == 2 && frame->show_frame)
+		&& vf_count == 2 && frame->show_frame) {
+		struct mua_buffer *mbuf = NULL;
+		struct uvm_buf_obj *obj = NULL;
+
+		obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
+		mbuf = container_of(obj, struct mua_buffer, base);
+		aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->buf_adr, sub1_buf->entry.key, false);
+		dma_buf_put(mbuf->idmabuf[0]);
+		mbuf->idmabuf[0] = NULL;
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+	}
 
 	for (i = 0; i < vf_count; i++) {
 		if (kfifo_get(&hw->newframe_q, &vf) == 0 || vf == NULL) {
@@ -14305,3 +14320,4 @@ module_exit(ammvdec_h264_driver_remove_module);
 
 MODULE_DESCRIPTION("AMLOGIC H264 Video Decoder Driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(DMA_BUF);

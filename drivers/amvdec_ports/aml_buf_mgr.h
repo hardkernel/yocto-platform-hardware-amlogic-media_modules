@@ -198,6 +198,7 @@ struct aml_buf {
 	u32			pair_state;
 	u32			inited;
 	u32			queued_mask;
+	bool			unbind;
 	struct buf_core_dma 	*dma;
 };
 
