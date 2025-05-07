@@ -1,4 +1,5 @@
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select")
 
 ddk_module(
     name = "hw_demux",
@@ -23,7 +24,7 @@ ddk_module(
 		"ENABLE_DEMUX_DRIVER",
 		],
     out = "aml_hardware_dmx.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
 	"//driver_modules/media_modules:stream_input",

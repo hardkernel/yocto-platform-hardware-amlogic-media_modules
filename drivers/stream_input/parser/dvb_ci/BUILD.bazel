@@ -1,4 +1,5 @@
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select")
 
 ddk_module(
     name = "ci",
@@ -19,7 +20,7 @@ ddk_module(
     local_defines = [
 		],
     out = "ci.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
 		"//driver_modules/media_modules:media_clock",

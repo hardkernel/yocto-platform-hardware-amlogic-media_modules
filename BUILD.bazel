@@ -1,5 +1,5 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
-load("//common_drivers/project/kernel:kernel_select.bzl", "kernel_select")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select")
 
 TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
 
@@ -140,7 +140,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[media_clock]: \" fmt"],
     out = "media_clock.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -162,7 +162,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[firmware]: \" fmt"],
     out = "firmware.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -183,7 +183,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[pts_server]: \" fmt"],
     out = "pts_server.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -240,7 +240,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[decoder_common]: \" fmt"],
     out = "decoder_common.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -273,7 +273,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[stream_input]: \" fmt"],
     out = "stream_input.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -300,7 +300,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[video_framerate_adapter]: \" fmt"],
     out = "video_framerate_adapter.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -357,9 +357,10 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_ports]: \" fmt"],
     out = "amvdec_ports.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
+        "//common_drivers/drivers/uvm:aml_uvm",
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -385,7 +386,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[aml_dhp]: \" fmt"],
     out = "aml_dhp.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -408,7 +409,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_debug_port]: \" fmt"],
     out = "amvdec_debug_port.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -431,7 +432,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1]: \" fmt"],
     out = "amvdec_av1.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -460,7 +461,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb]: \" fmt"],
     out = "amvdec_av1_fb.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -487,7 +488,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_v4l]: \" fmt"],
     out = "amvdec_av1_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -516,7 +517,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb_v4l]: \" fmt"],
     out = "amvdec_av1_fb_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -543,7 +544,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_t5d_v4l]: \" fmt"],
     out = "amvdec_av1_t5d_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -570,7 +571,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2]: \" fmt"],
     out = "amvdec_avs2.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -600,7 +601,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb]: \" fmt"],
     out = "amvdec_avs2_fb.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -627,7 +628,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_v4l]: \" fmt"],
     out = "amvdec_avs2_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -655,7 +656,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb_v4l]: \" fmt"],
     out = "amvdec_avs2_fb_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -690,7 +691,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3]: \" fmt"],
     out = "amvdec_avs3.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -724,7 +725,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3_v4l]: \" fmt"],
     out = "amvdec_avs3_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -751,7 +752,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265]: \" fmt"],
     out = "amvdec_h265.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -778,7 +779,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb]: \" fmt"],
     out = "amvdec_h265_fb.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -805,7 +806,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_v4l]: \" fmt"],
     out = "amvdec_h265_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -831,7 +832,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb_v4l]: \" fmt"],
     out = "amvdec_h265_fb_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -861,7 +862,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h266]: \" fmt"],
     out = "amvdec_h266.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -891,7 +892,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h266_v4l]: \" fmt"],
     out = "amvdec_h266_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -919,7 +920,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs]: \" fmt"],
     out = "amvdec_avs.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -946,7 +947,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_avs_v4l]: \" fmt"],
     out = "amvdec_avs_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -973,7 +974,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264]: \" fmt"],
     out = "amvdec_mh264.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1000,7 +1001,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264_v4l]: \" fmt"],
     out = "amvdec_mh264_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1027,7 +1028,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_h264mvc]: \" fmt"],
     out = "amvdec_h264mvc.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1051,7 +1052,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg]: \" fmt"],
     out = "amvdec_mmjpeg.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1076,7 +1077,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg_v4l]: \" fmt"],
     out = "amvdec_mmjpeg_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1101,7 +1102,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12]: \" fmt"],
     out = "amvdec_mmpeg12.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1127,7 +1128,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12_v4l]: \" fmt"],
     out = "amvdec_mmpeg12_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1153,7 +1154,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4]: \" fmt"],
     out = "amvdec_mmpeg4.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1178,7 +1179,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4_v4l]: \" fmt"],
     out = "amvdec_mmpeg4_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1204,7 +1205,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1]: \" fmt"],
     out = "amvdec_vc1.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1229,7 +1230,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt"],
     out = "amvdec_vc1_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1255,7 +1256,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9]: \" fmt"],
     out = "amvdec_vp9.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1283,7 +1284,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb]: \" fmt"],
     out = "amvdec_vp9_fb.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1311,7 +1312,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_v4l]: \" fmt"],
     out = "amvdec_vp9_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1338,7 +1339,7 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb_v4l]: \" fmt"],
     out = "amvdec_vp9_fb_v4l.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/media:aml_media",
@@ -1363,7 +1364,7 @@ ddk_module(
     ],
     local_defines = ["pr_fmt(fmt)=\"[media_sync]: \" fmt"],
     out = "media_sync.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",

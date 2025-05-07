@@ -44,7 +44,7 @@ ddk_module(
     local_defines = [
 		],
     out = "t5d-dvb-demux.ko",
-    kernel_build = "//common_drivers:amlogic",
+    kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
 		"//driver_modules/media_modules:stream_input",
