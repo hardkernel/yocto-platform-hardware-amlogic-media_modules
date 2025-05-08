@@ -6439,6 +6439,11 @@ static void vav1_vf_put(struct vframe_s *vf, void *op_arg)
 	int index;
 	unsigned long flags;
 
+	if (!vf) {
+		av1_print(hw, AOM_DEBUG_VFRAME, "%s vf is NULL!\n", __func__);
+		return;
+	}
+
 	if (vf->meta_data_buf) {
 		vf->meta_data_buf = NULL;
 		vf->meta_data_size = 0;

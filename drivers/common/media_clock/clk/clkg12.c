@@ -1087,6 +1087,7 @@ u32 force_dos_support;
 MEDIA_PARAM(force_dos_support, uint, 0664);
 
 u32 register_debug;
+EXPORT_SYMBOL(register_debug);
 MEDIA_PARAM(register_debug, uint, 0664);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)

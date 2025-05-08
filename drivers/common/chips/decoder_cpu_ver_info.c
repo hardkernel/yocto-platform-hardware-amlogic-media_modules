@@ -567,6 +567,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_p010 = true,
 		.is_support_monitor = true,
 		.is_vdec_hevc_combine = true,
+		.is_support_avbc_wrapper = true,
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3 | FMT_H266,
