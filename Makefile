@@ -52,6 +52,7 @@ endif
 
 
 EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/drivers/include
+INTER_INCLUDE := -I$(MEDIA_MODULE_PATH)/drivers/common/media_utils
 
 CONFIGS_BUILD := -Wno-parentheses-equality -Wno-pointer-bool-conversion \
 				-Wno-unused-const-variable -Wno-typedef-redefinition \
@@ -68,7 +69,7 @@ endif
 include $(out_dir)/include/config/auto.conf
 
 modules:
-	$(MAKE) -C  $(KERNEL_SRC) M=$(M)/drivers modules "EXTRA_CFLAGS+=-I$(INCLUDE) -Wno-error $(CONFIGS_BUILD) $(EXTRA_INCLUDE) $(KBUILD_CFLAGS_MODULE) ${VERSION_CONTROL_CFLAGS} ${MEDIA_MODULES_CFLAGS}" $(CONFIGS)
+	$(MAKE) -C  $(KERNEL_SRC) M=$(M)/drivers modules "EXTRA_CFLAGS+=-I$(INCLUDE) -Wno-error $(CONFIGS_BUILD) $(EXTRA_INCLUDE) $(INTER_INCLUDE) $(KBUILD_CFLAGS_MODULE) ${VERSION_CONTROL_CFLAGS} ${MEDIA_MODULES_CFLAGS}" $(CONFIGS)
 
 all: modules
 
