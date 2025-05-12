@@ -83,7 +83,6 @@
 #endif
 
 #define DETECT_WRONG_MULTI_SLICE
-#define MCRCC_ENABLE
 
 /*
 to enable DV of frame mode
@@ -712,6 +711,8 @@ struct res_info {
 	u32 param1;
 	u32 param4;
 	u32 dpb_size;
+	u32 max_ref_size;
+	u32 is_interlace;
 };
 
 struct vdec_h264_hw_s {
@@ -1047,6 +1048,8 @@ struct vdec_h264_hw_s {
 	u32 res_change_need_double_check;
 	u32 csd_info_count;
 	bool v4l_report_ud_flag;
+	u32 field;
+	u32 bForceInterlace;
 };
 
 #define TIMEOUT_INIT 0
@@ -6525,6 +6528,103 @@ static void vh264_config_canvs_for_mmu(struct vdec_h264_hw_s *hw)
 	}
 }
 
+static int check_ip_change(struct vdec_h264_hw_s *hw, u32 param1, u32 param2)
+{
+	int mb_width, mb_total;
+	int mb_height = 0;
+
+	u32 frame_mbs_only_flag;
+	u32 chroma_format_idc;
+	u32 crop_bottom, crop_right;
+	int sub_width_c = 0, sub_height_c = 0;
+	u32 frame_width, frame_height;
+	u32 field;
+
+
+	mb_width = param1 & 0xff;
+	mb_total = (param1 >> 8) & 0xffff;
+	if (!mb_width && mb_total) /*for 4k2k*/
+		mb_width = 256;
+	if (mb_width)
+		mb_height = mb_total/mb_width;
+	if (mb_width <= 0 || mb_height <= 0 ||
+		is_oversize(mb_width << 4, mb_height << 4)) {
+		dpb_print(DECODE_ID(hw), 0,
+			"!!!wrong param1 0x%x mb_width/mb_height (0x%x/0x%x) %x\r\n",
+			param1,
+			mb_width,
+			mb_height);
+		hw->error_frame_width = mb_width << 4;
+		hw->error_frame_height = mb_height << 4;
+		return -1;
+	}
+
+	/*
+	 * crop
+	 * AV_SCRATCH_2
+	 * bit 15: frame_mbs_only_flag
+	 * bit 13-14: chroma_format_idc
+	 */
+	hw->seq_info = param2;
+	frame_mbs_only_flag = (hw->seq_info >> 15) & 0x01;
+	if (hw->dpb.mSPS.profile_idc != 100 &&
+		hw->dpb.mSPS.profile_idc != 110 &&
+		hw->dpb.mSPS.profile_idc != 122 &&
+		hw->dpb.mSPS.profile_idc != 144) {
+		hw->dpb.chroma_format_idc = 1;
+	}
+	chroma_format_idc = hw->dpb.chroma_format_idc;
+
+	/*
+	 * AV_SCRATCH_6 bit 31-16 =  (left	<< 8 | right ) << 1
+	 * AV_SCRATCH_6 bit 15-0 =	(top << 8  | bottom ) <<
+	 *							(2 - frame_mbs_only_flag)
+	 */
+	switch (chroma_format_idc) {
+		case 1:
+			sub_width_c = 2;
+			sub_height_c = 2;
+			break;
+
+		case 2:
+			sub_width_c = 2;
+			sub_height_c = 1;
+			break;
+
+		case 3:
+			sub_width_c = 1;
+			sub_height_c = 1;
+			break;
+
+		default:
+			break;
+	}
+
+	if (chroma_format_idc == 0) {
+		crop_right = hw->dpb.frame_crop_right_offset;
+		crop_bottom = hw->dpb.frame_crop_bottom_offset *
+			(2 - frame_mbs_only_flag);
+	} else {
+		crop_right = sub_width_c * hw->dpb.frame_crop_right_offset;
+		crop_bottom = sub_height_c * hw->dpb.frame_crop_bottom_offset *
+			(2 - frame_mbs_only_flag);
+	}
+
+	frame_width = mb_width << 4;
+	frame_height = mb_height << 4;
+
+	frame_width = frame_width - crop_right;
+	frame_height = frame_height - crop_bottom;
+
+
+	field = (!hw->is_interlace) && frame_mbs_only_flag ?
+		V4L2_FIELD_NONE : V4L2_FIELD_INTERLACED;
+	field = check_force_interlace(hw, frame_width, frame_height) ?
+		V4L2_FIELD_INTERLACED : field;
+
+	return (hw->field != field);
+}
+
 static int vh264_set_params(struct vdec_h264_hw_s *hw,
 	u32 param1, u32 param2, u32 param3, u32 param4, bool buffer_reset_flag, bool reset_flags)
 {
@@ -6596,8 +6696,8 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 		dec_dpb_size_change = hw->dpb.dec_dpb_size!= get_dec_dpb_size_active(hw, param1, param4);
 
 	if ((((seq_info2 != 0 &&
-		(hw->last_res_info.param1 & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
-		hw->last_res_info.param1 != 0
+		(hw->last_res_info.param1 & 0xffffff) != (param1 & 0xffffff)) || dec_dpb_size_change ||
+		check_ip_change(hw, param1, param2)) && hw->last_res_info.param1 != 0
 		) && (!hw->res_ch_flag)) { /*picture size changed*/
 		h264_reconfig(hw);
 	} else {
@@ -6630,6 +6730,15 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 				hw->dpb.dec_dpb_size,
 				hw->num_reorder_frames,
 				used_reorder_dpb_size_margin);
+			/*hw->bForceInterlace is only updated when reporting a resolution switch event.*/
+			if (hw->bForceInterlace &&
+				(hw->is_interlace != hw->last_res_info.is_interlace) &&
+				(hw->last_res_info.max_ref_size !=
+				((param1 >> 24) & 0xf))) {
+				flush_dpb(p_H264_Dpb);
+				bufmgr_h264_remove_unused_frame(p_H264_Dpb, 0);
+				update_ref_list(&p_H264_Dpb->mDPB);
+			}
 		}
 
 		hw->max_reference_size =
@@ -7933,9 +8042,9 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				}
 			}
 			p_H264_Dpb->wait_aux_data_flag = ((!hw->discard_dv_data) && (hw->frmbase_cont_flag));
-				ret = store_picture_in_dpb(p_H264_Dpb,
-					p_H264_Dpb->mVideo.dec_picture,
-					hw->data_flag | hw->dec_flag |
+			ret = store_picture_in_dpb(p_H264_Dpb,
+				p_H264_Dpb->mVideo.dec_picture,
+				hw->data_flag | hw->dec_flag |
 				p_H264_Dpb->mVideo.dec_picture->data_flag);
 
 			if (ret == -1) {
@@ -11642,7 +11751,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 
 	frame_width = frame_width - crop_right;
 	frame_height = frame_height - crop_bottom;
-
+	hw->bForceInterlace	= check_force_interlace(hw, frame_width, frame_height);
 	ps->profile 		= level_idc;
 	ps->ref_frames 		= max_reference_size;
 	ps->mb_width 		= mb_width;
@@ -11657,8 +11766,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	ps->dpb_size		= active_buffer_spec_num;
 	ps->field = (!hw->is_interlace) && frame_mbs_only_flag ?
 		V4L2_FIELD_NONE : V4L2_FIELD_INTERLACED;
-	ps->field = check_force_interlace(hw, frame_width, frame_height) ?
-		V4L2_FIELD_INTERLACED : ps->field;
+	ps->field = hw->bForceInterlace ? V4L2_FIELD_INTERLACED : ps->field;
 
 	/* open mmu if progressive and double_write is 0x10*/
 	if ((hw->double_write_mode != DM_YUV_ONLY) && (!hw->dw_para_set_flag)) {
@@ -11761,6 +11869,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 		}
 	}
 
+	hw->field = ps->field;
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 		"Res:%dx%d, DPB size:%d, margin:%d, scan:%s\n",
 		ps->visible_width, ps->visible_height,
@@ -11857,8 +11966,8 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 	if (ctx->param_sets_from_ucode &&
 			hw->res_ch_flag == 0) {
 		if (((param1 != 0 &&
-			(hw->last_res_info.param1 & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
-			hw->last_res_info.param1 != 0) { /*picture size changed*/
+			(hw->last_res_info.param1 & 0xffffff) != (param1 & 0xffffff)) || dec_dpb_size_change ||
+			check_ip_change(hw, param1, param2)) && hw->last_res_info.param1 != 0) { /*picture size changed*/
 			struct aml_vdec_ps_infos ps = {0};
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 				"h264 res_change\n");
@@ -12093,6 +12202,8 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 						}
 						hw->last_res_info.param1 = param1;
 						hw->last_res_info.param4 = param4;
+						hw->last_res_info.max_ref_size = (param1 >> 24) & 0xf;
+						hw->last_res_info.is_interlace = hw->is_interlace;
 					}
 					amvdec_stop();
 					if (hw->mmu_enable && !is_vdec_hevc_combine()) {
@@ -12118,6 +12229,8 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 					hw->csd_error_flag = 0;
 					hw->csd_restore_flag = false;
 					hw->csd_restore_timeout_num = 0;
+					hw->last_res_info.max_ref_size = (param1 >> 24) & 0xf;
+					hw->last_res_info.is_interlace = hw->is_interlace;
 
 					WRITE_VREG(AV_SCRATCH_0, (hw->max_reference_size<<24) |
 						(hw->dpb.mDPB.size<<16) |
@@ -12146,6 +12259,8 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 			hw->csd_error_flag = 0;
 			hw->csd_restore_flag = false;
 			hw->csd_restore_timeout_num = 0;
+			hw->last_res_info.max_ref_size = (param1 >> 24) & 0xf;
+			hw->last_res_info.is_interlace = hw->is_interlace;
 
 			WRITE_VREG(AV_SCRATCH_0, (hw->max_reference_size<<24) |
 				(hw->dpb.mDPB.size<<16) |
@@ -13408,9 +13523,6 @@ static void h264_reset_bufmgr_v4l(struct vdec_s *vdec, int flush_flag, bool rese
 		else
 			hw->stat &= (~DECODER_FATAL_ERROR_SIZE_OVERFLOW);
 	}
-	/*drop 3 frames after reset bufmgr if bit0 is set 1 */
-	if (first_i_policy & 0x01)
-		hw->first_i_policy = (3 << 8) | first_i_policy;
 
 	p_H264_Dpb->first_insert_frame = FirstInsertFrm_RESET;
 	p_H264_Dpb->poc_even_odd_flag  = 0;
