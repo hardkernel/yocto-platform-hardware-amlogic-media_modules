@@ -3061,8 +3061,9 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 							if (done_cmdbuf_node)
 								restart_cmdbuf =
 									(struct cmdbuf_obj *)done_cmdbuf_node->data;
-							if (restart_cmdbuf)
+							if (restart_cmdbuf) {
 								PDEBUG("Set restart cmdbuf [%d] via if.\n", restart_cmdbuf->cmdbuf_id);
+							}
 						} else {
 							last_cmdbuf_node = new_cmdbuf_node;
 							/* cmd buf num from aborted cmd buf to current cmdbuf_obj_temp */
@@ -5490,8 +5491,9 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 	spin_unlock_irqrestore(dev->spinlock, flags);
 	if (cmdbuf_processed_num)
 		wake_up_interruptible_all(dev->wait_queue);
-	if (!handled)
+	if (!handled) {
 		PDEBUG("IRQ received, but not hantro's!\n");
+	}
 	return IRQ_HANDLED;
 }
 

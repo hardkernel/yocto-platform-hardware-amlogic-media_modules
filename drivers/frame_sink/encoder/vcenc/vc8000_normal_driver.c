@@ -1426,8 +1426,9 @@ static irqreturn_t hantroenc_isr(int irq, void *dev_id)
         wake_up_interruptible_all(&enc_wait_queue);
         handled++;
     }
-    if (!handled)
+    if (!handled) {
         PDEBUG("IRQ received, but not hantro's!\n");
+    }
     return IRQ_HANDLED;
 }
 
