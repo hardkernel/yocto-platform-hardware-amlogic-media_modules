@@ -52,6 +52,7 @@
 #include <linux/timer.h>
 #include <uapi/linux/tee.h>
 #include <media/v4l2-mem2mem.h>
+#include <linux/amlogic/media/utils/am_com.h>
 
 #include "../../../common/chips/decoder_cpu_ver_info.h"
 #include "../../../stream_input/amports/amports_priv.h"

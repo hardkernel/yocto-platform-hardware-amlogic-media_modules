@@ -2113,6 +2113,7 @@ static void aml_uvm_copy_sgt(struct sg_table *dst_table,
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 static struct sg_table *aml_uvm_alloc_sgt(struct sg_table *src_table)
 {
 	struct sg_table *dst_table = NULL;
@@ -2142,6 +2143,7 @@ static struct sg_table *aml_uvm_alloc_sgt(struct sg_table *src_table)
 
 	return dst_table;
 }
+#endif
 
 static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 				  struct vb2_v4l2_buffer *vb)
@@ -2164,7 +2166,9 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	struct sg_table *cap_sgt;
 	struct aml_uvm_buff_ref *ubuf = (struct aml_uvm_buff_ref *)am_buf->uvm_buf;
 	struct sg_table *sgt;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	struct dma_buf_attachment *dba = NULL;
+#endif
 	struct buf_core_dma *dma = NULL;
 
 	if ((vb->vb2_buf.memory != VB2_MEMORY_DMABUF) ||

@@ -33,6 +33,10 @@
 #include "utils/common.h"
 #include <linux/amlogic/media/video_processor/di_proc_buf_mgr.h>
 #include <linux/amlogic/media/dmabuf_heaps/amlogic_dmabuf_heap.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+#include <linux/ion.h>
+#endif
+
 
 #define IS_VPP_POST(bm)	(bm->config.vpp_work_mode == VPP_WORK_MODE_DI_POST)
 
@@ -121,7 +125,11 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	struct file *file;
 	struct dma_buf *dmabuf;
 	struct dma_buf *uvm_dmabuf;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+	struct ion_buffer *buffer;
+#else
 	struct codec_mm_heap_buffer *buffer;
+#endif
 	int ret = -1;
 
 	vf->index_disp	= bm->frm_cnt;
@@ -134,7 +142,11 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	if (buf->dma && bc->is_dynamic_mode_init(bc)) {
 		dmabuf = (struct dma_buf *)buf->dma->dmabuf;
 		file = dmabuf->file;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+		buffer = (struct ion_buffer *)dmabuf->priv;
+#else
 		buffer = (struct codec_mm_heap_buffer *)dmabuf->priv;
+#endif
 		buffer->priv = (void *)entry->key;
 		uvm_dmabuf = (struct dma_buf *)buffer->priv;
 	} else
