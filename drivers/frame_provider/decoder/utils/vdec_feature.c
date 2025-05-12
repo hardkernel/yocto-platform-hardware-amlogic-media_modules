@@ -375,6 +375,30 @@ static int vcodec_feature_no_head_mode(u8 *buf, int size, int vformat, int is_v4
 	return pbuf - buf;
 }
 
+static int vcodec_feature_avbcd_mode(u8 *buf, int size, int vformat, int is_v4l)
+{
+	u8 *pbuf = buf;
+
+	if (!is_v4l)
+		return 0;
+
+	if (!is_support_avbc_wrapper())
+		return 0;
+
+	switch (vformat) {
+		case VFORMAT_HEVC:
+		case VFORMAT_VP9:
+		case VFORMAT_AV1:
+		case VFORMAT_H264:
+			pbuf += snprintf(pbuf, size, "        \"AVBCD mode\" : true,\n");
+			break;
+		default:
+			break;
+	}
+
+	return pbuf - buf;
+}
+
 int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 {
 	u8 *pbuf = buf;
@@ -458,6 +482,10 @@ int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 	pbuf += s;
 
 	s = vcodec_feature_no_head_mode(pbuf, size - tsize, vformat, is_v4l);
+	tsize += s;
+	pbuf += s;
+
+	s = vcodec_feature_avbcd_mode(pbuf, size - tsize, vformat, is_v4l);
 	tsize += s;
 	pbuf += s;
 	/*s = snprintf(pbuf, size - tsize, "        \"UcodeVersionRequest\" : \"0.3.10\",\n");
