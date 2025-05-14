@@ -399,6 +399,78 @@ static int vcodec_feature_avbcd_mode(u8 *buf, int size, int vformat, int is_v4l)
 	return pbuf - buf;
 }
 
+static int vcodec_feature_profile_and_level(u8 *buf, int size, int vformat, int is_v4l) {
+	u8 *pbuf = buf;
+
+	// NOTE: hard code, according to chip.c:vcodec_profile_level_init(), may be need modified together
+	switch (vformat)
+	{
+		case VFORMAT_MPEG12:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\"],\n");
+			break;
+		case VFORMAT_MPEG4:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"ASP\"],\n");
+			break;
+		case VFORMAT_H264:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Baseline\", \"Main\", \"High\"],\n");
+			break;
+		case VFORMAT_MJPEG:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"unlimited pixel resolution\"],\n");
+			break;
+		case VFORMAT_REAL:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Softdec\"],\n");
+			break;
+		case VFORMAT_JPEG:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"unlimited pixel resolution\"],\n");
+			break;
+		case VFORMAT_VC1:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Simple\", \"Main\", \"Advanced\"],\n");
+			break;
+		case VFORMAT_AVS:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"JiZhun Profile\"],\n");
+			break;
+		case VFORMAT_YUV:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Softdec\"],\n");
+			break;
+		case VFORMAT_H264MVC:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\", \"Main10\", \"High\"],\n");
+			break;
+		case VFORMAT_H264_4K2K:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Baseline\", \"Main\", \"High\"],\n");
+			break;
+		case VFORMAT_HEVC:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\", \"Main10\"],\n");
+			break;
+		case VFORMAT_H264_ENC:
+			break;
+		case VFORMAT_JPEG_ENC:
+			break;
+		case VFORMAT_VP9:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Profile-0\", \"Profile-2\"],\n");
+			break;
+		case VFORMAT_AVS2:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main picture\", \"Main\", \"Main10\"],\n");
+			break;
+		case VFORMAT_AV1:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\", \"Main10\"],\n");
+			break;
+		case VFORMAT_AVS3:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\", \"Main10\"],\n");
+			break;
+		case VFORMAT_H266:
+			pbuf += snprintf(pbuf, size, "        \"profile\" : [\"Main\", \"Main10\"],\n");
+			break;
+		default:
+			break;
+	}
+
+	if (pbuf != buf) {
+		pbuf += snprintf(pbuf, size, "        \"level\" : %d,\n", get_level_of_format(vformat));
+	}
+
+	return pbuf - buf;
+}
+
 int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 {
 	u8 *pbuf = buf;
@@ -488,6 +560,18 @@ int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 	s = vcodec_feature_avbcd_mode(pbuf, size - tsize, vformat, is_v4l);
 	tsize += s;
 	pbuf += s;
+
+	s = vcodec_feature_profile_and_level(pbuf, size - tsize, vformat, is_v4l);
+	tsize += s;
+	pbuf += s;
+
+	// erase last ','    ',\n' -- > '\n'
+	pbuf -= 2;
+	tsize -= 2;
+	s = snprintf(pbuf, size - tsize, "\n");
+	tsize += s;
+	pbuf += s;
+
 	/*s = snprintf(pbuf, size - tsize, "        \"UcodeVersionRequest\" : \"0.3.10\",\n");
 	tsize += s;
 	pbuf += s;
@@ -516,7 +600,12 @@ ssize_t vcodec_feature_read(char *buf)
 		pbuf += vcodec_feature_get_feature(pbuf, PAGE_SIZE - (pbuf - buf),
 			feature[read_count].format, feature[read_count].is_v4l);
 		read_count++;
+
 		if (read_count >= vcodec_feature_idx) {
+
+			pbuf -= 2;
+			pbuf += snprintf(pbuf, PAGE_SIZE - (pbuf - buf), "\n");
+
 			read_count = 0;
 			pbuf += snprintf(pbuf, PAGE_SIZE - (pbuf - buf), "}");
 		}

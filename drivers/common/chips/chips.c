@@ -53,6 +53,7 @@ EXPORT_SYMBOL(check_efuse_chip);
 
 static int codec_profile_desc_init(char *desc, int format)
 {
+	// NOTE: vdec_feature.c:vcodec_feature_profile_and_level  is translated from follow array, please modify it together if need.
 	const char *vformat_profile[] = {
 		"MPEG-1, MPEG-2 MP/HL",
 		"MPEG-4 ASP",

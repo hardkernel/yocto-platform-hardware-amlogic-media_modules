@@ -239,6 +239,8 @@ inline u32 get_format_max_resolution(int format);
 
 enum ResResult format_resolution_fatal_error(int format, int w, int h);
 
+inline int get_level_of_format(int format);
+
 /* hardware features */
 inline bool is_support_no_parser(void);
 
