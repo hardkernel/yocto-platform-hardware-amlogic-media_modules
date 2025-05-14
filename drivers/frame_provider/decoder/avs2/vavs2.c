@@ -6241,7 +6241,7 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 		goto irq_handled_exit;
 	} else if ((dec_status == HEVC_DECPIC_DATA_DONE)
 		|| (dec_status == HEVC_DECPIC_DATA_ERROR)) {
-		if (efficiency_mode) {
+		if (efficiency_mode && (dec_status == HEVC_DECPIC_DATA_DONE)) {
 			if (!wait_for_completion_timeout(&dec->complete, msecs_to_jiffies(34)))
 				avs2_print(dec, 0, "!!!wait for completion timeout %d\n", __LINE__);
 		}

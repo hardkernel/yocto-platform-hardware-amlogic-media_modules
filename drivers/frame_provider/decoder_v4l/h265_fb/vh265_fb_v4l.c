@@ -13067,7 +13067,7 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 
 		return IRQ_HANDLED;
 	} else if (dec_status == HEVC_DECPIC_DATA_DONE || ((dec_status == HEVC_OVER_DECODE) && (hevc->front_back_mode == 1))) {
-		if (efficiency_mode) {
+		if (efficiency_mode && (dec_status == HEVC_DECPIC_DATA_DONE)) {
 			if (!wait_for_completion_timeout(&hevc->complete, msecs_to_jiffies(34)))
 				hevc_print(hevc, 0, "!!!wait for completion timeout %d\n", __LINE__);
 		}

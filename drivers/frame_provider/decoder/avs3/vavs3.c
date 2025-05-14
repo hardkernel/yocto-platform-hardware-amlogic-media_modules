@@ -7549,7 +7549,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 		struct avs3_frame_s *pic = dec->avs3_dec.cur_pic;
 		u32 shiftbytes = 0;
 
-		if ((dec->front_back_mode == 1) && efficiency_mode) {
+		if ((dec->front_back_mode == 1) && efficiency_mode && (dec_status == HEVC_DECPIC_DATA_DONE)) {
 			if (!wait_for_completion_timeout(&dec->complete, msecs_to_jiffies(34)))
 				avs3_print(dec, 0, "!!!wait for completion timeout %d\n", __LINE__);
 		}
@@ -8449,20 +8449,12 @@ decode_slice:
 			config_sao_hw_fb(dec);
 			config_alf_hw_fb(dec);
 			// 4x4
-			WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR, 64); // default seq_wq_matrix_4x4 begin address
-			for (i = 0; i < 16; i++) WRITE_VREG(HEVC_IQIT_SCALELUT_DATA, g_WqMDefault4x4[i]);
+			WRITE_BACK_8(avs3_dec, HEVC_IQIT_SCALELUT_WR_ADDR, 64); // default seq_wq_matrix_4x4 begin address
+			for (i = 0; i < 16; i++) WRITE_BACK_8(avs3_dec, HEVC_IQIT_SCALELUT_DATA, g_WqMDefault4x4[i]);
 
 			// 8x8
-			WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR, 0); // default seq_wq_matrix_8x8 begin address
-			for (i = 0; i < 64; i++) WRITE_VREG(HEVC_IQIT_SCALELUT_DATA, g_WqMDefault8x8[i]);
-
-			// 4x4
-			WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR_DBE1, 64); // default seq_wq_matrix_4x4 begin address
-			for (i = 0; i < 16; i++) WRITE_VREG(HEVC_IQIT_SCALELUT_DATA_DBE1, g_WqMDefault4x4[i]);
-
-			// 8x8
-			WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR_DBE1, 0); // default seq_wq_matrix_8x8 begin address
-			for (i = 0; i < 64; i++) WRITE_VREG(HEVC_IQIT_SCALELUT_DATA_DBE1, g_WqMDefault8x8[i]);
+			WRITE_BACK_8(avs3_dec, HEVC_IQIT_SCALELUT_WR_ADDR, 0); // default seq_wq_matrix_8x8 begin address
+			for (i = 0; i < 64; i++) WRITE_BACK_8(avs3_dec, HEVC_IQIT_SCALELUT_DATA, g_WqMDefault8x8[i]);
 
 			WRITE_BACK_RET(avs3_dec);
 			avs3_print(dec, AVS3_DBG_BUFMGR_MORE,
