@@ -118,6 +118,9 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define V4L2_EVENT_PRIVATE_EXT_SEND_ERROR (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 2)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_ERROR_FRAME (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 3)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_DECINFO (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 4)
+/*V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 5 occupied*/
+#define V4L2_EVENT_PRIVATE_EXT_REPORT_SIGNAL_TYPE (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 6)
+
 
 #define WORK_ITEMS_MAX (32)
 #define MAX_DI_INSTANCE (2)
@@ -514,6 +517,13 @@ void __aml_vdec_dispatch_event(struct aml_vcodec_ctx *ctx, u32 changes, struct s
 		memcpy(&event.u.data[4], &ctx->dec_intf.dec_info_args.event_cnt, sizeof(int));
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "report dec_info type: 0x%x\n",
 			ctx->dec_intf.dec_info_args.sub_cmd);
+		break;
+	case V4L2_EVENT_REPORT_SIGNAL_TYPE:
+		event.type = V4L2_EVENT_PRIVATE_EXT_REPORT_SIGNAL_TYPE;
+		memcpy(event.u.data, &ctx->signal_type_info.timestamp, sizeof(u64));
+		memcpy(&event.u.data[8], &ctx->signal_type_info.signal_type, sizeof(u32));
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "report frame: signal_type(0x%x), timestamp(%llu)\n",
+			ctx->signal_type_info.signal_type, ctx->signal_type_info.timestamp);
 		break;
 	default:
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
@@ -3140,6 +3150,8 @@ static int vidioc_vdec_subscribe_evt(struct v4l2_fh *fh,
 		return v4l2_event_subscribe(fh, sub, 5, NULL);
 	case V4L2_EVENT_PRIVATE_EXT_REPORT_DECINFO:
 		return v4l2_event_subscribe(fh, sub, 60, NULL);
+	case V4L2_EVENT_PRIVATE_EXT_REPORT_SIGNAL_TYPE:
+		return v4l2_event_subscribe(fh, sub, 10, NULL);
 	default:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	}
@@ -4185,6 +4197,59 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+static int get_metadata(struct dmabuf_videodec_es_data *vdecdata,
+			struct aml_v4l2_buf *buf, struct aml_vcodec_ctx *ctx)
+{
+	struct dmabuf_videodec_es_data *p_vdecdata;
+	unsigned long long u_vdecdata;
+	u32 signal_type;
+	int i, j;
+
+	if (vdecdata->data_type == DMA_BUF_VIDEODEC_HDR10PLUS) {
+		buf->meta_data[0] = vdecdata->data_len & 0xff;
+		buf->meta_data[1] = (vdecdata->data_len >> 8) & 0xff;
+		buf->meta_data[2] = (vdecdata->data_len >> 16) & 0xff;
+		buf->meta_data[3] = (vdecdata->data_len >> 24) & 0xff;
+		memcpy(buf->meta_data + 4, (void *)vdecdata->data, vdecdata->data_len);
+	} else if (vdecdata->data_type == DMA_BUF_VIDEODEC_DYNAMICASPECT) {
+		memcpy(buf->meta_data + VDEC_META_DATA_SIZE + 4, (void *)vdecdata->data, vdecdata->data_len);
+		memcpy(&signal_type, vdecdata->data, vdecdata->data_len);
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
+				"%s, signal type(0x%x)\n", __func__, signal_type);
+	} else if (vdecdata->data_type == DMA_BUF_VIDEODEC_COMBINE) {
+		for (i = 0; i < vdecdata->data_len; i++) {
+			u_vdecdata = 0;
+			for (j = 0; j < 8; j++) {
+				u_vdecdata += vdecdata->data[j + i * 8];
+				if (j < 7)
+					u_vdecdata = u_vdecdata << 8;
+			}
+			p_vdecdata = (struct dmabuf_videodec_es_data *)(uintptr_t)u_vdecdata;
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
+				"%s, u_vdecdata: 0x%llx, p_vdecdata: %px, len: %d\n",
+				__func__, u_vdecdata, p_vdecdata, p_vdecdata->data_len);
+
+			if (p_vdecdata->data_type == DMA_BUF_VIDEODEC_HDR10PLUS) {
+				buf->meta_data[0] = p_vdecdata->data_len & 0xff;
+				buf->meta_data[1] = (p_vdecdata->data_len >> 8) & 0xff;
+				buf->meta_data[2] = (p_vdecdata->data_len >> 16) & 0xff;
+				buf->meta_data[3] = (p_vdecdata->data_len >> 24) & 0xff;
+				memcpy(buf->meta_data + 4, p_vdecdata->data, p_vdecdata->data_len);
+			} else if (p_vdecdata->data_type == DMA_BUF_VIDEODEC_DYNAMICASPECT) {
+				memcpy(buf->meta_data + VDEC_META_DATA_SIZE + 4,
+						p_vdecdata->data, p_vdecdata->data_len);
+				memcpy(&signal_type, p_vdecdata->data, p_vdecdata->data_len);
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
+				"%s, signal type(0x%x)\n", __func__, signal_type);
+			}
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 {
 	struct aml_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
@@ -4212,7 +4277,15 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			if (videodec_es_data && videodec_es_data->data_type == DMA_BUF_VIDEODEC_HDR10PLUS) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "buf_prepare hdr10+ info type %d, len: %d\n",
 					videodec_es_data->data_type, videodec_es_data->data_len);
-				memcpy(buf->meta_data, (void *)videodec_es_data->data, videodec_es_data->data_len);
+				get_metadata(videodec_es_data, buf, ctx);
+			} else if (videodec_es_data && videodec_es_data->data_type == DMA_BUF_VIDEODEC_DYNAMICASPECT) {
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "buf_prepare signal type info type %d, len: %d\n",
+					videodec_es_data->data_type, videodec_es_data->data_len);
+				get_metadata(videodec_es_data, buf, ctx);
+			} else if (videodec_es_data && videodec_es_data->data_type == DMA_BUF_VIDEODEC_COMBINE) {
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "buf_prepare combine type info type %d, len: %d\n",
+					videodec_es_data->data_type, videodec_es_data->data_len);
+				get_metadata(videodec_es_data, buf, ctx);
 			}
 		}
 #endif

@@ -1993,12 +1993,12 @@ void vdec_set_metadata(struct vdec_s *vdec, ulong meta_ptr)
 	if (!meta_ptr)
 		return;
 
-	tmp_buf = vmalloc(VDEC_META_DATA_SIZE + 4);
+	tmp_buf = vzalloc(VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4);
 	if (!tmp_buf) {
 		pr_err("%s:vmalloc 256+4 fail\n", __func__);
 		return;
 	}
-	memcpy(tmp_buf, (void *)meta_ptr, VDEC_META_DATA_SIZE + 4);
+	memcpy(tmp_buf, (void *)meta_ptr, VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4);
 
 	size = tmp_buf[0] + (tmp_buf[1] << 8) +
 		(tmp_buf[2] << 16) + (tmp_buf[3] << 24);
@@ -2007,6 +2007,21 @@ void vdec_set_metadata(struct vdec_s *vdec, ulong meta_ptr)
 		memcpy(vdec->hdr10p_data_buf, tmp_buf + 4, size);
 		vdec->hdr10p_data_size = size;
 		vdec->hdr10p_data_valid = true;
+	}
+
+	if (tmp_buf[VDEC_META_DATA_SIZE + 4] != 0 ||
+		tmp_buf[VDEC_META_DATA_SIZE + 4 + 1] != 0 ||
+		tmp_buf[VDEC_META_DATA_SIZE + 4 + 2] != 0 ||
+		tmp_buf[VDEC_META_DATA_SIZE + 4 + 3] != 0) {
+		memcpy(vdec->signal_type_data_buf,
+			tmp_buf + VDEC_META_DATA_SIZE + 4, SIGNAL_TYPE_DATA_SIZE);
+		if (debug & VDEC_DBG_DETAIL_INFO)
+			pr_info("%s [0]%x, [1]%x, [2]%x, [3]%x\n", __func__,
+			vdec->signal_type_data_buf[0],
+			vdec->signal_type_data_buf[1],
+			vdec->signal_type_data_buf[2],
+			vdec->signal_type_data_buf[3]);
+		vdec->signal_type_data_valid = true;
 	}
 
 	vfree(tmp_buf);

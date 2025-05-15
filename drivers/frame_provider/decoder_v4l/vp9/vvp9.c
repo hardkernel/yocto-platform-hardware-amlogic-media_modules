@@ -7101,6 +7101,12 @@ static void set_frame_info(struct VP9Decoder_s *pbi, struct vframe_s *vf, struct
 	vf->flag = 0;
 	vf->prop.master_display_colour = pbi->vf_dp;
 	vf->signal_type = pbi->video_signal_type;
+	if (pbi->chunk->signal_type_data_buf) {
+		memcpy(&vf->signal_type, pbi->chunk->signal_type_data_buf,
+				SIGNAL_TYPE_DATA_SIZE);
+		vp9_print(pbi, VP9_DEBUG_BUFMGR,
+					"signal_type: 0x%x\n", vf->signal_type);
+	}
 	if (vf->compWidth && vf->compHeight)
 		pbi->frame_ar = vf->compHeight * 0x100 / vf->compWidth;
 	ar = min_t(u32, pbi->frame_ar, DISP_RATIO_ASPECT_RATIO_MAX);

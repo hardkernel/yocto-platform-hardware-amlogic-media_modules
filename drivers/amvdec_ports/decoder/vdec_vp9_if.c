@@ -135,7 +135,7 @@ static int vdec_write_nalu(struct vdec_vp9_inst *inst,
 	u8 *buf, u32 size, u64 ts, ulong meta_ptr, chunk_free free);
 static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 	ulong addr, u32 count, u64 timestamp, u32 handle,
-	chunk_free free, void* priv);
+	chunk_free free, void* priv, ulong meta_ptr);
 
 static void get_pic_info(struct vdec_vp9_inst *inst,
 			 struct vdec_pic_info *pic)
@@ -370,13 +370,13 @@ static int parse_stream_ucode(struct vdec_vp9_inst *inst, u8 *buf,
 }
 
 static int parse_stream_ucode_dma(struct vdec_vp9_inst *inst,
-	ulong buf, u32 size, u64 timestamp, u32 handle)
+	ulong buf, u32 size, u64 timestamp, u32 handle, ulong meta_ptr)
 {
 	int ret = 0;
 	struct aml_vdec_adapt *vdec = &inst->vdec;
 
 	ret = parser_head_metadata_with_dma(vdec, buf, size, timestamp, handle,
-		vdec_vframe_input_free, inst->ctx);
+		vdec_vframe_input_free, inst->ctx, meta_ptr);
 	if (ret < 0) {
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
 			"write frame data failed. err: %d\n", ret);
@@ -443,7 +443,7 @@ static int vdec_vp9_probe(unsigned long h_vdec,
 		} else if (bs->model == VB2_MEMORY_DMABUF ||
 			bs->model == VB2_MEMORY_USERPTR) {
 			ret = parse_stream_ucode_dma(inst, bs->addr, size,
-				bs->timestamp, BUFF_IDX(bs, bs->index));
+				bs->timestamp, BUFF_IDX(bs, bs->index), bs->meta_ptr);
 		}
 	} else {
 		if (inst->ctx->param_sets_from_ucode) {
@@ -640,7 +640,7 @@ static void trigger_decoder(struct aml_vdec_adapt *vdec, chunk_free free)
 
 static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 	ulong addr, u32 count, u64 timestamp, u32 handle,
-	chunk_free free, void* priv)
+	chunk_free free, void* priv, ulong meta_ptr)
 {
 	int ret = -1;
 	struct aml_vcodec_ctx *ctx = ada_ctx->ctx;
@@ -667,7 +667,12 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 					"dmabuf_manage_vp9_probe_metadata failed.\n");
 			}
 			ret = vdec_vframe_write_with_dma(ada_ctx, addr, count, timestamp,
-				handle, free, priv, metadata);
+				handle, free, priv, metadata, meta_ptr);
+
+			if (ctx->signal_type_update) {
+				aml_vdec_dispatch_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+				ctx->signal_type_update = 0;
+			}
 			vfree(metadata);
 		} else {
 			stbuf_vaddr = codec_mm_vmap(addr, count);
@@ -709,7 +714,11 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_INPUT,
 					"size:%d superframe_len:%d nb_frames:%d\n", s.nb_frames, superframe_len, count);
 				ret = vdec_vframe_write_with_dma(ada_ctx, addr, count - superframe_len, timestamp,
-					handle, free, priv, metadata);
+					handle, free, priv, metadata, meta_ptr);
+				if (ctx->signal_type_update) {
+					aml_vdec_dispatch_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+					ctx->signal_type_update = 0;
+				}
 				vfree(metadata);
 				codec_mm_unmap_phyaddr(stbuf_vaddr);
 			} else {
@@ -719,7 +728,11 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 		}
 	} else {
 		ret = vdec_vframe_write_with_dma(ada_ctx, addr, count, timestamp,
-			handle, free, priv, metadata);
+			handle, free, priv, metadata, meta_ptr);
+		if (ctx->signal_type_update) {
+			aml_vdec_dispatch_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+			ctx->signal_type_update = 0;
+		}
 	}
 
 	return ret;
@@ -865,7 +878,7 @@ static int vdec_vp9_decode(unsigned long h_vdec,
 			ret = parser_head_metadata_with_dma(vdec,
 				bs->addr, size, bs->timestamp,
 				BUFF_IDX(bs, bs->index),
-				vdec_vframe_input_free, inst->ctx);
+				vdec_vframe_input_free, inst->ctx, bs->meta_ptr);
 		}
 	} else {
 		/*checked whether the resolution changes.*/

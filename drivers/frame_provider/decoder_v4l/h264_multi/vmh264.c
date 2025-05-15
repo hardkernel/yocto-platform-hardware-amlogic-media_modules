@@ -8960,6 +8960,12 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			hw->video_signal_from_vui = hw->video_signal_from_vui | 0x20202;
 		}
 
+		if (ctx->signal_type_info.signal_type != hw->video_signal_from_vui) {
+			ctx->signal_type_info.signal_type = hw->video_signal_from_vui;
+			ctx->signal_type_info.timestamp = ctx->current_timestamp;
+			vdec_v4l_post_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+		}
+
 		if (hw->sei_need_parse == true)
 			parse_sei_data(hw, hw->sei_data_buf, hw->sei_data_len, true, NULL);
 

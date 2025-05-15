@@ -9759,6 +9759,12 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			hw->video_signal_type = hw->video_signal_type | 0x20202;
 		}
 
+		if (ctx->signal_type_info.signal_type != hw->video_signal_type) {
+			ctx->signal_type_info.signal_type = hw->video_signal_type;
+			ctx->signal_type_info.timestamp = ctx->current_timestamp;
+			vdec_v4l_post_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+		}
+
 		if (next_lcu_size != hw->current_lcu_size) {
 			av1_print(hw, AOM_DEBUG_HW_MORE,
 				" ## lcu_size changed from %d to %d\n",

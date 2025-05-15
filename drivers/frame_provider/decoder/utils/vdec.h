@@ -209,6 +209,8 @@ enum e_trace_work_status {
 #define VDEC_META_DATA_SIZE	(256)
 #define HDR10P_BUF_SIZE	(128)
 #define SEI_ITU_DATA_SIZE		(5*1024)
+#define SIGNAL_TYPE_DATA_SIZE	(4)
+
 
 /* same size with SEI_BUF_SIZE in aml_vcodec_dec.h */
 #define AUX_DATA_SIZE1 (24 * 1024)
@@ -561,6 +563,8 @@ struct vdec_s {
 	u32 hdr10p_data_size;
 	char hdr10p_data_buf[PAGE_SIZE];
 	bool hdr10p_data_valid;
+	u8 signal_type_data_buf[SIGNAL_TYPE_DATA_SIZE];
+	bool signal_type_data_valid;
 	u32 profile_idc;
 	u32 level_idc;
 	bool prog_only;

@@ -84,6 +84,7 @@
 
 /* dec info report */
 #define V4L2_EVENT_REPORT_DEC_INFO		(1 << 24)
+#define V4L2_EVENT_REPORT_SIGNAL_TYPE	(1 << 25)
 
 /* v4l buffer pool */
 #define V4L_CAP_BUFF_MAX		(32)
@@ -951,6 +952,11 @@ struct aml_v4l2_decinfo_interface {
 	void (*decinfo_event_report)(struct aml_vcodec_ctx *, int, void *);
 };
 
+struct aml_signal_type_info {
+	u64	timestamp;
+	u32	signal_type;
+};
+
 /*
  * struct aml_vcodec_ctx - Context (instance) private data.
  * @id: index of the context that this structure describes.
@@ -1189,6 +1195,8 @@ struct aml_vcodec_ctx {
 	void			 *avbc_wrapper;
 	u32			alloced_yuv_num;
 	u32			replaced_frame_num;
+	struct aml_signal_type_info signal_type_info;
+	u32			signal_type_update;
 };
 
 /**

@@ -933,6 +933,22 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 	}
 	vdec->hdr10p_data_valid = false;
 
+	if (vdec->signal_type_data_valid == true) {
+		char *new_buf;
+		new_buf = vzalloc(SIGNAL_TYPE_DATA_SIZE);
+		if (new_buf) {
+			memcpy(new_buf, vdec->signal_type_data_buf, SIGNAL_TYPE_DATA_SIZE);
+			chunk->signal_type_data_buf = new_buf;
+		} else {
+			pr_err("%s:signal type data vzalloc size(%d) failed\n",
+				__func__, SIGNAL_TYPE_DATA_SIZE);
+			chunk->signal_type_data_buf = NULL;
+		}
+	} else {
+		chunk->signal_type_data_buf = NULL;
+	}
+	vdec->signal_type_data_valid = false;
+
 	if (head_metadata) {
 		char *new_buf;
 		int size = head_metadata[0] << 24 |
@@ -1175,6 +1191,11 @@ void vdec_input_release_chunk(struct vdec_input_s *input,
 		vfree(chunk->hdr10p_data_buf);
 		chunk->hdr10p_data_buf = NULL;
 		chunk->hdr10p_data_size = 0;
+	}
+
+	if (chunk->signal_type_data_buf != NULL) {
+		vfree(chunk->signal_type_data_buf);
+		chunk->signal_type_data_buf = NULL;
 	}
 
 	if (chunk->head_meta_buf != NULL) {

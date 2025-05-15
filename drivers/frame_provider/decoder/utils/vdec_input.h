@@ -68,6 +68,7 @@ struct vframe_chunk_s {
 	u32 hdr10p_data_size;
 	char *hdr10p_data_buf;
 	char *head_meta_buf;
+	char *signal_type_data_buf;
 };
 
 #define VDEC_INPUT_TARGET_VLD           0

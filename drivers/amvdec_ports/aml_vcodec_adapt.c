@@ -509,14 +509,37 @@ void vdec_vframe_input_free(void *priv, u32 handle)
 	}
 }
 
+void vdec_vframe_check_signal_type(struct aml_vcodec_ctx *ctx)
+{
+	struct vdec_s *vdec = ctx->ada_ctx->vdec;
+	u32 signal_type;
+
+	if (!vdec->signal_type_data_valid)
+		return;
+	memcpy(&signal_type, vdec->signal_type_data_buf, SIGNAL_TYPE_DATA_SIZE);
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
+	"%s, signal type(org: 0x%x new: 0x%x), timestamp: %llu\n",
+	__func__, ctx->signal_type_info.signal_type, signal_type, vdec->timestamp);
+	if (ctx->signal_type_info.signal_type != signal_type) {
+		ctx->signal_type_info.signal_type = signal_type;
+		ctx->signal_type_info.timestamp = vdec->timestamp;
+		ctx->signal_type_update = 1;
+	}
+}
+
 int vdec_vframe_write_with_dma(struct aml_vdec_adapt *ada_ctx,
 	ulong addr, u32 count, u64 timestamp, u32 handle,
-	chunk_free free, void* priv, char *head_metadata)
+	chunk_free free, void* priv, char *head_metadata, ulong meta_ptr)
 {
 	int ret = -1;
 	struct vdec_s *vdec = ada_ctx->vdec;
 	/* set timestamp */
 	vdec_set_timestamp(vdec, timestamp);
+
+	/* set metadata */
+	vdec_set_metadata(vdec, meta_ptr);
+
+	vdec_vframe_check_signal_type(ada_ctx->ctx);
 
 	ret = vdec_write_vframe_with_dma(vdec, addr, count,
 		handle, free, priv, head_metadata);

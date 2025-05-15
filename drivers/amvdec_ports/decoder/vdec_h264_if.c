@@ -618,7 +618,7 @@ static int parse_stream_ucode_dma(struct vdec_h264_inst *inst,
 	struct aml_vdec_adapt *vdec = &inst->vdec;
 
 	ret = vdec_vframe_write_with_dma(vdec, buf, size, timestamp, handle,
-		vdec_vframe_input_free, inst->ctx, NULL);
+		vdec_vframe_input_free, inst->ctx, NULL, 0);
 	if (ret < 0) {
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_ERROR,
 			"write frame data failed. err: %d\n", ret);
@@ -904,7 +904,7 @@ static int vdec_h264_decode(unsigned long h_vdec,
 			ret = vdec_vframe_write_with_dma(vdec,
 				bs->addr, size, bs->timestamp,
 				BUFF_IDX(bs, bs->index),
-				vdec_vframe_input_free, inst->ctx, NULL);
+				vdec_vframe_input_free, inst->ctx, NULL, 0);
 		}
 	} else {
 		if (inst->ctx->param_sets_from_ucode) {

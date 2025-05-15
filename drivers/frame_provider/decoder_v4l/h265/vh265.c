@@ -13252,6 +13252,12 @@ force_output:
 				u32 c = hevc->param.p.color_description;
 				hevc->video_signal_type = (v << 16) | c;
 				video_signal_type = hevc->video_signal_type;
+
+				if (ctx->signal_type_info.signal_type != hevc->video_signal_type) {
+					ctx->signal_type_info.signal_type = hevc->video_signal_type;
+					ctx->signal_type_info.timestamp = ctx->current_timestamp;
+					vdec_v4l_post_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+				}
 			}
 
 			if (use_cma && (hevc->param.p.slice_segment_address == 0) &&

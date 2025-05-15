@@ -84,6 +84,7 @@ struct file_private_data {
 #endif
 #define SEI_BUF_SIZE			(2 * 12 * 1024)
 #define HDR10P_BUF_SIZE			(128)
+#define SIGNAL_TYPE_DATA_SIZE		(4)
 
 #define SEI_TYPE	(1)
 #define DV_TYPE		(2)
@@ -175,7 +176,7 @@ struct aml_v4l2_buf {
 	unsigned int internal_index;
 
 	/*4 bytes data for data len*/
-	char meta_data[VDEC_META_DATA_SIZE + 4];
+	char meta_data[VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4];
 	void *dma_buf;
 	struct sg_table *out_sgt;
 	dos_addr_t addr;

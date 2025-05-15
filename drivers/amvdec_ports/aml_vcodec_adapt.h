@@ -72,7 +72,7 @@ void vdec_vframe_input_free(void *priv, u32 handle);
 
 int vdec_vframe_write_with_dma(struct aml_vdec_adapt *ada_ctx,
 	ulong addr, u32 count, u64 timestamp, u32 handle,
-	chunk_free free, void *priv, char *head_metadata);
+	chunk_free free, void *priv, char *head_metadata, ulong meta_ptr);
 
 bool vdec_input_full(struct aml_vdec_adapt *ada_ctx);
 
