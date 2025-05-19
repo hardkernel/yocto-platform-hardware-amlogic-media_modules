@@ -16110,7 +16110,8 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		if ((is_support_no_parser()) && (hevc->pre_parser_wr_ptr != 0) &&
 			(parser_wr_ptr == hevc->pre_parser_wr_ptr)) {
-				hevc_print(hevc, 0, "no stream data!\n");
+				hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
+					"%s: no stream data!\n", __func__);
 				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}

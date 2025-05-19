@@ -4375,7 +4375,8 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		if ((is_support_no_parser()) && (hw->pre_parser_wr_ptr != 0) &&
 			(parser_wr_ptr == hw->pre_parser_wr_ptr)) {
-				debug_print(DECODE_ID(hw), 0, "no stream data!\n");
+				debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
+					"%s: no stream data!\n", __func__);
 				return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
