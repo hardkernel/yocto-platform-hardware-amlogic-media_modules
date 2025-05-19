@@ -272,6 +272,7 @@ static int setup_output_port(int fd)
 
 static int destroy_output_port(int fd) {
 	int i;
+	int j = 0;
 	struct v4l2_requestbuffers req = {
 		.memory = sInMemMode,
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
@@ -282,6 +283,9 @@ static int destroy_output_port(int fd) {
 	ioctl(fd, VIDIOC_REQBUFS, &req);
 	for (i = 0 ; i < req.count ; i++) {
 		struct frame_buffer *buf = output_p.buf[i];
+		for (j = 0; j < output_p.plane_num; ++j) {
+			munmap(buf->vaddr[j], buf->v4lplane[j].length);
+		}
 		free(buf);
 	}
 	free(output_p.buf);
@@ -458,9 +462,10 @@ static int destroy_capture_port(int fd) {
 	pthread_mutex_destroy(&capture_p.lock);
 	pthread_cond_destroy(&capture_p.wait);
 	ioctl(fd, VIDIOC_REQBUFS, &req);
+	free_uvm_buffers();
+
 	for (i = 0 ; i < req.count ; i++) {
 		/* release GEM buf */
-		free_uvm_buffers();
 		free(capture_p.buf[i]);
 	}
 	free(capture_p.buf);
@@ -1101,7 +1106,7 @@ static void *dec_thread_func(void * arg)
 	int error_count = 0;
 	struct pollfd pfd = {
 		/* default blocking capture */
-		.events =  POLLIN | POLLRDNORM | POLLPRI | POLLOUT | POLLWRNORM,
+		.events =  POLLIN | POLLRDNORM | POLLPRI | POLLOUT | POLLWRNORM | POLLERR,
 		.fd = video_fd,
 	};
 	while (!quit_thread) {
@@ -1134,7 +1139,7 @@ static void *dec_thread_func(void * arg)
 			struct v4l2_event evt = { 0 };
 			v4l2_get_event(video_fd, &evt);
 			if (evt.type == V4L2_EVENT_SOURCE_CHANGE &&
-				evt.u.src_change.changes == V4L2_EVENT_SRC_CH_RESOLUTION) {
+				evt.u.src_change.changes & V4L2_EVENT_SRC_CH_RESOLUTION) {
 				res_evt_pending = true;
 			} else if (evt.type == V4L2_EVENT_EOS) {
 				eos_evt_pending = true;
@@ -1185,7 +1190,12 @@ static void *dec_thread_func(void * arg)
 
 			ret = ioctl(video_fd, VIDIOC_DQBUF, &buf);
 			if (ret) {
-				debug_print(DEBUG_ERROR, "capture VIDIOC_DQBUF fail %d\n", ret);
+				error_count ++;
+				if (error_count < 30) {
+					debug_print(DEBUG_ERROR, "capture VIDIOC_DQBUF fail %d\n", ret);
+				} else if (error_count == 30) {
+					debug_print(DEBUG_ERROR, "capture VIDIOC_DQBUF fail conunt 30, pls check. \n");
+				}
 			} else {
 #ifdef DEBUG_FRAME
 				debug_print(DEBUG_FRAME, "dqueue cap %d\n", buf.index);
