@@ -120,6 +120,15 @@ enum ResResult {
 	RES_RET_OVERSIZE = 2
 };
 
+/* dos_bus_ctrl */
+#define BUSCTL_DMC     (0)       /* dmc data channel ctrl*/
+#define BUSCTL_VDEC    (BIT(0))  /* vdec wait dbus idle */
+#define BUSCTL_HEVC_F  (BIT(1))  /* hevcf arbiter ctrl, or whole hevc ctrl when no hevcb */
+#define BUSCTL_HEVC_B  (BIT(2))  /* hevcb arbiter ctrl */
+
+#define BUSCTL_HEVC_ONLY (BUSCTL_HEVC_F)
+#define BUSCTL_HEVC_FB   (BUSCTL_HEVC_F | BUSCTL_HEVC_B)
+
 /* others */
 /* t6d dos clk license bit */
 #define OTP_LIC02 (0xfe440048)
@@ -161,18 +170,13 @@ struct dos_of_dev_s {
 	bool is_vp9_adapt_prob_hw_mode;
 	bool is_vdec_hevc_combine;  /* vdec merged in hevc */
 
-	bool is_support_monitor;    /* hevc path monitor */
+	bool is_support_path_monitor;    /* hevc path monitor */
 	bool is_support_bandwidth_msr; /* bandwidth measure in path monitor */
 
 	int hevc_stream_extra_shift;  /* extra shift bytes in hevc parser */
 	bool is_vcpu_clk_set;    /* amrisc clk off in frame idle */
 
-
-	bool is_support_axi_ctrl;  /*dos pipeline ctrl by dos or dmc */
-	bool is_support_fb_axi;
-	bool is_support_hevc_arb;
-
-	bool is_support_34bit;  /* 34bit axi, 34bit addr, 16G addr */
+	bool is_support_34bit;   /* 34bit axi, 34bit addr, 16G addr */
 
 	bool is_amrisc_imem_size_6k;
 
@@ -181,6 +185,9 @@ struct dos_of_dev_s {
 	struct profile_level_t profile_level_idc;
 
 	bool is_support_avbc_wrapper;  /**/
+
+	int dos_bus_ctrl;
+	int dos_bus_idle_mask;  /* afifo idle mask */
 };
 
 
@@ -254,17 +261,19 @@ inline bool is_support_triple_write(void);
 
 inline bool is_support_rdma(void);
 
-inline bool is_support_monitor(void);
+inline bool is_support_path_monitor(void);
 
 inline bool is_support_bandwidth_msr(void);
 
 inline bool is_support_mmu_copy(void);
 
-inline bool is_support_axi_ctrl(void);
+inline bool is_vdec_bus_ctrl(void);
 
-inline bool is_support_fb_axi(void);
+inline bool is_hevc_bus_ctrl(void);
 
-inline bool is_support_hevc_arb(void);
+inline bool is_hevc_fb_bus_ctrl(void);
+
+inline int get_hevc_bus_idle_mask(void);
 
 inline bool is_support_format(int format);
 
