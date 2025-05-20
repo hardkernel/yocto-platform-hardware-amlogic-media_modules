@@ -10171,6 +10171,8 @@ static void AV1_DECODE_INIT(void)
 
 static void vav1_prot_init(struct AV1HW_s *hw, u32 mask)
 {
+	u32 data32;
+
 	/* AV1_DECODE_INIT(); */
 	av1_print(hw, AOM_DEBUG_HW_MORE, "%s %d\n", __func__, __LINE__);
 
@@ -10193,12 +10195,13 @@ static void vav1_prot_init(struct AV1HW_s *hw, u32 mask)
 #if 1
 	if (debug & AV1_DEBUG_BUFMGR_MORE)
 		pr_info("%s\n", __func__);
-#if 0
+
 	data32 = READ_VREG(HEVC_STREAM_CONTROL);
 	data32 = data32 |
 		(1 << 0)/*stream_fetch_enable*/
 		;
 	WRITE_VREG(HEVC_STREAM_CONTROL, data32);
+#if 0
 
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A) {
 	    if (debug & AV1_DEBUG_BUFMGR)
