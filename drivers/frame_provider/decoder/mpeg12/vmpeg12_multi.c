@@ -2433,7 +2433,7 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 			READ_VREG(VLD_MEM_VIFIFO_CONTROL),
 			READ_VREG(VIFF_BIT_CNT));
 
-		if (vdec_frame_based(vdec)) {
+		if (vdec_frame_based(vdec) || reg == MPEG12_DECODE_TIMEOUT) {
 			userdata_pushed_drop(hw);
 			hw->dec_result = DEC_RESULT_DONE;
 			vdec_schedule_work(&hw->work);

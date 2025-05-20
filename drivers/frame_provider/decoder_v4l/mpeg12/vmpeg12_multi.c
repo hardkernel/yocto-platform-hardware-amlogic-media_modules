@@ -2739,7 +2739,7 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 
 		mpeg2_buf_ref_process_for_exception(hw);
 
-		if (vdec_frame_based(vdec)) {
+		if (vdec_frame_based(vdec) || reg == MPEG12_DECODE_TIMEOUT) {
 			if (hw->dec_result != DEC_RESULT_UNFINISH)
 				vdec_v4l_post_error_frame_event(ctx);
 			userdata_pushed_drop(hw);
