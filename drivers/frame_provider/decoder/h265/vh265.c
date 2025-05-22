@@ -10709,7 +10709,8 @@ static int prepare_display_buf(struct vdec_s *vdec, struct PIC_s *frame)
 				if (hevc->fence_vf_s.fence_vf[i] != NULL) {
 					ret = dma_fence_get_status(hevc->fence_vf_s.fence_vf[i]->fence);
 					fence_ref = kref_read(&hevc->fence_vf_s.fence_vf[i]->fence->refcount);
-					if (ret == 1 && fence_ref != 2) {
+					if ((ret < 0) ||
+						(ret == 1 && fence_ref != 2)) {
 						signed_fence[signed_count] = hevc->fence_vf_s.fence_vf[i];
 						hevc->fence_vf_s.fence_vf[i] = NULL;
 						hevc->fence_vf_s.used_size--;

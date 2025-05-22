@@ -4398,7 +4398,8 @@ int prepare_display_buf(struct vdec_s *vdec, struct FrameStore *frame)
 
 					ret = dma_fence_get_status(hw->fence_vf_s.fence_vf[i]->fence);
 					fence_ref = kref_read(&hw->fence_vf_s.fence_vf[i]->fence->refcount);
-					if (ret == 1 && fence_ref != 2) {
+					if ((ret < 0) ||
+						(ret == 1 && fence_ref != 2)) {
 						signed_fence[signed_count] = hw->fence_vf_s.fence_vf[i];
 						hw->fence_vf_s.fence_vf[i] = NULL;
 						hw->fence_vf_s.used_size--;
@@ -5176,7 +5177,7 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 		WRITE_VREG(H264_BUFFER_INFO_DATA, ref_reg_val);
 	}
 
-	if ((pic->data_flag & ERROR_FLAG) && !(hw->send_error_frame_flag)) {
+	if ((!(hw->low_latency_mode && hw->enable_fence)) && (pic->data_flag & ERROR_FLAG) && !(hw->send_error_frame_flag)) {
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
 			" data_flag is ERROR_FLAG return\n");
 		return -1;

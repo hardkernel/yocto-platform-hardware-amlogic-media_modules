@@ -6526,7 +6526,8 @@ void av1_raw_write_image(AV1Decoder *pbi, PIC_BUFFER_CONFIG *sd)
 
 					ret = dma_fence_get_status(hw->fence_vf_s.fence_vf[i]->fence);
 					fence_ref = kref_read(&hw->fence_vf_s.fence_vf[i]->fence->refcount);
-					if (ret == 1 && fence_ref != 2) {
+					if ((ret < 0) ||
+						(ret == 1 && fence_ref != 2)) {
 						signed_fence[signed_count] = hw->fence_vf_s.fence_vf[i];
 						hw->fence_vf_s.fence_vf[i] = NULL;
 						hw->fence_vf_s.used_size--;
