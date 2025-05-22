@@ -2088,7 +2088,7 @@ void xActivateParameterSets(DecLib *p_declib, NALUnit *nalu )
 int getLayerIdInOls(Slice* slice, int i, int j)
 {
 	cvector *v = (cvector*)cvector_get(&slice->m_pcVPS->m_layerIdInOls, i);
-	return (int64_t)cvector_get(v, j);
+	return (ulong)cvector_get(v, j);
 }
 
 bool isIRAP(Slice *slice)
@@ -3451,7 +3451,7 @@ int xDecodeSlice(DecApp *p_app, NALUnit *nalu)
 		for (i = 0; i < pcSlice->m_pcVPS->m_vpsNumOutputLayerSets; i++ ) {
 			bool isCurrLayerInOls = false;
 			bool isRefLayerInOls = false;
-			int j = (int64_t)cvector_get(&pcSlice->m_pcVPS->m_numLayersInOls,i) - 1;
+			int j = (ulong)cvector_get(&pcSlice->m_pcVPS->m_numLayersInOls,i) - 1;
 			for (; j >= 0; j--) {
 				if ( getLayerIdInOls(pcSlice, i, j) == pcSlice->m_nuhLayerId ) {
 					isCurrLayerInOls = true;
@@ -3471,7 +3471,7 @@ int xDecodeSlice(DecApp *p_app, NALUnit *nalu)
 			bool isCurrLayerInOls = false;
 			bool isRefLayerInOls = false;
 
-			int j = (int64_t)cvector_get(&pcSlice->m_pcVPS->m_numLayersInOls,i) - 1;
+			int j = (ulong)cvector_get(&pcSlice->m_pcVPS->m_numLayersInOls,i) - 1;
 			for (; j >= 0; j--) {
 				if ( getLayerIdInOls(pcSlice, i, j) == pcSlice->m_nuhLayerId ) {
 					isCurrLayerInOls = true;
@@ -3629,7 +3629,7 @@ int xDecodeSlice(DecApp *p_app, NALUnit *nalu)
 
 	naluInfo.m_nalUnitType = nalu->m_nalUnitType;
 	naluInfo.m_nuhLayerId = nalu->m_nuhLayerId;
-	naluInfo.m_firstCTUinSlice = (uint64_t)cvector_get(&pcSlice->m_sliceMap.m_ctuAddrInSlice, 0);
+	naluInfo.m_firstCTUinSlice = (ulong)cvector_get(&pcSlice->m_sliceMap.m_ctuAddrInSlice, 0);
 	naluInfo.m_POC = pcSlice->m_iPOC;
 	//xCheckMixedNalUnit(pcSlice, sps, nalu);
 	cvector_push(&p_declib->m_nalUnitInfo[naluInfo.m_nuhLayerId], &naluInfo);
