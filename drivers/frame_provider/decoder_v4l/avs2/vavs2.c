@@ -149,6 +149,31 @@
 
 #define PARSER_CMD_NUMBER 37
 
+#define AVS2_MINI_SIZE                    8    // according to spec
+#define AVS2_LEVEL_ID_2_0_15			  0x10
+#define AVS2_LEVEL_ID_2_0_30			  0x12
+#define AVS2_LEVEL_ID_2_0_60			  0x14
+#define AVS2_LEVEL_ID_4_0_30			  0x20
+#define AVS2_LEVEL_ID_4_0_60			  0x22
+#define AVS2_LEVEL_ID_6_0_30			  0x40
+#define AVS2_LEVEL_ID_6_2_30			  0x42
+#define AVS2_LEVEL_ID_6_0_60			  0x44
+#define AVS2_LEVEL_ID_6_2_60			  0x46
+#define AVS2_LEVEL_ID_6_0_120			  0x48
+#define AVS2_LEVEL_ID_6_2_120			  0x4a
+#define AVS2_LEVEL_ID_8_0_30			  0x50
+#define AVS2_LEVEL_ID_8_2_30			  0x52
+#define AVS2_LEVEL_ID_8_0_60			  0x54
+#define AVS2_LEVEL_ID_8_2_60			  0x56
+#define AVS2_LEVEL_ID_8_0_120			  0x58
+#define AVS2_LEVEL_ID_8_2_120			  0x5a
+#define AVS2_LEVEL_ID_10_0_30			  0x60
+#define AVS2_LEVEL_ID_10_2_30			  0x62
+#define AVS2_LEVEL_ID_10_0_60			  0x64
+#define AVS2_LEVEL_ID_10_2_60			  0x66
+#define AVS2_LEVEL_ID_10_0_120			  0x68
+#define AVS2_LEVEL_ID_10_2_120			  0x6a
+
 static unsigned short parser_cmd[PARSER_CMD_NUMBER] = {
 0x0401,
 0x8401,
@@ -285,6 +310,7 @@ static u32 without_display_mode;
 /*
 bit0: if dpb abnormal, check dpb buffer status and flush dpb.(not enabled)
 bit1: 0:show error frame.
+bit2: 0: remove err poc pic in dpb, 1: don't remove
 bit31:1:the value of bits 0 to 31 is used as the error_pro_policy.
 */
 static unsigned int error_proc_policy = 0x3;
@@ -6043,6 +6069,70 @@ static void vavs2_get_comp_buf_info(struct AVS2Decoder_s *dec,
 		bit_depth == AVS2_BITS_10);
 }
 
+static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int MinCuHeight) {
+	u32 dbp_size = 15;
+	u32 frame_size = MinCuWidth * AVS2_MINI_SIZE * MinCuHeight * AVS2_MINI_SIZE;
+	switch (level_id)
+	{
+	case AVS2_LEVEL_ID_2_0_15:
+	case AVS2_LEVEL_ID_2_0_30:
+	case AVS2_LEVEL_ID_2_0_60:
+	case AVS2_LEVEL_ID_4_0_30:
+	case AVS2_LEVEL_ID_4_0_60:
+		dbp_size = 15;
+		break;
+	case AVS2_LEVEL_ID_6_0_30:
+	case AVS2_LEVEL_ID_6_2_30:
+	case AVS2_LEVEL_ID_6_0_60:
+	case AVS2_LEVEL_ID_6_2_60:
+	case AVS2_LEVEL_ID_6_0_120:
+	case AVS2_LEVEL_ID_6_2_120:
+		dbp_size = min((13369344 + frame_size - 1) / frame_size, 16) - 1;
+		break;
+	case AVS2_LEVEL_ID_8_0_30:
+	case AVS2_LEVEL_ID_8_2_30:
+	case AVS2_LEVEL_ID_8_0_60:
+	case AVS2_LEVEL_ID_8_2_60:
+	case AVS2_LEVEL_ID_8_0_120:
+	case AVS2_LEVEL_ID_8_2_120:
+		dbp_size = min((56623104 + frame_size - 1) / frame_size, 16) - 1;
+		break;
+	case AVS2_LEVEL_ID_10_0_30:
+	case AVS2_LEVEL_ID_10_2_30:
+	case AVS2_LEVEL_ID_10_0_60:
+	case AVS2_LEVEL_ID_10_2_60:
+	case AVS2_LEVEL_ID_10_0_120:
+	case AVS2_LEVEL_ID_10_2_120:
+		dbp_size = min((213909504  + frame_size - 1) / frame_size, 16) - 1;
+		break;
+	default:
+		break;
+	}
+	return dbp_size;
+}
+
+static u32 avs2_calc_dpb_size(struct AVS2Decoder_s *dec) {
+	int MinCuHeight = 0;
+	int MinCuWidth = 0;
+
+	if (dec->avs2_dec.param.p.level_id == 0) {
+		avs2_print(dec, 0, "[%s] level_id == 0 is forbidden according to avs2 spec doc\n", __func__);
+		if (IS_8K_SIZE(dec->frame_width, dec->frame_height))
+			return 15;
+		else
+			return 12;
+	}
+
+	MinCuWidth =  (dec->avs2_dec.param.p.horizontal_size + AVS2_MINI_SIZE - 1 ) / AVS2_MINI_SIZE;
+	if (dec->avs2_dec.param.p.progressive_sequence == 0 && dec->avs2_dec.param.p.is_field_sequence == 0) {
+		MinCuHeight = 2 * ( (dec->avs2_dec.param.p.vertical_size + 2 * AVS2_MINI_SIZE - 1) / (2 * AVS2_MINI_SIZE) );
+	} else  {
+		MinCuHeight = (dec->avs2_dec.param.p.vertical_size + AVS2_MINI_SIZE - 1) / AVS2_MINI_SIZE;
+	}
+
+	return avs2_calc_dbp_size_with_level_id(dec->avs2_dec.param.p.level_id, MinCuWidth, MinCuHeight) + 1;
+}
+
 static int vavs2_get_ps_info(struct AVS2Decoder_s *dec, struct aml_vdec_ps_infos *ps)
 {
 	ps->visible_width 	= dec->frame_width;
@@ -6051,8 +6141,8 @@ static int vavs2_get_ps_info(struct AVS2Decoder_s *dec, struct aml_vdec_ps_infos
 	ps->coded_height 	= ALIGN(dec->frame_height, 64);
 	ps->dpb_size 		= dec->used_buf_num;
 	ps->dpb_margin	= dec->dynamic_buf_margin;
-	ps->dpb_frames	= 12;
-
+	//ps->dpb_frames	= 12;
+	ps->dpb_frames	= avs2_calc_dpb_size(dec);
 	if (ps->dpb_margin + ps->dpb_frames > max_buf_num) {
 		u32 delta;
 		delta = ps->dpb_margin + ps->dpb_frames - max_buf_num;

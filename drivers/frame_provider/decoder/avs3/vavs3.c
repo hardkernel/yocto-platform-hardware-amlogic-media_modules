@@ -158,6 +158,31 @@
 
 #define PARSER_CMD_NUMBER 37
 
+#define AVS3_MINI_SIZE                    8    // according to spec
+#define AVS3_LEVEL_ID_2_0_15			  0x10
+#define AVS3_LEVEL_ID_2_0_30			  0x12
+#define AVS3_LEVEL_ID_2_0_60			  0x14
+#define AVS3_LEVEL_ID_4_0_30			  0x20
+#define AVS3_LEVEL_ID_4_0_60			  0x22
+#define AVS3_LEVEL_ID_6_0_30			  0x40
+#define AVS3_LEVEL_ID_6_2_30			  0x42
+#define AVS3_LEVEL_ID_6_0_60			  0x44
+#define AVS3_LEVEL_ID_6_2_60			  0x46
+#define AVS3_LEVEL_ID_6_0_120			  0x48
+#define AVS3_LEVEL_ID_6_2_120			  0x4a
+#define AVS3_LEVEL_ID_8_0_30			  0x50
+#define AVS3_LEVEL_ID_8_2_30			  0x52
+#define AVS3_LEVEL_ID_8_0_60			  0x54
+#define AVS3_LEVEL_ID_8_2_60			  0x56
+#define AVS3_LEVEL_ID_8_0_120			  0x58
+#define AVS3_LEVEL_ID_8_2_120			  0x5a
+#define AVS3_LEVEL_ID_10_0_30			  0x60
+#define AVS3_LEVEL_ID_10_2_30			  0x62
+#define AVS3_LEVEL_ID_10_0_60			  0x64
+#define AVS3_LEVEL_ID_10_2_60			  0x66
+#define AVS3_LEVEL_ID_10_0_120			  0x68
+#define AVS3_LEVEL_ID_10_2_120			  0x6a
+
 static unsigned short parser_cmd[PARSER_CMD_NUMBER] = {
 0x0401,
 0x8401,
@@ -1623,7 +1648,7 @@ re_search_seq_threshold:
 static u32 re_search_seq_threshold = 0x800; /*0x8;*/
 /*static u32 parser_sei_enable = 1;*/
 
-static u32 max_buf_num = (MAX_NUM_REF_PICS);
+static u32 max_buf_num = 0;
 
 static u32 run_ready_min_buf_num = 1;
 
@@ -5128,6 +5153,86 @@ static u32 get_dynamic_buf_num_margin(struct AVS3Decoder_s *dec)
 		(dynamic_buf_num_margin & 0x7fffffff);
 }
 
+static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinBu, int PictureHeightInMinBu) {
+	u32 dbp_size = 16;
+	u32 frame_size = PictureWidthInMinBu * AVS3_MINI_SIZE * PictureHeightInMinBu * AVS3_MINI_SIZE;
+	switch (level_id)
+	{
+	case AVS3_LEVEL_ID_2_0_15:
+	case AVS3_LEVEL_ID_2_0_30:
+	case AVS3_LEVEL_ID_2_0_60:
+	case AVS3_LEVEL_ID_4_0_30:
+	case AVS3_LEVEL_ID_4_0_60:
+		dbp_size = 16;
+		break;
+	case AVS3_LEVEL_ID_6_0_30:
+	case AVS3_LEVEL_ID_6_2_30:
+	case AVS3_LEVEL_ID_6_0_60:
+	case AVS3_LEVEL_ID_6_2_60:
+	case AVS3_LEVEL_ID_6_0_120:
+	case AVS3_LEVEL_ID_6_2_120:
+		dbp_size = min((14622720 + frame_size - 1) / frame_size, 16);
+		break;
+	case AVS3_LEVEL_ID_8_0_30:
+	case AVS3_LEVEL_ID_8_2_30:
+	case AVS3_LEVEL_ID_8_0_60:
+	case AVS3_LEVEL_ID_8_2_60:
+	case AVS3_LEVEL_ID_8_0_120:
+	case AVS3_LEVEL_ID_8_2_120:
+		dbp_size = min((58490880 + frame_size - 1) / frame_size, 16);
+		break;
+	case AVS3_LEVEL_ID_10_0_30:
+	case AVS3_LEVEL_ID_10_2_30:
+	case AVS3_LEVEL_ID_10_0_60:
+	case AVS3_LEVEL_ID_10_2_60:
+	case AVS3_LEVEL_ID_10_0_120:
+	case AVS3_LEVEL_ID_10_2_120:
+		dbp_size = min((226492416  + frame_size - 1) / frame_size, 16);
+		break;
+	default:
+		break;
+	}
+	return dbp_size;
+}
+
+static u32 avs3_calc_dpb_size(struct AVS3Decoder_s *dec) {
+	int PictureWidthInMinBu = 0;
+	int PictureHeightInMinBu = 0;
+
+	if (dec->avs3_dec.param.p.sqh_level_id == 0) {
+		avs3_print(dec, 0, "[%s] level_id == 0 is forbidden according to avs3 spec doc\n", __func__);
+		return 12;
+	}
+
+	PictureWidthInMinBu = (dec->avs3_dec.param.p.sqh_horizontal_size + AVS3_MINI_SIZE - 1) / AVS3_MINI_SIZE;
+
+	if (dec->avs3_dec.param.p.sqh_progressive_sequence == 0 && dec->avs3_dec.param.p.sqh_field_coded_sequence == 0) {
+		PictureHeightInMinBu = 2 * ( (dec->avs3_dec.param.p.sqh_vertical_size + 2 * AVS3_MINI_SIZE - 1) / (2 * AVS3_MINI_SIZE) );
+	} else  {
+		PictureHeightInMinBu = (dec->avs3_dec.param.p.sqh_vertical_size + AVS3_MINI_SIZE - 1) / AVS3_MINI_SIZE;
+	}
+
+	return avs3_calc_dbp_size_with_level_id(dec->avs3_dec.param.p.sqh_level_id, PictureWidthInMinBu, PictureHeightInMinBu);
+}
+
+static int vavs3_get_dpb_frames(struct AVS3Decoder_s *dec)
+{
+	int max_dpb_size_minus1 = 0;
+	if (max_buf_num > 0) {
+		pr_info("[%s]  use custom dbp size:%d, Out of memory if using 17\n", __func__, max_buf_num);
+		return max_buf_num;
+	}
+
+	if (dec->avs3_dec.param.p.sqh_max_dpb_size > 15)
+		max_dpb_size_minus1 = 15;
+	else if (dec->avs3_dec.param.p.sqh_max_dpb_size <= 0)
+		max_dpb_size_minus1 = 15;
+	else
+		max_dpb_size_minus1 = dec->avs3_dec.param.p.sqh_max_dpb_size;
+
+	return min((int)(avs3_calc_dpb_size(dec) - 1), max_dpb_size_minus1)  + 1; //Out of memory if using 17
+}
+
 static int avs3_local_init(struct AVS3Decoder_s *dec)
 {
 	int ret = -1;
@@ -5201,7 +5306,7 @@ static int avs3_local_init(struct AVS3Decoder_s *dec)
 #ifndef AVS3_10B_MMU
 	init_buf_list(dec);
 #else
-	dec->avs3_dec.max_pb_size = max_buf_num + dec->dynamic_buf_margin;
+	dec->avs3_dec.max_pb_size = vavs3_get_dpb_frames(dec) + dec->dynamic_buf_margin;
 	if (dec->avs3_dec.max_pb_size > MAX_PB_SIZE)
 		dec->avs3_dec.max_pb_size = MAX_PB_SIZE;
 #endif
