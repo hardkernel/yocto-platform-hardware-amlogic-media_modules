@@ -908,7 +908,7 @@ ddk_module(
 
 # AVS
 ddk_module(
-    name = "amvdec_avs",
+    name = "amvdec_mavs",
     srcs = glob(
         [
             "drivers/frame_provider/decoder/avs_multi/*.c",
@@ -918,8 +918,8 @@ ddk_module(
     hdrs = [
         "//driver_modules/media_modules:media_headers",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs]: \" fmt"],
-    out = "amvdec_avs.ko",
+    local_defines = ["pr_fmt(fmt)=\"[amvdec_mavs]: \" fmt"],
+    out = "amvdec_mavs.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
@@ -935,7 +935,7 @@ ddk_module(
 )
 
 ddk_module(
-    name = "amvdec_avs_v4l",
+    name = "amvdec_mavs_v4l",
     srcs = glob(
         [
             "drivers/frame_provider/decoder_v4l/avs_multi/*.c",
@@ -945,8 +945,8 @@ ddk_module(
     hdrs = [
         "//driver_modules/media_modules:media_headers",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs_v4l]: \" fmt"],
-    out = "amvdec_avs_v4l.ko",
+    local_defines = ["pr_fmt(fmt)=\"[amvdec_mavs_v4l]: \" fmt"],
+    out = "amvdec_mavs_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = [
