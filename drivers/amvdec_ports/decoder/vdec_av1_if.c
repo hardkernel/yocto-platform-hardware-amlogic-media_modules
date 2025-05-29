@@ -405,6 +405,7 @@ err:
 	if (inst)
 		aml_media_mem_free(inst);
 	*h_vdec = 0;
+	ctx->ada_ctx = NULL;
 
 	return ret;
 }
