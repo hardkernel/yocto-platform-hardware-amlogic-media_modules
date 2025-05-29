@@ -10,7 +10,8 @@ LOCAL_SRC_FILES := \
 	vcodec_utils.c \
 	v4l2_dec.c \
 	aml_uvm.c \
-	v4lplayer.c
+	v4lplayer.c \
+	aml_dma_buf_mgr.c
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS += -Wno-unused-label -Wno-unused-parameter -Wno-format -Wno-switch

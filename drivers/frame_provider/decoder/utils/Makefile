@@ -13,6 +13,7 @@ ${MODULE_NAME}-objs	+=	vdec_feature.o
 ${MODULE_NAME}-objs	+=	vdec_ge2d_utils.o
 ${MODULE_NAME}-objs	+=	decoder_dma_alloc.o
 ${MODULE_NAME}-objs	+=	decoder_report.o
+${MODULE_NAME}-objs	+=	dma_buf_mgr.o
 
 MODULE_NAME = amvdec_debug_port
 obj-m	+=	${MODULE_NAME}.o

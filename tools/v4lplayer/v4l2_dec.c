@@ -34,6 +34,10 @@
 #include "vcodec_utils.h"
 #include "v4l2_dec.h"
 #include "aml_uvm.h"
+#include "aml_dma_buf_mgr.h"
+
+#define ROUND(x, size) ( (( x ) + ( size ) - 1) / (size) )
+#define PAGE_SIZE 4096
 
 static const char* video_dev_name = "/dev/video26";
 static int video_fd;
@@ -45,12 +49,14 @@ static bool eos_evt_pending;
 static bool eos_received;
 extern int g_dw_mode;
 extern int g_nv21;
+extern enum v4lplayer_mem_type g_mem_type;
 extern int g_dump_dec_info_num;
 extern int g_output_flag;
 extern int g_log_level;
+extern enum v4lplayer_play_mode g_play_mode;
 static pthread_mutex_t res_lock;
 static enum v4l2_memory sInMemMode;
-static uint8_t* es_buf;
+
 //#define DEBUG_FRAME
 #ifdef DEBUG_FRAME
 static int frame_checksum;
@@ -200,6 +206,90 @@ static uint32_t get_driver_min_buffers (int fd, bool capture_port)
 	return 0;
 }
 
+static int setup_stream_mode_buf(int req_cnt) {
+	if (sInMemMode != V4L2_MEMORY_DMABUF || output_p.plane_num > 1 || g_play_mode != V4LPLAYER_STREAM_MODE) {
+		debug_print(DEBUG_ERROR, "buf isn't dma or planes: %d > 1 or play mode%d \n", output_p.plane_num, g_play_mode);
+		return -1;
+	}
+	int i;
+	for (i = 0; i < req_cnt; ++i) {
+		struct frame_buffer* pb = output_p.buf[i];
+		pb->v4lbuf.index = i;
+		pb->v4lbuf.type = output_p.type;
+		pb->v4lbuf.memory = sInMemMode;
+		pb->v4lbuf.m.planes = pb->v4lplane;
+		pb->v4lbuf.length = output_p.plane_num;
+	}
+	return alloc_dma_stream_buf();
+}
+
+
+static int setup_dma_buf(int fd, int req_cnt) {
+
+	if (sInMemMode != V4L2_MEMORY_DMABUF || output_p.plane_num > 1) {
+		debug_print(DEBUG_ERROR, "buf isn't dma or planes: %d > 1\n", output_p.plane_num);
+		return -1;
+	}
+	int i = 0;
+	int ret = -1;
+
+	for (i = 0; i < req_cnt; ++i) {
+		void* vaddr;
+		void* paddr; // no use
+		int dma_fd;
+		ret = dma_buf_mgr_alloc(ES_BUF_SIZE, &vaddr, &paddr, &dma_fd);
+		if (ret < 0) {
+			debug_print(DEBUG_ERROR, "dma_buf_mgr_alloc\n");
+		}
+		struct frame_buffer* pb = output_p.buf[i];
+		pb->vaddr[0] = (uint8_t *)vaddr;
+
+		pb->v4lbuf.index = i;
+		pb->v4lbuf.type = output_p.type;
+		pb->v4lbuf.memory = sInMemMode;
+		pb->v4lbuf.m.planes = pb->v4lplane;
+		pb->v4lbuf.m.planes[0].m.fd = dma_fd;
+		pb->v4lbuf.length = output_p.plane_num;
+	}
+
+	return 0;
+}
+
+static int setup_mmap_buf(int fd, int req_cnt) {
+	int i;
+	int ret;
+	for (i = 0; i < req_cnt; i++) {
+		int j;
+		struct frame_buffer* pb = output_p.buf[i];
+		pb->v4lbuf.index = i;
+		pb->v4lbuf.type = output_p.type;
+		pb->v4lbuf.memory = sInMemMode;
+		pb->v4lbuf.length = output_p.plane_num;
+		pb->v4lbuf.m.planes = pb->v4lplane;
+
+		ret = ioctl(fd, VIDIOC_QUERYBUF, &pb->v4lbuf);
+		if (ret) {
+			debug_print(DEBUG_ERROR, "VIDIOC_QUERYBUF %dth buf fail ret:%d\n", i, ret);
+			return 3;
+		}
+
+
+		for (j = 0; j < output_p.plane_num; j++) {
+			void *vaddr;
+			vaddr = mmap(NULL, pb->v4lplane[j].length,
+			PROT_READ | PROT_WRITE, MAP_SHARED,
+			fd, pb->v4lplane[j].m.mem_offset);
+			if (vaddr == MAP_FAILED) {
+				debug_print(DEBUG_ERROR, "%s mmap failed len:%d offset:%x\n", __func__,
+					pb->v4lplane[j].length, pb->v4lplane[j].m.mem_offset);
+				return 4;
+			}
+			pb->vaddr[j] = (uint8_t *)vaddr;
+		}
+	}
+	return 0;
+}
+
 static int setup_output_port(int fd)
 {
 	int i,ret;
@@ -224,49 +314,23 @@ static int setup_output_port(int fd)
 	}
 	for (i = 0 ; i < req.count ; i++)
 		output_p.buf[i] = calloc(1, sizeof(struct frame_buffer));
-
-	for (i = 0; i < req.count; i++) {
-		int j;
-		struct frame_buffer* pb = output_p.buf[i];
-		pb->v4lbuf.index = i;
-		pb->v4lbuf.type = output_p.type;
-		pb->v4lbuf.memory = sInMemMode;
-		pb->v4lbuf.length = output_p.plane_num;
-		pb->v4lbuf.m.planes = pb->v4lplane;
-
-		ret = ioctl(fd, VIDIOC_QUERYBUF, &pb->v4lbuf);
-		if (ret) {
-			debug_print(DEBUG_ERROR, "VIDIOC_QUERYBUF %dth buf fail ret:%d\n", i, ret);
-			return 3;
-		}
-
-		if (sInMemMode != V4L2_MEMORY_MMAP)
-			continue;
-		for (j = 0; j < output_p.plane_num; j++) {
-			void *vaddr;
-			vaddr = mmap(NULL, pb->v4lplane[j].length,
-			PROT_READ | PROT_WRITE, MAP_SHARED,
-			fd, pb->v4lplane[j].m.mem_offset);
-			if (vaddr == MAP_FAILED) {
-				debug_print(DEBUG_ERROR, "%s mmap failed len:%d offset:%x\n", __func__,
-					pb->v4lplane[j].length, pb->v4lplane[j].m.mem_offset);
-				return 4;
-			}
-			pb->vaddr[j] = (uint8_t *)vaddr;
-		}
-
+	if (g_play_mode == V4LPLAYER_STREAM_MODE) {
+		ret = setup_stream_mode_buf(req.count);
+	}else if (sInMemMode == V4L2_MEMORY_DMABUF) {
+		ret = setup_dma_buf(fd, req.count);
+	}else if (sInMemMode == V4L2_MEMORY_MMAP) {
+		ret = setup_mmap_buf(fd, req.count);
+	}else {
+		debug_print(DEBUG_ERROR, "unsupport mem type:%d\n", sInMemMode);
+		ret = -1;
+	}
+	if (ret != 0) {
+		return ret;
 	}
 
 	pthread_mutex_init(&output_p.lock, NULL);
 	pthread_cond_init(&output_p.wait, NULL);
 
-	if (sInMemMode == V4L2_MEMORY_DMABUF) {
-		es_buf = malloc(ES_BUF_SIZE);
-		if (!es_buf) {
-			debug_print(DEBUG_ERROR, "%d OOM\n", __LINE__);
-			return 5;
-		}
-	}
 	return 0;
 }
 
@@ -285,8 +349,14 @@ static int destroy_output_port(int fd) {
 		struct frame_buffer *buf = output_p.buf[i];
 		for (j = 0; j < output_p.plane_num; ++j) {
 			munmap(buf->vaddr[j], buf->v4lplane[j].length);
+			if (sInMemMode == V4L2_MEMORY_DMABUF) {
+				close(buf->v4lplane[j].m.fd);
+			}
 		}
 		free(buf);
+	}
+	if (sInMemMode == V4L2_MEMORY_DMABUF || g_play_mode == V4LPLAYER_STREAM_MODE) {
+		dma_buf_mgr_free();
 	}
 	free(output_p.buf);
 	return 0;
@@ -463,7 +533,6 @@ static int destroy_capture_port(int fd) {
 	pthread_cond_destroy(&capture_p.wait);
 	ioctl(fd, VIDIOC_REQBUFS, &req);
 	free_uvm_buffers();
-
 	for (i = 0 ; i < req.count ; i++) {
 		/* release GEM buf */
 		free(capture_p.buf[i]);
@@ -1165,7 +1234,12 @@ static void *dec_thread_func(void * arg)
 
 			ret = ioctl(video_fd, VIDIOC_DQBUF, &buf);
 			if (ret) {
-				debug_print(DEBUG_ERROR, "output VIDIOC_DQBUF fail %d\n", ret);
+				error_count ++;
+				if (error_count < 30) {
+					debug_print(DEBUG_ERROR, "output VIDIOC_DQBUF fail %d\n", ret);
+				} else if (error_count == 30) {
+					debug_print(DEBUG_ERROR, "output VIDIOC_DQBUF fail conunt 30, pls check. \n");
+				}
 			} else {
 				struct frame_buffer *fb = output_p.buf[buf.index];
 #ifdef DEBUG_FRAME
@@ -1174,6 +1248,10 @@ static void *dec_thread_func(void * arg)
 				pthread_mutex_lock(&output_p.lock);
 				fb->queued = false;
 				pthread_mutex_unlock(&output_p.lock);
+				if (g_play_mode == V4LPLAYER_STREAM_MODE) {
+					close(fb->v4lbuf.m.planes[0].m.fd);
+					//dma_buf_stream_buf_free(fb->used);
+				}
 				fb->used = 0;
 				d_o_rec_num++;
 				pthread_cond_signal(&output_p.wait);
@@ -1441,8 +1519,11 @@ int v4l2_dec_init(enum vformat_e type, decode_finish_fn cb)
 	if (!cb)
 		return 1;
 	decode_finish_cb = cb;
-	sInMemMode = V4L2_MEMORY_MMAP;
-
+	sInMemMode =  g_mem_type == V4LPLAYER_MEM_TYPE_MMAP ? V4L2_MEMORY_MMAP : V4L2_MEMORY_DMABUF;
+	if (g_play_mode == V4LPLAYER_STREAM_MODE) {
+		g_mem_type = V4LPLAYER_MEM_TYPE_DMA;
+		sInMemMode = V4L2_MEMORY_DMABUF;
+	}
 	/* check decoder mode */
 	if ((type == VFORMAT_MPEG12 ||
 		type == VFORMAT_MPEG4 ||
@@ -1494,7 +1575,7 @@ int v4l2_dec_init(enum vformat_e type, decode_finish_fn cb)
 	}
 
 	/* VC1 need set stream mode*/
-	if (type == VFORMAT_VC1) {
+	if (type == VFORMAT_VC1 || g_play_mode == V4LPLAYER_STREAM_MODE) {
 	    struct v4l2_queryctrl queryctrl;
 	    struct v4l2_control control;
 
@@ -1614,8 +1695,6 @@ int v4l2_dec_destroy()
 	pthread_mutex_destroy(&res_lock);
 	close(video_fd);
 	destroy_dec_info();
-	if (es_buf)
-		free(es_buf);
 	if (yuv_fp)
 		fclose(yuv_fp);
 	if (crc_fp)
@@ -1663,19 +1742,32 @@ int v4l2_dec_write_es(const uint8_t *data, int size)
 	}
 
 	p = output_p.buf[cur_output_index];
-	if ((sInMemMode == V4L2_MEMORY_MMAP &&
-		(p->used + size) > p->v4lplane[0].length) ||
-		(sInMemMode == V4L2_MEMORY_DMABUF &&
-		(p->used + size) > ES_BUF_SIZE)) {
-		debug_print(DEBUG_ERROR, "fatal frame too big %d\n", size + p->used);
-		return 0;
-	}
 
-	if (sInMemMode == V4L2_MEMORY_MMAP)
+	if (g_play_mode == V4LPLAYER_STREAM_MODE) {
+		int fd ;
+		fd = dma_buf_stream_buf_write((char*)data, size);
+		if (fd < 0) {
+			debug_print(DEBUG_ERROR, "dma_buf_stream_buf_write failed\n");
+			return fd;
+		}
+		p->v4lbuf.m.planes[0].m.fd = fd;
+	} else {
+		if ((sInMemMode == V4L2_MEMORY_MMAP &&
+			(p->used + size) > p->v4lplane[0].length) ||
+			(sInMemMode == V4L2_MEMORY_DMABUF &&
+			(p->used + size) > ES_BUF_SIZE)) {
+			debug_print(DEBUG_ERROR, "fatal frame too big %d\n", size + p->used);
+			return 0;
+		}
+		if (sInMemMode == V4L2_MEMORY_DMABUF) {
+			if (size + p->used <= PAGE_SIZE) {
+				memset(p->vaddr[0] + p->used, 0, PAGE_SIZE - p->used);
+			} else {
+				memset(p->vaddr[0] + p->used, 0, ROUND((size + p->used), 64) - p->used);
+			}
+		}
 		memcpy(p->vaddr[0] + p->used, data, size);
-	else
-		memcpy(es_buf + p->used, data, size);
-
+	}
 	p->used += size;
 #ifdef DEBUG_FRAME
 	if (g_log_level & DEBUG_FRAME) {
@@ -1701,8 +1793,14 @@ int v4l2_dec_frame_done()
 		return 0;
 	}
 	p = output_p.buf[cur_output_index];
-	p->v4lbuf.m.planes[0].bytesused = p->used;
 
+	if (sInMemMode == V4L2_MEMORY_DMABUF) {
+		p->v4lbuf.m.planes[0].length = p->used;
+		p->v4lbuf.m.planes[0].data_offset = 0;
+	}
+
+	p->v4lbuf.m.planes[0].bytesused = p->used;
+	p->v4lbuf.length = 1;
 	/* convert from ns to timeval */
 	p->v4lbuf.timestamp.tv_sec = d_o_push_num;
 

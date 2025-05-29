@@ -233,6 +233,8 @@ ddk_module(
             "drivers/frame_provider/decoder/utils/vdec_trace.h",
             "drivers/frame_provider/decoder/utils/vdec_v4l2_buffer_ops.c",
             "drivers/frame_provider/decoder/utils/vdec_v4l2_buffer_ops.h",
+            "drivers/frame_provider/decoder/utils/dma_buf_mgr.c",
+            "drivers/frame_provider/decoder/utils/dma_buf_mgr.h",
         ],
     ),
     hdrs = [

@@ -33,11 +33,10 @@
 //#define DEBUG_FRAME
 
 #define BUFFER_SIZE (1024*1024*4)
-
 #define AML_VP9_HEADER_SIZE 16
 #define VP9_IVF_HEAD_SIZE 32
 #define VP9_IVF_FRAME_HEAD_SIZE 12
-
+#define STREAM_MODE_WRITE_BLOCK_SIZE (64 * 1024)
 #define is_ivf_type(type)	\
 		(type == VFORMAT_AV1)
 
@@ -53,6 +52,8 @@ int g_log_level = 0;
 int g_output_flag = 0;
 int g_nv21 = 1;
 
+enum v4lplayer_mem_type g_mem_type = V4LPLAYER_MEM_TYPE_MMAP;
+enum v4lplayer_play_mode g_play_mode = V4LPLAYER_FRAME_MODE;
 static int write_es_data(const uint8_t *data, int size)
 {
 	v4l2_dec_write_es(data, size);
@@ -1064,6 +1065,36 @@ int frame_mode_write_dat(FILE *fp, FILE *fszp, char *buffer)
 	return 0;
 }
 
+int stream_mode_write_dat(FILE *fp, char *buffer)
+{
+	int ret;
+	char padding[STREAM_MODE_WRITE_BLOCK_SIZE] = {0};
+
+	while (!feof(fp)) {
+		memset(buffer, 0, BUFFER_SIZE);
+		ret = fread(buffer, 1, STREAM_MODE_WRITE_BLOCK_SIZE, fp);
+		if (ret == 0) {
+			debug_print(DEBUG_ERROR, "error write data done\n");
+			break;
+		}else if(ret < 0) {
+			debug_print(DEBUG_ERROR, "error write data error:%d\n", ret);
+		} else {
+			if (send_buffer_to_device(buffer, ret) < 0) {
+				debug_print(DEBUG_ERROR, "send data failed\n");
+				break;
+			}
+		}
+		// can not get read point, it's meaningless to use 'ring_buf.start',
+		// in other word, we cannot know whether buf is full or not, so write buf must sleep.
+		usleep(100 * 1000);
+	}
+
+	send_buffer_to_device(padding, STREAM_MODE_WRITE_BLOCK_SIZE);
+
+	debug_print(0, "stream write data done\n");
+	return 0;
+}
+
 static void usage()
 {
 	printf("Command help:\n");
@@ -1101,24 +1132,28 @@ static void usage()
 	printf("\tBefore dumping, run 'mkdir -p /data/tmp -m 777;setenforce 0;rm /data/tmp/* -rf' command\n");
 	printf(" -n, --number, dump decoder info num\n");
 	printf(" -p, --pix_fmt, set nv12 or nv21\n");
+	printf(" -m, memory_type and play_mode:\n");
+	printf("\t bit:0  memory type: 0 for mmap , 1 for dma\n");
+	printf("\t bit:1  play_mode: 0 for frame mode , 1 for stream mode\n");
 	printf(" -h, --help,   usage\n");
 	printf("example : v4lplayer -f 2 -d 16 -i /data/h264.es -s /data/h264.fsz\n");
 }
 
-static const char short_options[] = "i:s:d:f:l:o:n:p:h";
+static const char short_options[] = "i:s:d:f:l:o:n:p:m:h";
 
 static const struct option
 long_options[] = {
-		{ "sizefile",  required_argument, NULL, 's' },
-		{ "ifile",	required_argument, NULL, 'i' },
-        { "double_write", required_argument, NULL, 'd' },
-        { "format", required_argument, NULL, 'f' },
-        { "log",  required_argument, NULL, 'l' },
-		{ "output",  required_argument, NULL, 'o' },
-		{ "num",  required_argument, NULL, 'n' },
-		{ "pix_fmt",  required_argument, NULL, 'p' },
-        { "help",   no_argument,       NULL, 'h' },
-        { 0, 0, 0, 0 }
+	{ "sizefile",  required_argument, NULL, 's' },
+	{ "ifile",	required_argument, NULL, 'i' },
+	{ "double_write", required_argument, NULL, 'd' },
+	{ "format", required_argument, NULL, 'f' },
+	{ "log",  required_argument, NULL, 'l' },
+	{ "output",  required_argument, NULL, 'o' },
+	{ "num",  required_argument, NULL, 'n' },
+	{ "help",   no_argument,       NULL, 'h' },
+	{ "mem_and_mode", required_argument, NULL, 'm' },
+	{ "pix_fmt",  required_argument, NULL, 'p' },
+	{ 0, 0, 0, 0 }
 };
 
 static int parse_para(int argc, char *argv[])
@@ -1141,14 +1176,26 @@ static int parse_para(int argc, char *argv[])
 				g_log_level = atoi(optarg);
 				break;
 			case 'd':
-				g_dw_mode = atoi(optarg);
+				if (strncmp(optarg, "0x", 2) == 0 || strncmp(optarg, "0X", 2) == 0) {
+					value = strtoul(optarg, &endptr, 16);
+				} else {
+					value = strtoul(optarg, &endptr, 10);
+				}
+
+				if (*endptr != '\0') {
+					debug_print(DEBUG_ERROR, "Invalid value -o: %s\n", optarg);
+					break;
+				}
+
+				g_dw_mode = value;
 				if (g_dw_mode != 0 &&
 					g_dw_mode != 1 &&
 					g_dw_mode != 2 &&
 					g_dw_mode != 3 &&
 					g_dw_mode != 4 &&
-					g_dw_mode != 16) {
-					debug_print(DEBUG_ERROR, "invalid dw_mode %d\n", g_dw_mode);
+					g_dw_mode != 16 &&
+					g_dw_mode != 0x200) {
+					debug_print(DEBUG_ERROR, "invalid dw_mode 0x%x\n", g_dw_mode);
 					exit(1);
 				}
 				break;
@@ -1191,6 +1238,28 @@ static int parse_para(int argc, char *argv[])
 			case 'h':
 				usage();
 				return -1;
+			case 'm':
+				if (strncmp(optarg, "0x", 2) == 0 || strncmp(optarg, "0X", 2) == 0) {
+					value = strtoul(optarg, &endptr, 16);
+				} else {
+					value = strtoul(optarg, &endptr, 10);
+				}
+
+				if (*endptr != '\0') {
+					debug_print(DEBUG_ERROR, "Invalid value -m: %s\n", optarg);
+					break;
+				}
+
+				if (value & 0b1) {
+					g_mem_type = V4LPLAYER_MEM_TYPE_DMA;
+				}
+
+				if (value & 0b10) {
+					g_play_mode = V4LPLAYER_STREAM_MODE;
+					g_mem_type = V4LPLAYER_MEM_TYPE_DMA; // force dma
+				}
+
+				break;
 			default:
 				usage();
 			return -1;
@@ -1239,7 +1308,7 @@ int main(int argc, char *argv[])
 
 	debug_print(DEBUG_STATE, "set dw mode:%d, nv21:%d\n", g_dw_mode, g_nv21);
 	if (((frame_size_fp = fopen(frame_size_file, "rb")) == NULL) &&
-		video_type != VFORMAT_AV1) {
+		video_type != VFORMAT_AV1 && g_play_mode == V4LPLAYER_FRAME_MODE) {
 		debug_print(DEBUG_ERROR, "open file %s error!, force stream mode\n", frame_size_file);
 		return -1;
 	}
@@ -1253,24 +1322,26 @@ int main(int argc, char *argv[])
 	}
 
 	start_decoder(video_type);
-
-	if (is_video_file_type_ivf(fp, buffer)) {
-		if (video_type == VFORMAT_AV1) {
-			debug_print(DEBUG_DEF, "input video file is ivf with av1.\n");
-			av1_ivf_write_dat(fp, (uint8_t *)buffer);
-		}
-	} else {
-		if ((video_type == VFORMAT_AV1) && (frame_size_fp == NULL))
-			av1_frame_mode_write_dat(fp, buffer);
-		else {
-			if (!frame_size_file) {
-				debug_print(DEBUG_ERROR, "open file %s error!, force stream mode\n", frame_size_file);
-				goto free_buff;
+	if (g_play_mode == V4LPLAYER_STREAM_MODE) {
+		stream_mode_write_dat(fp, buffer);
+	}else {
+		if (is_video_file_type_ivf(fp, buffer)) {
+			if (video_type == VFORMAT_AV1) {
+				debug_print(DEBUG_DEF, "input video file is ivf with av1.\n");
+				av1_ivf_write_dat(fp, (uint8_t *)buffer);
 			}
-			frame_mode_write_dat(fp, frame_size_fp, buffer);
+		} else {
+			if ((video_type == VFORMAT_AV1) && (frame_size_fp == NULL))
+				av1_frame_mode_write_dat(fp, buffer);
+			else {
+				if (!frame_size_file) {
+					debug_print(DEBUG_ERROR, "open file %s error!, force stream mode\n", frame_size_file);
+					goto free_buff;
+				}
+				frame_mode_write_dat(fp, frame_size_fp, buffer);
+			}
 		}
 	}
-
 	v4l2_dec_eos();
 	sem_wait(&wait_for_end);
 

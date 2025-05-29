@@ -86,6 +86,17 @@ enum vdec_dec_mode {
 	DM_YUV_14_11_10BIT_AVBC	= 0x10200,
 };
 
+enum v4lplayer_play_mode {
+	V4LPLAYER_FRAME_MODE = 0,
+	V4LPLAYER_STREAM_MODE = 1,
+};
+
+enum v4lplayer_mem_type {
+	V4LPLAYER_MEM_TYPE_MMAP = 0,
+	V4LPLAYER_MEM_TYPE_DMA = 1,
+};
+
+
 int debug_print(int flag, const char *fmt, ...);
 uint32_t crc32_le(uint32_t crc, unsigned char const *p, int len);
 

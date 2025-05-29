@@ -134,12 +134,13 @@ enum E_DECINFO_EVENT {
 	AML_DECINFO_EVENT_CUVA,
 	AML_DECINFO_EVENT_AMDV,
 	AML_DECINFO_EVENT_FRAME,
+	AML_DECINFO_GET_FEATURE_TYPE,
 	AML_DECINFO_EVENT_COMPOSITE = 30,
 	AML_DECINFO_EVENT_BOTTOM = 31,
 };
 
 struct v4l_dec_data_extension {
-	unsigned long ptr;  /* for future extension */
+	__u64 ptr;  /* for future extension */
 	__u32 data_size;
 };
 

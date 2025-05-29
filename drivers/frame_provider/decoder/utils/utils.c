@@ -37,6 +37,7 @@
 #include "decoder_bmmu_box.h"
 #include "vdec_profile.h"
 #include "decoder_report.h"
+#include "dma_buf_mgr.h"
 
 static int __init decoder_common_init(void)
 {
@@ -53,6 +54,8 @@ static int __init decoder_common_init(void)
 	decoder_bmmu_box_init();
 
 	vdec_profile_init_debugfs();
+
+	dma_buf_mgr_module_init();
 
 	return 0;
 }
@@ -71,6 +74,8 @@ static void __exit decoder_common_exit(void)
 	decoder_bmmu_box_exit();
 
 	vdec_profile_exit_debugfs();
+
+	dma_buf_mgr_module_exit();
 }
 
 module_init(decoder_common_init);
