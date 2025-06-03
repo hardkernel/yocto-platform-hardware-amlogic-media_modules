@@ -1121,6 +1121,11 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		planes[2].addr, planes[2].length,
 		vf->bitdepth,
 		vf->priority);
+
+	if (!ctx->out_buff_cnt) {
+		PR_PIPE_KPI_INFO("TP_V4L2_CapBuf_First_Finish", ctx->id, MAIN_INFO,
+			"#%d TP_V4L2_CapBuf_First_Finish, time %llu", ctx->id, ktime_get_ns());
+	}
 	ctx->out_buff_cnt++;
 
 	if (dstbuf->aml_buf->num_planes == 1) {
@@ -4960,6 +4965,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			aml_buf->planes[1].addr, aml_buf->planes[1].length,
 			aml_buf->planes[2].addr, aml_buf->planes[2].length);
 
+		if (!ctx->in_buff_cnt && ctx->state <= AML_STATE_READY) {
+			PR_PIPE_KPI_INFO("TP_V4L2_CapBuf_First_Get", ctx->id, MAIN_INFO,
+				"#%d TP_V4L2_CapBuf_First_Get, time %llu", ctx->id, ktime_get_ns());
+		}
 		ctx->in_buff_cnt++;
 
 		vdec_tracing(&ctx->vtr, VTRACE_V4L_PIC_10,
@@ -5167,6 +5176,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			"vcodec state (AML_STATE_PROBE)\n");
 	}
 	mutex_unlock(&ctx->state_lock);
+
+	PR_PIPE_KPI_INFO("TP_V4L2_Res_Confirmed", ctx->id, MAIN_INFO,
+		"#%d TP_V4L2_Res_Confirmed, time %llu", ctx->id, ktime_get_ns());
 
 	aml_vdec_dispatch_event(ctx, V4L2_EVENT_SRC_CH_RESOLUTION);
 }

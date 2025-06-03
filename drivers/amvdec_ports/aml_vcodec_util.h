@@ -33,6 +33,7 @@
 #include "aml_task_chain.h"
 #include "../common/media_utils/media_utils.h"
 #include <linux/amlogic/media/codec_mm/codec_mm_prealloc.h>
+#include <linux/amlogic/media/resource_mgr/resourcemanage.h>
 
 /*
 typedef unsigned long long	u64;
@@ -89,7 +90,6 @@ extern int t3x_tw_output;
 #define V4L_DEBUG_GE2D_BUFMGR	(1 << 12)
 #define V4L_DEBUG_GE2D_DETAIL	(1 << 13)
 #define V4L_DEBUG_AVBCD_BUFMGR	(1 << 14)
-
 
 #define __v4l_dbg(h, id, fmt, args...)					\
 	do {								\

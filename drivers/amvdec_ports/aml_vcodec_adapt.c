@@ -491,6 +491,10 @@ int vdec_vframe_write(struct aml_vdec_adapt *ada_ctx, const char *buf,
 		ada_ctx->ctx->write_frames, buf, count, ret,
 		crc32_le(0, buf, count), timestamp);
 
+	if (!ada_ctx->ctx->write_frames) {
+		PR_PIPE_KPI_INFO("TP_V4L2_InputBuf_First_Get", ada_ctx->ctx->id, MAIN_INFO,
+			"#%d TP_V4L2_InputBuf_First_Get, time %llu", ada_ctx->ctx->id, ktime_get_ns());
+	}
 	ada_ctx->ctx->write_frames++;
 
 	return ret;
@@ -553,6 +557,11 @@ int vdec_vframe_write_with_dma(struct aml_vdec_adapt *ada_ctx,
 	v4l_dbg(ada_ctx->ctx, V4L_DEBUG_CODEC_INPUT,
 		"write frames[%d], vbuf: %lx, size: %u, ret: %d, ts: %llu\n",
 		ada_ctx->ctx->write_frames, addr, count, ret, timestamp);
+
+	if (!ada_ctx->ctx->write_frames) {
+		PR_PIPE_KPI_INFO("TP_V4L2_InputBuf_First_Get", ada_ctx->ctx->id, MAIN_INFO,
+			"#%d TP_V4L2_InputBuf_First_Get, time %llu", ada_ctx->ctx->id, ktime_get_ns());
+	}
 
 	ada_ctx->ctx->write_frames++;
 
