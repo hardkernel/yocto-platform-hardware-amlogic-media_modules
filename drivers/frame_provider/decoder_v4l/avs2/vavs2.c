@@ -6069,7 +6069,7 @@ static void vavs2_get_comp_buf_info(struct AVS2Decoder_s *dec,
 		bit_depth == AVS2_BITS_10);
 }
 
-static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int MinCuHeight) {
+static u32 avs2_calc_dbp_size_with_level_id(uint16_t level_id, u32 MinCuWidth, u32 MinCuHeight) {
 	u32 dbp_size = 15;
 	u32 frame_size = MinCuWidth * AVS2_MINI_SIZE * MinCuHeight * AVS2_MINI_SIZE;
 	switch (level_id)
@@ -6087,7 +6087,7 @@ static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int Mi
 	case AVS2_LEVEL_ID_6_2_60:
 	case AVS2_LEVEL_ID_6_0_120:
 	case AVS2_LEVEL_ID_6_2_120:
-		dbp_size = min((13369344 + frame_size - 1) / frame_size, 16) - 1;
+		dbp_size = min((13369344 + frame_size - 1) / frame_size, (u32)16) - 1;
 		break;
 	case AVS2_LEVEL_ID_8_0_30:
 	case AVS2_LEVEL_ID_8_2_30:
@@ -6095,7 +6095,7 @@ static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int Mi
 	case AVS2_LEVEL_ID_8_2_60:
 	case AVS2_LEVEL_ID_8_0_120:
 	case AVS2_LEVEL_ID_8_2_120:
-		dbp_size = min((56623104 + frame_size - 1) / frame_size, 16) - 1;
+		dbp_size = min((56623104 + frame_size - 1) / frame_size, (u32)16) - 1;
 		break;
 	case AVS2_LEVEL_ID_10_0_30:
 	case AVS2_LEVEL_ID_10_2_30:
@@ -6103,7 +6103,7 @@ static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int Mi
 	case AVS2_LEVEL_ID_10_2_60:
 	case AVS2_LEVEL_ID_10_0_120:
 	case AVS2_LEVEL_ID_10_2_120:
-		dbp_size = min((213909504  + frame_size - 1) / frame_size, 16) - 1;
+		dbp_size = min((213909504  + frame_size - 1) / frame_size, (u32)16) - 1;
 		break;
 	default:
 		break;
@@ -6112,8 +6112,8 @@ static u32 avs2_calc_dbp_size_with_level_id(int level_id, int MinCuWidth, int Mi
 }
 
 static u32 avs2_calc_dpb_size(struct AVS2Decoder_s *dec) {
-	int MinCuHeight = 0;
-	int MinCuWidth = 0;
+	u32 MinCuHeight = 0;
+	u32 MinCuWidth = 0;
 
 	if (dec->avs2_dec.param.p.level_id == 0) {
 		avs2_print(dec, 0, "[%s] level_id == 0 is forbidden according to avs2 spec doc\n", __func__);

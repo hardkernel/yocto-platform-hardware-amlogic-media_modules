@@ -5153,7 +5153,7 @@ static u32 get_dynamic_buf_num_margin(struct AVS3Decoder_s *dec)
 		(dynamic_buf_num_margin & 0x7fffffff);
 }
 
-static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinBu, int PictureHeightInMinBu) {
+static u32 avs3_calc_dbp_size_with_level_id(uint16_t level_id, u32 PictureWidthInMinBu, u32 PictureHeightInMinBu) {
 	u32 dbp_size = 16;
 	u32 frame_size = PictureWidthInMinBu * AVS3_MINI_SIZE * PictureHeightInMinBu * AVS3_MINI_SIZE;
 	switch (level_id)
@@ -5171,7 +5171,7 @@ static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinB
 	case AVS3_LEVEL_ID_6_2_60:
 	case AVS3_LEVEL_ID_6_0_120:
 	case AVS3_LEVEL_ID_6_2_120:
-		dbp_size = min((14622720 + frame_size - 1) / frame_size, 16);
+		dbp_size = min((14622720 + frame_size - 1) / frame_size, (u32)16);
 		break;
 	case AVS3_LEVEL_ID_8_0_30:
 	case AVS3_LEVEL_ID_8_2_30:
@@ -5179,7 +5179,7 @@ static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinB
 	case AVS3_LEVEL_ID_8_2_60:
 	case AVS3_LEVEL_ID_8_0_120:
 	case AVS3_LEVEL_ID_8_2_120:
-		dbp_size = min((58490880 + frame_size - 1) / frame_size, 16);
+		dbp_size = min((58490880 + frame_size - 1) / frame_size, (u32)16);
 		break;
 	case AVS3_LEVEL_ID_10_0_30:
 	case AVS3_LEVEL_ID_10_2_30:
@@ -5187,7 +5187,7 @@ static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinB
 	case AVS3_LEVEL_ID_10_2_60:
 	case AVS3_LEVEL_ID_10_0_120:
 	case AVS3_LEVEL_ID_10_2_120:
-		dbp_size = min((226492416  + frame_size - 1) / frame_size, 16);
+		dbp_size = min((226492416  + frame_size - 1) / frame_size, (u32)16);
 		break;
 	default:
 		break;
@@ -5196,8 +5196,8 @@ static u32 avs3_calc_dbp_size_with_level_id(int level_id, int PictureWidthInMinB
 }
 
 static u32 avs3_calc_dpb_size(struct AVS3Decoder_s *dec) {
-	int PictureWidthInMinBu = 0;
-	int PictureHeightInMinBu = 0;
+	u32 PictureWidthInMinBu = 0;
+	u32 PictureHeightInMinBu = 0;
 
 	if (dec->avs3_dec.param.p.sqh_level_id == 0) {
 		avs3_print(dec, 0, "[%s] level_id == 0 is forbidden according to avs3 spec doc\n", __func__);
