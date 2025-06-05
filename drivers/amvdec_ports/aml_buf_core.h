@@ -281,6 +281,7 @@ struct buf_core_ops {
 	void 	(*init_dma)(struct buf_core_mgr_s *);
 	void 	(*deinit_dma)(struct buf_core_mgr_s *);
 	bool 	(*dmabuf_slot_occupied)(struct buf_core_mgr_s *);
+	bool 	(*check_uvm_dma_recycled)(struct buf_core_mgr_s *, ulong, ulong);
 };
 
 /*

@@ -2227,19 +2227,16 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 		return 0;
 
 	if (!ctx->master_buf && !is_there_enough_yuv_dmabuf(ctx, dbuf)) {
-		if (mbuf->idmabuf[0]) {
+		if (!aml_buf_check_uvm_dma_recycled(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf))
 			aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
-			dma_buf_put(mbuf->idmabuf[0]);
-			mbuf->idmabuf[0] = NULL;
-		}
-		if (!buf->aml_buf->unbind)
-			aml_buf_set_unbind_dmabuf(&ctx->bm, buf->aml_buf);
+		aml_buf_set_unbind_dmabuf(&ctx->bm, buf->aml_buf);
 		return -1;
 	}
 
 	/* free fake dma buffer. */
 	if (mbuf->idmabuf[0]) {
-		aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
+		if (!aml_buf_check_uvm_dma_recycled(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf))
+			aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
 		dma_buf_put(mbuf->idmabuf[0]);
 	}
 

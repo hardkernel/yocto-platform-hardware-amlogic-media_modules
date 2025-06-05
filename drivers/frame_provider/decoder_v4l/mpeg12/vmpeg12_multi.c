@@ -1979,14 +1979,8 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 				(((hw->first_i_frame_ready == 0) || pb_skip) &&
 				((PICINFO_TYPE_MASK & pic->buffer_info) !=
 				 PICINFO_TYPE_I)))) {
-				struct mua_buffer *mbuf = NULL;
-				struct uvm_buf_obj *obj = NULL;
-
-				obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
-				mbuf = container_of(obj, struct mua_buffer, base);
-				aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
-				dma_buf_put(mbuf->idmabuf[0]);
-				mbuf->idmabuf[0] = NULL;
+				if (!aml_buf_check_uvm_dma_recycled(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key))
+					aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
 				aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
 			}
 		}

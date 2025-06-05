@@ -1286,14 +1286,8 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 
 	if (ctx->enable_di_post && hw->interlace_flag) {
-		struct mua_buffer *mbuf = NULL;
-		struct uvm_buf_obj *obj = NULL;
-
-		obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
-		mbuf = container_of(obj, struct mua_buffer, base);
-		aml_buf_put_free_dmabuf(&ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
-		dma_buf_put(mbuf->idmabuf[0]);
-		mbuf->idmabuf[0] = NULL;
+		if (!aml_buf_check_uvm_dma_recycled(&ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key))
+			aml_buf_put_free_dmabuf(&ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
 		aml_buf_set_unbind_dmabuf(&ctx->bm, sub1_buf);
 	}
 

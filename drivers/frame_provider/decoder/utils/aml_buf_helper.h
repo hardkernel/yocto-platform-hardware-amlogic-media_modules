@@ -432,6 +432,20 @@ static inline bool aml_buf_dmabuf_slot_occupied(struct aml_buf_mgr_s *bm)
 }
 
 /*
+ * aml_buf_check_uvm_dma_recycled() - Use to judge if there uvm dma recycled.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @dmabuf	: The information of yuv dma buffer or physic address.
+ * @uvm_dmabuf	: The information of uvm dma buffer.
+ * Use to get alloc dma context.
+ */
+static inline bool aml_buf_check_uvm_dma_recycled(struct aml_buf_mgr_s *bm,
+					ulong dmabuf, ulong uvm_dmabuf)
+{
+	return bm->bc.buf_ops.check_uvm_dma_recycled(&bm->bc, dmabuf, uvm_dmabuf);
+}
+
+/*
  * aml_buf_alloc_dma() - Use to alloc dma context.
  *
  * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.

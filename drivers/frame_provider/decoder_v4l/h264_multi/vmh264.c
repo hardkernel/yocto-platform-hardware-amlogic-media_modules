@@ -3799,14 +3799,8 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm)
 		&& vf_count == 2 && frame->show_frame) {
-		struct mua_buffer *mbuf = NULL;
-		struct uvm_buf_obj *obj = NULL;
-
-		obj = dmabuf_get_uvm_buf_obj((struct dma_buf *)sub1_buf->entry.key);
-		mbuf = container_of(obj, struct mua_buffer, base);
-		aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->buf_adr, sub1_buf->entry.key, false);
-		dma_buf_put(mbuf->idmabuf[0]);
-		mbuf->idmabuf[0] = NULL;
+		if (!aml_buf_check_uvm_dma_recycled(&v4l2_ctx->bm, (ulong)pic->buf_adr, (ulong)sub1_buf->entry.key))
+			aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->buf_adr, sub1_buf->entry.key, false);
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
 	}
 

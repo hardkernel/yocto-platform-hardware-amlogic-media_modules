@@ -298,6 +298,65 @@ out:
 	mutex_unlock(&bc->dma_mutex);
 }
 
+static bool buf_core_check_uvm_dma_recycled(struct buf_core_mgr_s *bc, ulong dmabuf, ulong uvm_dmabuf)
+{
+	struct buf_core_dma *dma = NULL;
+	int i;
+	bool recycled = true;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bc->is_dynamic_mode_init(bc))
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+			dmabuf == bc->dma[i]->phy_addr)) {
+			dma = bc->dma[i];
+			break;
+		}
+	}
+
+	if (!dma) {
+		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, No dma found!\n", __func__);
+		goto out;
+	}
+
+	if (uvm_dmabuf) {
+		for (i = 0; i < FIELD_NUM; i++) {
+			if (dma->uvm_dma[i] == uvm_dmabuf) {
+				recycled = false;
+				break;
+			}
+		}
+
+		if (i >= FIELD_NUM)
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s, uvm_dma array(%lx, %lx, %lx) recycled!\n",
+				__func__, dma->uvm_dma[0], dma->uvm_dma[1], dma->uvm_dma[2]);
+	}
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, uvm:%lx, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, recycled:%d, free:%d\n",
+		__func__,
+		uvm_dmabuf,
+		dma->dmabuf,
+		dma->phy_addr,
+		dma->index,
+		atomic_read(&dma->ref),
+		dma->dma_ref,
+		dma->dec_ref,
+		dma->inited,
+		recycled,
+		bc->dma_free_num);
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+
+	return recycled;
+}
+
+
 static bool buf_core_dmabuf_slot_occupied(struct buf_core_mgr_s *bc)
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
@@ -1615,6 +1674,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->buf_ops.deinit_dma	= buf_core_deinit_dma;
 	bc->buf_ops.clean_dma	= buf_core_clean_dma;
 	bc->buf_ops.dmabuf_slot_occupied = buf_core_dmabuf_slot_occupied;
+	bc->buf_ops.check_uvm_dma_recycled = buf_core_check_uvm_dma_recycled;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
 
