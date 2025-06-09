@@ -1,5 +1,5 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
-load("//common_drivers:amlogic_utils.bzl", "kernel_select")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
 
 TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
 
@@ -142,11 +142,11 @@ ddk_module(
     out = "media_clock.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -164,11 +164,11 @@ ddk_module(
     out = "firmware.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/tee:amlogic-tee",
         "//driver_modules/media_modules:media_clock",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -185,9 +185,9 @@ ddk_module(
     out = "pts_server.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -242,7 +242,7 @@ ddk_module(
     out = "decoder_common.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -253,7 +253,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:pts_server",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -275,7 +275,7 @@ ddk_module(
     out = "stream_input.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -284,7 +284,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -302,10 +302,10 @@ ddk_module(
     out = "video_framerate_adapter.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -359,7 +359,7 @@ ddk_module(
     out = "amvdec_ports.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -370,7 +370,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -388,11 +388,11 @@ ddk_module(
     out = "aml_dhp.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:media_clock",
-    ],
+    ]),
 )
 
 
@@ -411,11 +411,11 @@ ddk_module(
     out = "amvdec_debug_port.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # AV1
@@ -434,7 +434,7 @@ ddk_module(
     out = "amvdec_av1.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -442,7 +442,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -463,7 +463,7 @@ ddk_module(
     out = "amvdec_av1_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -472,7 +472,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -490,14 +490,14 @@ ddk_module(
     out = "amvdec_av1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -519,7 +519,7 @@ ddk_module(
     out = "amvdec_av1_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -528,7 +528,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -546,7 +546,7 @@ ddk_module(
     out = "amvdec_av1_t5d_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -554,7 +554,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # AVS2
@@ -573,7 +573,7 @@ ddk_module(
     out = "amvdec_avs2.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -583,7 +583,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -603,7 +603,7 @@ ddk_module(
     out = "amvdec_avs2_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -612,7 +612,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -630,7 +630,7 @@ ddk_module(
     out = "amvdec_avs2_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -638,7 +638,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -658,7 +658,7 @@ ddk_module(
     out = "amvdec_avs2_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -667,7 +667,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 # AVS3
@@ -693,7 +693,7 @@ ddk_module(
     out = "amvdec_avs3.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -702,7 +702,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -727,7 +727,7 @@ ddk_module(
     out = "amvdec_avs3_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -735,7 +735,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 # H.265
@@ -754,7 +754,7 @@ ddk_module(
     out = "amvdec_h265.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -763,7 +763,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -781,7 +781,7 @@ ddk_module(
     out = "amvdec_h265_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -790,7 +790,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -808,7 +808,7 @@ ddk_module(
     out = "amvdec_h265_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -816,7 +816,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -834,7 +834,7 @@ ddk_module(
     out = "amvdec_h265_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -842,7 +842,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input",
-    ],
+    ]),
 )
 
 # H.266
@@ -864,7 +864,7 @@ ddk_module(
     out = "amvdec_h266.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -873,7 +873,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -894,7 +894,7 @@ ddk_module(
     out = "amvdec_h266_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -903,7 +903,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 # AVS
@@ -922,7 +922,7 @@ ddk_module(
     out = "amvdec_mavs.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -931,7 +931,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -949,7 +949,7 @@ ddk_module(
     out = "amvdec_mavs_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -958,7 +958,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 # H.264
@@ -977,7 +977,7 @@ ddk_module(
     out = "amvdec_mh264.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -986,7 +986,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1004,7 +1004,7 @@ ddk_module(
     out = "amvdec_mh264_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
@@ -1014,7 +1014,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1032,13 +1032,13 @@ ddk_module(
     out = "amvdec_h264mvc.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # MJPEG
@@ -1056,7 +1056,7 @@ ddk_module(
     out = "amvdec_mmjpeg.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1064,7 +1064,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1081,14 +1081,14 @@ ddk_module(
     out = "amvdec_mmjpeg_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # MPEG2
@@ -1106,7 +1106,7 @@ ddk_module(
     out = "amvdec_mmpeg12.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1115,7 +1115,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1132,7 +1132,7 @@ ddk_module(
     out = "amvdec_mmpeg12_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1141,7 +1141,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 # MPEG4
@@ -1159,7 +1159,7 @@ ddk_module(
     out = "amvdec_mmpeg4.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1167,7 +1167,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1184,7 +1184,7 @@ ddk_module(
     out = "amvdec_mmpeg4_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1192,7 +1192,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # VC-1
@@ -1211,14 +1211,14 @@ ddk_module(
     out = "amvdec_vc1.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1236,7 +1236,7 @@ ddk_module(
     out = "amvdec_vc1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1244,7 +1244,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
-    ],
+    ]),
 )
 
 # VP9
@@ -1263,7 +1263,7 @@ ddk_module(
     out = "amvdec_vp9.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1273,7 +1273,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1291,7 +1291,7 @@ ddk_module(
     out = "amvdec_vp9_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1301,7 +1301,7 @@ ddk_module(
         "//driver_modules/media_modules:pts_server",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1319,7 +1319,7 @@ ddk_module(
     out = "amvdec_vp9_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1328,7 +1328,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input"
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1346,7 +1346,7 @@ ddk_module(
     out = "amvdec_vp9_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/media:aml_media",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
@@ -1355,7 +1355,7 @@ ddk_module(
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:decoder_common",
         "//driver_modules/media_modules:stream_input",
-    ],
+    ]),
 )
 
 ddk_module(
@@ -1371,11 +1371,11 @@ ddk_module(
     out = "media_sync.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug",
         "//common_drivers/drivers/media:aml_media",
         "//driver_modules/media_modules:stream_input",
         "//common_drivers/drivers/dvb/demux:amlogic-dvb-demux",
-    ],
+    ]),
 )

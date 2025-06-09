@@ -1,5 +1,5 @@
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
-load("//common_drivers:amlogic_utils.bzl", "kernel_select")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
 
 ddk_module(
     name = "hw_demux",
@@ -26,7 +26,7 @@ ddk_module(
     out = "aml_hardware_dmx.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
+    deps = ddk_deps_select([
 	"//driver_modules/media_modules:stream_input",
 	"//driver_modules/media_modules:media_clock",
 	"//common_drivers/drivers/media:aml_media",
@@ -35,5 +35,5 @@ ddk_module(
         "//common_drivers/drivers/debug:amlogic-debug-iotrace",
         "//common_drivers/drivers/debug:amlogic-debug",
 	"//common_drivers/drivers/media/dvb-core:dvb-core",
-    ],
+    ]),
 )

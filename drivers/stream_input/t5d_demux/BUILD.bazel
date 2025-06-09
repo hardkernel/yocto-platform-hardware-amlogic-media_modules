@@ -1,4 +1,5 @@
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
 
 ddk_module(
     name = "t5d-dvb-demux",
@@ -46,13 +47,13 @@ ddk_module(
     out = "t5d-dvb-demux.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
-    deps = [
-		"//driver_modules/media_modules:stream_input",
-		"//driver_modules/media_modules:media_clock",
-		"//common_drivers/drivers/media:aml_media",
-		"//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+    deps = ddk_deps_select([
+        "//driver_modules/media_modules:stream_input",
+        "//driver_modules/media_modules:media_clock",
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
         "//common_drivers/drivers/gki_tool:amlogic-gkitool",
         "//common_drivers/drivers/debug:amlogic-debug-iotrace",
         "//common_drivers/drivers/debug:amlogic-debug",
-    ],
+    ]),
 )
