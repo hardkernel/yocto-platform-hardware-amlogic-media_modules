@@ -9771,6 +9771,7 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 {
 	struct VP9Decoder_s *pbi = (struct VP9Decoder_s *)data;
+	struct VP9_Common_s *cm = &pbi->common;
 	unsigned int dec_status = pbi->dec_status;
 	int i;
 
@@ -9898,7 +9899,8 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 
 		pr_info("VP9_EOS, flush buffer\r\n");
 
-		vp9_bufmgr_postproc(pbi);
+		if (cm->new_fb_idx != INVALID_IDX)
+			vp9_bufmgr_postproc(pbi);
 
 		pr_info("send VP9_10B_DISCARD_NAL\r\n");
 		WRITE_VREG(HEVC_DEC_STATUS_REG, VP9_10B_DISCARD_NAL);
@@ -11334,6 +11336,7 @@ static void dump_data(struct VP9Decoder_s *pbi, int size)
 static void vp9_work_implement(struct VP9Decoder_s *pbi)
 {
 	struct vdec_s *vdec = hw_to_vdec(pbi);
+	struct VP9_Common_s *cm = &pbi->common;
 	/* finished decoding one frame or error,
 	 * notify vdec core to switch context
 	 */
@@ -11513,7 +11516,8 @@ static void vp9_work_implement(struct VP9Decoder_s *pbi)
 			__func__);
 		pbi->stat |= STAT_EOS;
 		pbi->eos = 1;
-		vp9_bufmgr_postproc(pbi);
+		if (cm->new_fb_idx != INVALID_IDX)
+			vp9_bufmgr_postproc(pbi);
 
 		notify_v4l_eos(hw_to_vdec(pbi));
 
