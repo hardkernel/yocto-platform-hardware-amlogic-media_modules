@@ -9171,6 +9171,8 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 	int vf_dur = vdec_get_vf_dur();
 	struct vframe_master_display_colour_s *vf_dp
 		= &vf->prop.master_display_colour;
+	struct aml_vcodec_ctx *ctx =
+		(struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
 
 	vf->width = pic->width /
 		get_double_write_ratio(pic->double_write_mode);
@@ -9267,6 +9269,13 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 	}
 
 	hevc->video_signal_type_debug = vf->signal_type;
+	if (vf->signal_type) {
+		ctx->signal_type_info.signal_type = vf->signal_type;
+		ctx->signal_type_info.timestamp = pic->timestamp;
+		vdec_v4l_post_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
+		hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,"%s signal_type(%x), timestamp(%llx)\n",
+			__func__, vf->signal_type, pic->timestamp);
+	}
 
 	/* master_display_colour */
 	if (hevc->sei_hdr10_flag & SEI_MASTER_DISPLAY_COLOR_MASK) {
@@ -13258,12 +13267,6 @@ force_output:
 				u32 c = hevc->param.p.color_description;
 				hevc->video_signal_type = (v << 16) | c;
 				video_signal_type = hevc->video_signal_type;
-
-				if (ctx->signal_type_info.signal_type != hevc->video_signal_type) {
-					ctx->signal_type_info.signal_type = hevc->video_signal_type;
-					ctx->signal_type_info.timestamp = ctx->current_timestamp;
-					vdec_v4l_post_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
-				}
 			}
 
 			if (use_cma && (hevc->param.p.slice_segment_address == 0) &&
