@@ -58,7 +58,7 @@
 #include "aml_vcodec_avbc_wrapper.h"
 #endif
 
-
+#include "../frame_provider/decoder/utils/vdec.h"
 #include "../frame_provider/decoder/utils/decoder_bmmu_box.h"
 #include "../frame_provider/decoder/utils/decoder_mmu_box.h"
 #include "../common/chips/decoder_cpu_ver_info.h"
@@ -798,6 +798,9 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
+
+	if (config.enable_fbc && ctx->update_comp_info)
+		ctx->update_comp_info(ctx, ctx->ada_ctx->vdec->private);
 
 	aml_buf_configure(&ctx->bm, &config);
 }
