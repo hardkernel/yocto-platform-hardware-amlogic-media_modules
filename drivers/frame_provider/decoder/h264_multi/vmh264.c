@@ -7704,8 +7704,53 @@ static void check_decoded_pic_error(struct vdec_h264_hw_s *hw)
 			decode_mb_count,
 			READ_VREG(ERROR_STATUS_REG)
 			);
-
 	}
+
+#ifndef ONE_COLOCATE_BUF_PER_DECODE_BUF
+	if (((p->data_flag & ERROR_FLAG) || (decode_mb_count < mb_total)) &&
+		!vdec_secure(hw_to_vdec(hw))) {
+		u8 *co_mb_vaddr = NULL;
+		u32 offset, fill_len, buf_size;
+		u32 co_mb_buf_size, co_mb_buf_wr;
+		u32 co_mb_wr_addr, co_mb_wr_addr_start, co_mb_wr_addr_end;
+		/* fill data mv is 0, blk mode 16x16 */
+		u64 co_mb_fill_data = 0xe000800080000000;
+		struct Slice *pSlice = &(p_H264_Dpb->mSlice);
+
+		co_mb_wr_addr = READ_VREG(H264_CO_MB_WR_ADDR);
+		if ((co_mb_wr_addr != 0xffffffff) &&
+			(co_mb_wr_addr < p_H264_Dpb->colocated_mv_addr_end)) {
+			if ((pSlice->mode_8x8_flags & 0x4) && (pSlice->mode_8x8_flags & 0x2))
+				co_mb_buf_size = p_H264_Dpb->colocated_buf_size >> 2;
+			else
+				co_mb_buf_size = p_H264_Dpb->colocated_buf_size;
+
+			co_mb_buf_wr = ALIGN(co_mb_wr_addr - p_H264_Dpb->colocated_mv_addr_start, 8);
+			co_mb_wr_addr_start = p_H264_Dpb->colocated_mv_addr_start +
+					(co_mb_buf_wr - (co_mb_buf_wr % co_mb_buf_size));
+			co_mb_wr_addr_end = co_mb_wr_addr_start + co_mb_buf_size;
+
+			if ((co_mb_wr_addr_start != co_mb_wr_addr) &&
+				(co_mb_wr_addr < co_mb_wr_addr_end)) {
+				buf_size = PAGE_ALIGN(p_H264_Dpb->colocated_buf_size * hw->max_reference_size);
+				co_mb_vaddr = codec_mm_vmap(hw->collocate_cma_alloc_addr, buf_size);
+
+				if (co_mb_vaddr != NULL) {
+					fill_len = co_mb_wr_addr_end - co_mb_wr_addr;
+					for (offset = 0; offset < fill_len; offset += 8)
+						memcpy(&co_mb_vaddr[co_mb_buf_wr + offset], &co_mb_fill_data, 8);
+
+					codec_mm_dma_flush(co_mb_vaddr, buf_size, DMA_TO_DEVICE);
+					codec_mm_unmap_phyaddr(co_mb_vaddr);
+
+					dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
+						"%s: fill co_mb, co_mb_addr 0x%x, co_mb_buf_size 0x%x, fill_len 0x%x\n",
+						__func__, co_mb_wr_addr, co_mb_buf_size, fill_len);
+				}
+			}
+		}
+	}
+#endif
 }
 
 static int vh264_pic_done_proc(struct vdec_s *vdec)
