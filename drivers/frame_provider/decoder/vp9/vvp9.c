@@ -3322,6 +3322,19 @@ int vp9_bufmgr_init(struct VP9Decoder_s *pbi, struct BuffInfo_s *buf_spec_i,
 	return 0;
 }
 
+static void flush_all_fb_on_key(struct VP9_Common_s *cm) {
+	if (cm->frame_type == KEY_FRAME && cm->current_video_frame > 0) {
+		struct RefCntBuffer_s *frame_bufs = cm->buffer_pool->frame_bufs;
+		int i;
+		for (i = 0; i < FRAME_BUFFERS; ++i) {
+			if (i == cm->new_fb_idx) {
+				continue;
+			}
+			frame_bufs[i].ref_count = 0;
+		}
+	}
+}
+
 int vp9_bufmgr_postproc(struct VP9Decoder_s *pbi)
 {
 	struct vdec_s *vdec = hw_to_vdec(pbi);
@@ -3345,6 +3358,9 @@ int vp9_bufmgr_postproc(struct VP9Decoder_s *pbi)
 	pbi->last_width = cm->width;
 	pbi->last_height = cm->height;
 
+	if (cm->frame_type == KEY_FRAME) {
+		flush_all_fb_on_key(cm);
+	}
 	if (cm->show_frame)
 		cm->current_video_frame++;
 

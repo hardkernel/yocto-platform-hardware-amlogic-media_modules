@@ -3026,6 +3026,19 @@ int vp9_bufmgr_init(struct VP9Decoder_s *pbi, struct BuffInfo_s *buf_spec_i,
 	return 0;
 }
 
+static void flush_all_fb_on_key(struct VP9_Common_s *cm) {
+	if (cm->frame_type == KEY_FRAME && cm->current_video_frame > 0) {
+		struct RefCntBuffer_s *frame_bufs = cm->buffer_pool->frame_bufs;
+		int i;
+		for (i = 0; i < FRAME_BUFFERS; ++i) {
+			if (i == cm->new_fb_idx) {
+				continue;
+			}
+			frame_bufs[i].ref_count = 0;
+		}
+	}
+}
+
 int vp9_bufmgr_postproc(struct VP9Decoder_s *pbi)
 {
 	struct vdec_s *vdec = hw_to_vdec(pbi);
@@ -3042,7 +3055,9 @@ int vp9_bufmgr_postproc(struct VP9Decoder_s *pbi)
 	}
 	cm->last_width = cm->width;
 	cm->last_height = cm->height;
-
+	if (cm->frame_type == KEY_FRAME) {
+		flush_all_fb_on_key(cm);
+	}
 	if (cm->show_frame)
 		cm->current_video_frame++;
 
@@ -11102,6 +11117,22 @@ static int vp9_recycle_frame_buffer(struct VP9Decoder_s *pbi)
 	return 0;
 }
 
+static void flush_output(struct VP9Decoder_s *pbi)
+{
+	struct VP9_Common_s *const cm = &pbi->common;
+	struct RefCntBuffer_s *const frame_bufs = cm->buffer_pool->frame_bufs;
+	int i;
+
+	for (i = 0; i < pbi->used_buf_num; ++i) {
+		vp9_print(pbi, PRINT_FLAG_VDEC_DETAIL,
+			"%s index :%d ref_count:%d ref:%d addr :%lx\n",
+			__func__, frame_bufs[i].buf.index, frame_bufs[i].ref_count,
+			frame_bufs[i].buf.vf_ref, frame_bufs[i].buf.cma_alloc_addr);
+
+		frame_bufs[i].ref_count = 0;
+		vp9_recycle_frame_buffer(pbi);
+	}
+}
 
 static bool is_available_buffer(struct VP9Decoder_s *pbi)
 {
@@ -11228,6 +11259,22 @@ static bool is_available_buffer(struct VP9Decoder_s *pbi)
 		__func__, pbi->aml_buf, pbi->aml_buf->index);
 	}
 
+	if (free_count < pbi->run_ready_min_buf_num) {
+		struct aml_vdec_ps_infos ps;
+		int decode_count = 0;
+		vvp9_get_ps_info(pbi, &ps);
+
+		for (i = 0; i < pbi->used_buf_num; ++i) {
+			if (frame_bufs[i].ref_count != 0) {
+				decode_count ++;
+			}
+		}
+		if (decode_count > ps.dpb_frames) {
+			flush_output(pbi);
+			vp9_print(pbi, VP9_DEBUG_BUFMGR,
+				"%s flush dpb! decode_count:%d dpb_frames:%d\n", __func__, decode_count, ps.dpb_frames);
+		}
+	}
 out:
 	vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_1, free_count);
 
@@ -11432,6 +11479,8 @@ static void run_front(struct vdec_s *vdec)
 					vp9_print(pbi, PRINT_FLAG_V4L_DETAIL,
 						"%s head mete data over size:%d, max 256\n", __func__, buf_size);
 				}
+			} else {
+				pbi->Superframes_count = 0;
 			}
 		}
 		pbi->unfinish_res = false;
