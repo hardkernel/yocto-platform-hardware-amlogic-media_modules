@@ -2172,7 +2172,8 @@ static bool is_there_enough_yuv_dmabuf(struct aml_vcodec_ctx *ctx, struct dma_bu
 	obj = dmabuf_get_uvm_buf_obj(dbuf);
 	mbuf = container_of(obj, struct mua_buffer, base);
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-				"replaced_frame_num(%d), dpb_frames(%d), dpb_margin(%d), dpb_size(%d), dma_free_num(%d), alloced_yuv_num(%d)\n",
+				"fresh_uvmdma_num(%d), replaced_frame_num(%d), dpb_frames(%d), dpb_margin(%d), dpb_size(%d), dma_free_num(%d), alloced_yuv_num(%d)\n",
+				ctx->fresh_uvmdma_num,
 				ctx->replaced_frame_num,
 				ctx->picinfo.dpb_frames,
 				ctx->picinfo.dpb_margin,
@@ -2183,7 +2184,7 @@ static bool is_there_enough_yuv_dmabuf(struct aml_vcodec_ctx *ctx, struct dma_bu
 		return true;
 	if (ctx->bm.bc.dma_free_num)
 		return true;
-	if ((ctx->replaced_frame_num > ctx->dpb_size) &&
+	if ((ctx->fresh_uvmdma_num > ctx->dpb_size) &&
 		mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
 		return true;
 
@@ -4898,7 +4899,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
 			aml_buf = buf->aml_buf;
 			if (!ret && (buf->aml_buf->pair_state == MASTER_DONE ||
-				buf->aml_buf->pair_state == SUB0_DONE)) {
+				buf->aml_buf->pair_state == SUB0_DONE) &&
+				(ctx->fresh_uvmdma_num >= ctx->dpb_size)) {
 				struct vb2_v4l2_buffer *vb2_v4l2;
 				for (; buf->aml_buf->pair_state < PAIR_DONE && !ret;) {
 					buf_pair = aml_buf_get_unbind_dmabuf(&ctx->bm);
@@ -5243,6 +5245,9 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 
 	if (!V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		ulong key = 0;
+		struct mua_buffer *mbuf = NULL;
+		struct uvm_buf_obj *obj = NULL;
+
 		if (vb->memory == VB2_MEMORY_DMABUF)
 			key = (ulong)vb->planes[0].dbuf;
 		else if (vb->memory == VB2_MEMORY_MMAP)
@@ -5256,9 +5261,17 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 			return ret;
 		}
 
+		if (vb->memory == VB2_MEMORY_DMABUF) {
+			obj = dmabuf_get_uvm_buf_obj(vb->planes[0].dbuf);
+			mbuf = container_of(obj, struct mua_buffer, base);
+			if (mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
+				ctx->fresh_uvmdma_num ++;
+		}
+
 		ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
 		if (!ret && (buf->aml_buf->pair_state == MASTER_DONE ||
-			buf->aml_buf->pair_state == SUB0_DONE)) {
+			buf->aml_buf->pair_state == SUB0_DONE) &&
+			(ctx->fresh_uvmdma_num >= ctx->dpb_size)) {
 			struct vb2_v4l2_buffer *vb2_v4l2;
 			for (; buf->aml_buf->pair_state < PAIR_DONE && !ret;) {
 				am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
