@@ -8537,7 +8537,7 @@ static void set_canvas(struct hevc_state_s *hevc, struct PIC_s *pic)
 	int canvas_w = ALIGN(pic->width, 64)/4;
 	int canvas_h = ALIGN(pic->height, 32)/4;
 	int blkmode = hevc->mem_map_mode;
-	u32 canvas_endian = 7;
+	u32 canvas_endian = 0;
 
 	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S1A)
 		canvas_endian = 8;
@@ -16484,8 +16484,6 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 	hevc->mem_map_mode = mem_map_mode;
 
 	hevc->endian = HEVC_CONFIG_LITTLE_ENDIAN;
-	if (is_support_vdec_canvas())
-		hevc->endian = HEVC_CONFIG_BIG_ENDIAN;
 	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S1A)
 		hevc->endian = 0;
 

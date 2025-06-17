@@ -6207,10 +6207,10 @@ static void set_canvas(struct AV1HW_s *hw,
 
 		config_cav_lut_ex(pic_config->y_canvas_index,
 			pic_config->dw_y_adr, canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, hw->is_used_v4l ? 0 : 7, VDEC_HEVC);
+			CANVAS_ADDR_NOWRAP, blkmode, 0, VDEC_HEVC);
 		config_cav_lut_ex(pic_config->uv_canvas_index,
 			pic_config->dw_u_v_adr,	canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, hw->is_used_v4l ? 0 : 7, VDEC_HEVC);
+			CANVAS_ADDR_NOWRAP, blkmode, 0, VDEC_HEVC);
 
 #ifdef MULTI_INSTANCE_SUPPORT
 		pic_config->canvas_config[0].phy_addr =
@@ -6221,7 +6221,7 @@ static void set_canvas(struct AV1HW_s *hw,
 				canvas_h;
 		pic_config->canvas_config[0].block_mode =
 				blkmode;
-		pic_config->canvas_config[0].endian = hw->is_used_v4l ? 0 : 7;
+		pic_config->canvas_config[0].endian = 0;
 
 		pic_config->canvas_config[0].bit_depth = is_dw_p010(hw);
 
@@ -6233,7 +6233,7 @@ static void set_canvas(struct AV1HW_s *hw,
 				canvas_h;
 		pic_config->canvas_config[1].block_mode =
 				blkmode;
-		pic_config->canvas_config[1].endian = hw->is_used_v4l ? 0 : 7;
+		pic_config->canvas_config[1].endian = 0;
 
 		pic_config->canvas_config[1].bit_depth = is_dw_p010(hw);
 #endif
@@ -6269,14 +6269,14 @@ static void set_canvas(struct AV1HW_s *hw,
 		pic_config->tw_canvas_config[0].width	   = canvas_w;
 		pic_config->tw_canvas_config[0].height	   = canvas_h;
 		pic_config->tw_canvas_config[0].block_mode = blkmode;
-		pic_config->tw_canvas_config[0].endian	   = 7;
+		pic_config->tw_canvas_config[0].endian	   = 0;
 		pic_config->tw_canvas_config[0].bit_depth   = is_tw_p010(hw);
 
 		pic_config->tw_canvas_config[1].phy_addr   = pic_config->tw_u_v_adr;
 		pic_config->tw_canvas_config[1].width	   = canvas_w;
 		pic_config->tw_canvas_config[1].height	   = canvas_h;
 		pic_config->tw_canvas_config[1].block_mode = blkmode;
-		pic_config->tw_canvas_config[1].endian	   = 7;
+		pic_config->tw_canvas_config[1].endian	   = 0;
 		pic_config->tw_canvas_config[1].bit_depth   = is_tw_p010(hw);
 	}
 #endif
@@ -12188,8 +12188,6 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 
 	hw->mem_map_mode = mem_map_mode;
 	hw->endian = HEVC_CONFIG_LITTLE_ENDIAN;
-	if (is_support_vdec_canvas())
-		hw->endian = HEVC_CONFIG_BIG_ENDIAN;
 	if (is_dw_p010(hw) || is_tw_p010(hw))
 		hw->endian = HEVC_CONFIG_P010_LE;
 	if (endian)
