@@ -1174,8 +1174,10 @@ static void buf_core_reset(struct buf_core_mgr_s *bc, bool v4l_res_change)
 		bc->vpp_reset(bc, v4l_res_change);
 
 	mutex_lock(&bc->workqueue_mutex);
-	flush_workqueue(bc->recycle_buf_ref_workqueue);
-	bc->workqueue_enabled = false;
+	if (bc->recycle_buf_ref_workqueue) {
+		flush_workqueue(bc->recycle_buf_ref_workqueue);
+		bc->workqueue_enabled = false;
+	}
 	mutex_unlock(&bc->workqueue_mutex);
 
 	mutex_lock(&bc->mutex);
@@ -1783,9 +1785,11 @@ void buf_core_mgr_release(struct buf_core_mgr_s *bc)
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
 
 	mutex_lock(&bc->workqueue_mutex);
-	flush_workqueue(bc->recycle_buf_ref_workqueue);
-	destroy_workqueue(bc->recycle_buf_ref_workqueue);
-	bc->workqueue_enabled = false;
+	if (bc->recycle_buf_ref_workqueue) {
+		flush_workqueue(bc->recycle_buf_ref_workqueue);
+		destroy_workqueue(bc->recycle_buf_ref_workqueue);
+		bc->workqueue_enabled = false;
+	}
 	mutex_unlock(&bc->workqueue_mutex);
 
 	kref_put(&bc->core_ref, buf_core_destroy);
