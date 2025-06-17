@@ -642,6 +642,7 @@ struct vdec_s {
 	bool reset_input_flag;
 	bool input_underrun;
 	char sched_priority;
+	int mediasync_vfm_dev_id;
 };
 
 #define CODEC_MODE(a, b, c, d)\
@@ -1059,5 +1060,7 @@ void stream_prefix_config(u32 prefix, u32 target);
 struct device *get_vdec_dev(void);
 
 void arb_ctrl_wait_idle(int enable);
+
+int vdec_set_medaisync_vfm_dev_id(struct vdec_s *vdec, int medaisync_vfm_dev_id);
 
 #endif /* VDEC_H */

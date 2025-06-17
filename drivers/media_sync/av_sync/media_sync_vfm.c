@@ -26,10 +26,12 @@
 #endif
 
 #define DUR2US(x) ((x)*1000/96)
+#define mediasync_pr_info(dbg_level,inst,fmt,args...) if (dbg_level <= media_sync_vf_debug_level) {pr_info("[MS_Vfm:%d][%d] " fmt,__LINE__, inst,##args);}
 
 
 static u32 media_sync_vf_debug_level = 0;
-#define mediasync_pr_info(dbg_level,inst,fmt,args...) if (dbg_level <= media_sync_vf_debug_level) {pr_info("[MS_Vfm:%d][%d] " fmt,__LINE__, inst,##args);}
+static u32 media_sync_vf_dev_count = 2;
+static struct mutex m_vf_alloc_id_lock;
 
 extern int register_mediasync_video_hold_set_cb(void* pfunc);
 #if 0
@@ -389,9 +391,10 @@ static int mediasync_receiver_event_fun(int type, void *data, void *private_data
 
 		vf_unreg_provider(&dev->mediasync_vf_prov);
 
-		pts_stop(PTS_TYPE_VIDEO);
 		mediasync_pr_info(0,dev->dev_id,"unreg  sync_policy_instance：0x%lx\n",dev->sync_policy_instance);
+
 		mediasync_policy_release(dev->sync_policy_instance);
+
 		dev->sync_policy_instance = 0;
 		mediasync_pr_info(0,dev->dev_id,"VFRAME_EVENT_PROVIDER_UNREG out \n");
 
@@ -399,23 +402,15 @@ static int mediasync_receiver_event_fun(int type, void *data, void *private_data
 	} else if (type == VFRAME_EVENT_PROVIDER_REG) {
 
 		//mutex_lock(&dev->vf_mutex);
-		int ret = 0;
+
 		mediasync_pr_info(0,dev->dev_id,"VFRAME_EVENT_PROVIDER_REG in\n");
 
 		vf_reg_provider(&dev->mediasync_vf_prov);
 
 		dev->frameStatus = 0;
-		ret = pts_start(PTS_TYPE_VIDEO);
-		if (ret < 0) {
-			mediasync_pr_info(0,dev->dev_id,"pts_start failed, retry\n");
-			ret = pts_stop(PTS_TYPE_VIDEO);
-			if (ret < 0)
-				mediasync_pr_info(0,dev->dev_id,"pts_stop failed when retrying...");
-			ret = pts_start(PTS_TYPE_VIDEO);
-			if (ret < 0)
-				mediasync_pr_info(0,dev->dev_id,"pts_start failed\n");
-		}
+
 		mediasync_policy_create(&dev->sync_policy_instance);
+
 		dev->lastVpts = -1;
 		dev->getSysTimeUs = mediasync_get_system_time_us();
 		dev->outCount = 0;
@@ -502,7 +497,7 @@ int mediasync_vf_set_mediasync_id(int dev_id,s32 SyncInsId) {
 	}
 	if (isFind) {
 		mediasync_policy_bind_instance(dev->sync_policy_instance,SyncInsId,MEDIA_VIDEO);
-		mediasync_pr_info(0,dev->dev_id,"mediasync_policy_bind_instance 0x%x instance:0x%lx\n",SyncInsId,dev->sync_policy_instance);
+		mediasync_pr_info(0,dev->dev_id,"mediasync_policy_bind_instance dev_id:%d 0x%x instance:0x%lx\n",dev_id,SyncInsId,dev->sync_policy_instance);
 	}
 	return 0;
 }
@@ -526,6 +521,38 @@ int mediasync_vf_set_video_hold(int dev_id,s32 flag) {
 }
 
 
+
+int mediasync_free_vf_dev_id(int dev_id) {
+	struct mediasync_video_frame *dev = NULL;
+	mutex_lock(&m_vf_alloc_id_lock);
+
+	list_for_each_entry(dev, &mediasync_vf_devlist, mediasync_vf_devlist) {
+		if (dev->dev_id == dev_id) {
+			dev->is_alloc = false;
+			break;
+		}
+	}
+	mutex_unlock(&m_vf_alloc_id_lock);
+	return 0;
+}
+int mediasync_alloc_vf_dev_id(int* dev_id) {
+	struct mediasync_video_frame *dev = NULL;
+	int ret = -1;
+	mutex_lock(&m_vf_alloc_id_lock);
+	list_for_each_entry(dev, &mediasync_vf_devlist, mediasync_vf_devlist) {
+		if (dev->is_alloc == false) {
+			dev->is_alloc = true;
+			*dev_id = dev->dev_id;
+			ret = 0;
+			break;
+		}
+	}
+
+	mutex_unlock(&m_vf_alloc_id_lock);
+
+	return ret;
+}
+
 static int mediasync_create_vf_instance(int dev_id)
 {
 
@@ -539,6 +566,7 @@ static int mediasync_create_vf_instance(int dev_id)
 	/*init */
 	dev->dev_id = dev_id;
 
+	dev->is_alloc = false;
 	init_waitqueue_head(&dev->wq);
 	sema_init(&dev->sem, 0);
 
@@ -589,8 +617,11 @@ int mediasync_vf_release(void)
 int mediasync_vf_init(void)
 {
 	int dev_id = 0;
+	mutex_init(&m_vf_alloc_id_lock);
 	register_mediasync_video_hold_set_cb(mediasync_vf_set_video_hold);
-	mediasync_create_vf_instance(dev_id);
+	for (dev_id = 0; dev_id < media_sync_vf_dev_count; dev_id++) {
+		mediasync_create_vf_instance(dev_id);
+	}
 	mediasync_policy_manager_init();
 	return 0;
 }

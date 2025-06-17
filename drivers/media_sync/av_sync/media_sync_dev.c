@@ -1426,6 +1426,36 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 		}
 		break;
 
+		case MEDIASYNC_IOC_ALLOC_VF_DEV_ID:
+		{
+			int dev_id = -1;
+			ret = mediasync_alloc_vf_dev_id(&dev_id);
+			if (ret < 0) {
+				return -EFAULT;
+			} else {
+				if (copy_to_user((void *)arg,
+						&dev_id,
+						sizeof(dev_id)))
+				return -EFAULT;
+
+			}
+		}
+		break;
+
+		case MEDIASYNC_IOC_FREE_VF_DEV_ID:
+		{
+
+			s32 vf_dev_id;
+			if (copy_from_user((void *)&vf_dev_id,
+				(void *)arg,
+				sizeof(vf_dev_id)))
+				return -EFAULT;
+
+			ret = mediasync_free_vf_dev_id(vf_dev_id);
+
+		}
+		break;
+
 		case MEDIASYNC_IOC_SET_PCR_AND_DMX_ID:
 			if (copy_from_user ((void *)&parm,
 						(void *)arg,

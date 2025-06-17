@@ -2121,6 +2121,15 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 				this->flag &= (~PORT_FLAG_TSYNC);
 			}
 			vdec_set_video_path(priv->vdec, parm.data_32);
+			/*
+				FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE Supports Pip.
+				parm.reserved[0] is the mediasync vfm dev id.
+				parm.reserved[0] == 0 Path: mediasync + AmVideo
+				parm.reserved[0] == 1 Path: mediasync + PipVideo
+			*/
+			if (parm.frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
+				vdec_set_medaisync_vfm_dev_id(priv->vdec,(unsigned int)parm.reserved[0]);
+			}
 		} else
 			r = -EINVAL;
 		break;
@@ -2176,6 +2185,7 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 			pr_info("AMSTREAM_SET_FCC_MODE vdec %p set fcc flag\n", priv->vdec);
 		}
 		break;
+
 	default:
 		r = -ENOIOCTLCMD;
 		break;

@@ -39,6 +39,7 @@
 
 static LIST_HEAD(mediasync_vf_devlist);
 
+
 typedef struct mediasync_video_frame {
 	struct list_head mediasync_vf_devlist;
 	s32 sSyncInsId;
@@ -59,9 +60,12 @@ typedef struct mediasync_video_frame {
 	struct vframe_provider_s mediasync_vf_prov;
 	struct vframe_receiver_s mediasync_vf_recv;
 	bool isVideoHold;
+	bool is_alloc;
 }mediasync_vf_dev;
 
 int mediasync_vf_set_mediasync_id(int dev_id,s32 SyncInsId);
+int mediasync_free_vf_dev_id(int dev_id);
+int mediasync_alloc_vf_dev_id(int* dev_id);
 int mediasync_vf_release(void);
 int mediasync_vf_init(void);
 

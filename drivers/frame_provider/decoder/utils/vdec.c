@@ -176,6 +176,9 @@ static int one_pack_multi_f_set_align_size = 0;
 #define VDEC_DBG_DDR_BW_DEBUG (0x8000)
 #define VDEC_DBG_DISABLE_PRIORITY (0x10000)
 
+#define FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_0 (27)
+#define FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_1 (28)
+
 #define FRAME_BASE_PATH_DI_V4LVIDEO_0 (29)
 #define FRAME_BASE_PATH_DI_V4LVIDEO_1 (30)
 #define FRAME_BASE_PATH_DI_V4LVIDEO_2 (31)
@@ -2035,6 +2038,7 @@ struct vdec_s *vdec_create(struct stream_port_s *port,
 			if (!vdec->mvfrm)
 				pr_err("vzalloc: vdec_frames_s failed\n");
 		}
+		vdec->mediasync_vfm_dev_id = 0;
 	}
 	spin_lock_init(&vdec->power_lock);
 
@@ -2241,6 +2245,15 @@ int vdec_set_receive_id(struct vdec_s *vdec, int receive_id)
 	return 0;
 }
 EXPORT_SYMBOL(vdec_set_receive_id);
+
+
+int vdec_set_medaisync_vfm_dev_id(struct vdec_s *vdec, int medaisync_vfm_dev_id)
+{
+	vdec->mediasync_vfm_dev_id = medaisync_vfm_dev_id;
+	return 0;
+}
+EXPORT_SYMBOL(vdec_set_medaisync_vfm_dev_id);
+
 
 /* add frame data to input chain */
 int vdec_write_vframe(struct vdec_s *vdec, const char *buf,
@@ -3645,14 +3658,18 @@ static bool is_tunnel_pipeline(u32 pl)
 {
 	return ((pl & BIT(FRAME_BASE_PATH_DTV_TUNNEL_MODE)) ||
 		(pl & BIT(FRAME_BASE_PATH_AMLVIDEO_AMVIDEO)) ||
-		(pl & BIT(FRAME_BASE_PATH_DTV_AMLVIDEO_AMVIDEO)) ||
-		(pl & BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE))) ?
+		(pl & BIT(FRAME_BASE_PATH_DTV_AMLVIDEO_AMVIDEO))) ?
 		true : false;
 }
 
 static bool is_nontunnel_pipeline(u32 pl)
 {
 	return (pl & BIT(FRAME_BASE_PATH_DI_V4LVIDEO)) ? true : false;
+}
+
+static bool is_tunnel_multi_pipeline(u32 pl)
+{
+	return (pl & BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE)) ? true : false;
 }
 
 static bool is_v4lvideo_already_used(u32 pre, int vf_receiver_inst)
@@ -3673,7 +3690,21 @@ static bool is_v4lvideo_already_used(u32 pre, int vf_receiver_inst)
 	return false;
 }
 
-static bool is_res_locked(u32 pre, u32 cur, int vf_receiver_inst)
+static bool is_mediasync_already_used(u32 pre,  int mediasync_inst)
+{
+	if (mediasync_inst == 0) {
+		if (pre & BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_0)) {
+			return true;
+		}
+	} else if (mediasync_inst == 1) {
+		if (pre & BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_1)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool is_res_locked(u32 pre, u32 cur, int vf_receiver_inst, int mediasync_inst)
 {
 	if (is_tunnel_pipeline(pre)) {
 		if (is_tunnel_pipeline(cur)) {
@@ -3681,6 +3712,10 @@ static bool is_res_locked(u32 pre, u32 cur, int vf_receiver_inst)
 		}
 	} else if (is_nontunnel_pipeline(cur)) {
 		if (is_v4lvideo_already_used(pre,vf_receiver_inst)) {
+			return true;
+		}
+	} else if (is_tunnel_multi_pipeline(cur)) {
+		if (is_mediasync_already_used(pre,mediasync_inst)) {
 			return true;
 		}
 	}
@@ -3698,7 +3733,8 @@ int vdec_resource_checking(struct vdec_s *vdec)
 
 	while (is_res_locked(vdec_core->vdec_resource_status,
 		BIT(vdec->frame_base_video_path),
-		vdec->vf_receiver_inst)) {
+		vdec->vf_receiver_inst,
+		vdec->mediasync_vfm_dev_id)) {
 		if (time_after(jiffies, expires)) {
 			pr_err("wait vdec resource timeout.\n");
 			return -EBUSY;
@@ -3812,7 +3848,8 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 	dec_time_stat_reset = 1;
 	if (is_res_locked(vdec_core->vdec_resource_status,
 		BIT(vdec->frame_base_video_path),
-		vdec->vf_receiver_inst))
+		vdec->vf_receiver_inst,
+		vdec->mediasync_vfm_dev_id))
 		return -EBUSY;
 
 	if (!is_support_format(vdec->format)) {
@@ -4273,24 +4310,36 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 				"vdec-map-%d", vdec->id);
 		} else if (p->frame_base_video_path ==
 			FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
-			if (mediasync_add_di) {
-				if (mediasync_add_amlvideo2)
-					snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
-						"%s amlvideo2.0 deinterlace mediasync.0 amvideo",
-						vdec->vf_provider_name);
-				else
-					snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
-						"%s deinterlace mediasync.0 amvideo",
-						vdec->vf_provider_name);
-			} else {
-				if (mediasync_add_amlvideo2)
-					snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
-						"%s amlvideo2.0 mediasync.0 amvideo",
-						vdec->vf_provider_name);
-				else
-					snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
-						"%s mediasync.0 amvideo",
-						vdec->vf_provider_name);
+			if (vdec->mediasync_vfm_dev_id == 0) {
+				if (mediasync_add_di) {
+					if (mediasync_add_amlvideo2)
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s amlvideo2.0 deinterlace mediasync.0 amvideo",
+							vdec->vf_provider_name);
+					else
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s deinterlace mediasync.0 amvideo",
+							vdec->vf_provider_name);
+				} else {
+					if (mediasync_add_amlvideo2)
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s amlvideo2.0 mediasync.0 amvideo",
+							vdec->vf_provider_name);
+					else
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s mediasync.0 amvideo",
+							vdec->vf_provider_name);
+				}
+			}else if (vdec->mediasync_vfm_dev_id == 1) {
+				if (mediasync_add_di) {
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s dimulti.1 mediasync.1 videopip",
+							vdec->vf_provider_name);
+				} else {
+						snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+							"%s mediasync.1 videopip",
+							vdec->vf_provider_name);
+				}
 			}
 
 			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
@@ -4402,6 +4451,12 @@ skip:
 			vdec_core->vdec_resource_status |= BIT(FRAME_BASE_PATH_DI_V4LVIDEO_1);
 		} else if (p->vf_receiver_inst == 2) {
 			vdec_core->vdec_resource_status |= BIT(FRAME_BASE_PATH_DI_V4LVIDEO_2);
+		}
+	} else if (p->frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
+		if (p->mediasync_vfm_dev_id == 0) {
+			vdec_core->vdec_resource_status |= BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_0);
+		} else if (p->mediasync_vfm_dev_id == 1) {
+			vdec_core->vdec_resource_status |= BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_1);
 		}
 	}
 
@@ -4647,6 +4702,12 @@ void vdec_release(struct vdec_s *vdec)
 			vdec_core->vdec_resource_status &= ~BIT(FRAME_BASE_PATH_DI_V4LVIDEO_1);
 		} else if (vdec->vf_receiver_inst == 2) {
 			vdec_core->vdec_resource_status &= ~BIT(FRAME_BASE_PATH_DI_V4LVIDEO_2);
+		}
+	} else if (vdec->frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
+		if (vdec->mediasync_vfm_dev_id == 0) {
+			vdec_core->vdec_resource_status &= ~BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_0);
+		} else if (vdec->mediasync_vfm_dev_id == 1) {
+			vdec_core->vdec_resource_status &= ~BIT(FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_1);
 		}
 	}
 	vdec_core->vdec_resource_status &= ~BIT(vdec->frame_base_video_path);
