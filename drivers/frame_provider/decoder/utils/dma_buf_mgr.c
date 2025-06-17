@@ -128,19 +128,19 @@ static struct sg_table *dmabuf_manage_map_dma_buf(struct dma_buf_attachment *att
 {
 	struct kdmabuf_attachment *attach = attachment->priv;
 	struct dmabuf_manage_block *block = NULL;
-#if CONFIG_AMLOGIC_KERNEL_VERSION <= 14515
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 136)
 	struct mutex *lock = &attachment->dmabuf->lock;
 #endif
 	struct sg_table *sgt;
 
 	pr_enter();
-#if CONFIG_AMLOGIC_KERNEL_VERSION <= 14515
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 136)
 	mutex_lock(lock);
 	pr_dbg("mutex_lock\n");
 #endif
 	sgt = &attach->sgt;
 	if (attach->dma_dir == dma_dir) {
-#if CONFIG_AMLOGIC_KERNEL_VERSION <= 14515
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 136)
 		mutex_unlock(lock);
 #endif
 		return sgt;
@@ -148,15 +148,13 @@ static struct sg_table *dmabuf_manage_map_dma_buf(struct dma_buf_attachment *att
 	block = container_of((struct dmx_dma_buf_sec_es_data *)attachment->dmabuf->priv,
 				struct dmabuf_manage_block, dmxes);
 	sgt->sgl->dma_address = block->paddr;
-#ifdef CONFIG_NEED_SG_DMA_LENGTH
-	sgt->sgl->dma_length = PAGE_ALIGN(block->size);
-#else
-	sgt->sgl->length = PAGE_ALIGN(block->size);
-#endif
+
+	sg_dma_len(sgt->sgl) = PAGE_ALIGN(block->size);
+
 	pr_dbg("nents %d, %llx, %d, %d\n", sgt->nents, block->paddr,
 			sg_dma_len(sgt->sgl), block->size);
 	attach->dma_dir = dma_dir;
-#if CONFIG_AMLOGIC_KERNEL_VERSION <= 14515
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 136)
 	mutex_unlock(lock);
 #endif
 	return sgt;
