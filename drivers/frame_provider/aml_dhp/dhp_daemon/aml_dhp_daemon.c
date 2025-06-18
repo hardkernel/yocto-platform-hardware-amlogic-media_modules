@@ -30,6 +30,10 @@
 
 #define DHP_DAEMON_VER TAG('v', 1, 0, 0)
 
+#ifndef PAGE_SIZE
+#define PAGE_SIZE getpagesize()
+#endif
+
 volatile sig_atomic_t keep_running = 1;
 u32 dump_data = 0;
 u32 g_idx = -1;
