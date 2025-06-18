@@ -912,18 +912,18 @@ static int dos_device_search_data(int id, int sub_id)
 
 static void dos_platform_ext_setup(struct dos_of_dev_s *dos)
 {
+	void __iomem *reg;
+	int lic, package;
+
 	if (!dos)
 		return;
 
 	if (dos->chip_id == AM_MESON_CPU_MAJOR_ID_T6D) {
-		void __iomem *reg;
-		int lic, package;
-
 		package = get_meson_cpu_version(MESON_CPU_VERSION_LVL_PACK);
 		if (package == 2) {
-			dos->max_vdec_clock = 667;
-			dos->max_hevcf_clock = 667;
-			dos->max_hevcb_clock = 667;
+			dos->max_vdec_clock = DOS_CLK_666M;
+			dos->max_hevcf_clock = DOS_CLK_666M;
+			dos->max_hevcb_clock = DOS_CLK_666M;
 			return;
 		}
 
@@ -933,10 +933,25 @@ static void dos_platform_ext_setup(struct dos_of_dev_s *dos)
 			return;
 		}
 		lic = readl(reg);
-		if (lic & LIC_DOS_HIGHER_SPEED_BIT) {
-			dos->max_vdec_clock = 667;
-			dos->max_hevcf_clock = 667;
-			dos->max_hevcb_clock = 667;
+		if (lic & T6D_LIC_DOS_HIGHER_SPEED_BIT) {
+			dos->max_vdec_clock = DOS_CLK_666M;
+			dos->max_hevcf_clock = DOS_CLK_666M;
+			dos->max_hevcb_clock = DOS_CLK_666M;
+		}
+		iounmap(reg);
+	}
+
+
+	if (dos->chip_id == AM_MESON_CPU_MAJOR_ID_S5) {
+		reg = ioremap(OTP_LIC02, sizeof(unsigned int));
+		if (!reg) {
+			pr_err("%s, s5 lic reg ioremap failed\n", __func__);
+			return;
+		}
+		lic = readl(reg);
+		if (lic & S5_LIC_DOS_HIGHER_SPEED_BIT) {
+			dos->max_hevcf_clock = DOS_CLK_1000M;
+			dos->max_hevcb_clock = DOS_CLK_1000M;
 		}
 		iounmap(reg);
 	}

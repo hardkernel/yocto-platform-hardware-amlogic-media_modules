@@ -132,7 +132,16 @@ enum ResResult {
 /* others */
 /* t6d dos clk license bit */
 #define OTP_LIC02 (0xfe440048)
-#define LIC_DOS_HIGHER_SPEED_BIT  BIT(20)
+#define T6D_LIC_DOS_HIGHER_SPEED_BIT  BIT(20)
+#define S5_LIC_DOS_HIGHER_SPEED_BIT   BIT(21)
+
+#define DOS_CLK_333M  (333)
+#define DOS_CLK_500M  (500)
+#define DOS_CLK_576M  (576)
+#define DOS_CLK_666M  (667)
+#define DOS_CLK_800M  (800)
+#define DOS_CLK_840M  (840)
+#define DOS_CLK_1000M (1000)
 
 /* dos hardware feature define. */
 struct dos_of_dev_s {
