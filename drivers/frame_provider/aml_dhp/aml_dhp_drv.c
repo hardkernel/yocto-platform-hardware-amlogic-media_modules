@@ -1062,6 +1062,8 @@ static ulong __remap_uptr(ulong pfn, int len, bool uncached)
 		return 0;
 	}
 
+	mmap_write_lock(current->mm);
+
 	/* Find the virtual memory area (VMA) corresponding to the newly allocated memory */
 	vma = find_vma(current->mm, uptr);
 	if (!vma || uptr < vma->vm_start || uptr + ulen > vma->vm_end) {
@@ -1078,9 +1080,12 @@ static ulong __remap_uptr(ulong pfn, int len, bool uncached)
 		goto free_uptr;
 	}
 
+	mmap_write_unlock(current->mm);
+
 	return uptr;
 
 free_uptr:
+	mmap_write_unlock(current->mm);
 	vm_munmap(uptr, ulen);
 
 	return 0;
@@ -1220,10 +1225,13 @@ static int __remap_sgt(u64 *uptr_table, u64 *pfn_table, u32 pfn_size, bool uncac
 		goto err;
 	}
 
+	mmap_write_lock(current->mm);
+
 	/* Validate the VMA (virtual memory area) range */
 	vma = find_vma(current->mm, uptr);
 	if (!vma || uptr < vma->vm_start || (uptr + ulen) > vma->vm_end) {
 		vm_munmap(uptr, ulen);
+		mmap_write_unlock(current->mm);
 		ulen = -EINVAL;
 		LOG_ERR("Invalid VMA or address range!\n");
 		goto err;
@@ -1248,6 +1256,7 @@ static int __remap_sgt(u64 *uptr_table, u64 *pfn_table, u32 pfn_size, bool uncac
 
 		if (!found) {
 			vm_munmap(uptr, ulen);
+			mmap_write_unlock(current->mm);
 			ulen = -EINVAL;
 			LOG_ERR("Failed to find valid pfn:%llx\n", pfn);
 			goto err;
@@ -1259,6 +1268,7 @@ static int __remap_sgt(u64 *uptr_table, u64 *pfn_table, u32 pfn_size, bool uncac
 			ret = remap_pfn_range(vma, addr, pfn, PAGE_SIZE, vma->vm_page_prot);
 			if (ret) {
 				vm_munmap(uptr, ulen);
+				mmap_write_unlock(current->mm);
 				ulen = -EFAULT;
 				LOG_ERR("Failed to map PFN %llx to user space at addr %lx, error %d\n", pfn, addr, ret);
 				goto err;
@@ -1269,6 +1279,9 @@ static int __remap_sgt(u64 *uptr_table, u64 *pfn_table, u32 pfn_size, bool uncac
 			addr += PAGE_SIZE;
 		}
 	}
+
+	mmap_write_unlock(current->mm);
+
 err:
 	if (nodes)
 		vfree(nodes);
