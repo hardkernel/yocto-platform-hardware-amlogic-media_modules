@@ -11718,6 +11718,10 @@ static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 				 * determine whether the DV stream is a dual layer stream
 				 */
 				bool dv_duallayer = READ_VREG(HEVC_ASSIST_SCRATCH_4) & 0x1;
+
+				if (!hevc->decode_idx) // for frame_mode csd and I are divided on S7/S6
+					hevc->decode_idx++;
+
 				if ((!hevc->discard_dv_data) && (!hevc->dv_duallayer)
 					&& (dv_duallayer)) {
 					hevc->dv_duallayer = true;
@@ -15659,6 +15663,9 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	mod_timer(&hevc->timer, jiffies);
 	hevc->stat |= STAT_TIMER_ARM;
 	hevc->stat |= STAT_ISR_REG;
+
+	hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
+		"%s hevc->decode_idx %d\n", __func__, hevc->decode_idx);
 	if (vdec->mvfrm)
 		vdec->mvfrm->hw_decode_start = local_clock();
 	amhevc_start();
