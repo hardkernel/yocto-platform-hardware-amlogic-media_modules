@@ -5261,7 +5261,7 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 			return ret;
 		}
 
-		if (vb->memory == VB2_MEMORY_DMABUF) {
+		if (vb->memory == VB2_MEMORY_DMABUF && dmabuf_is_uvm(vb->planes[0].dbuf)) {
 			obj = dmabuf_get_uvm_buf_obj(vb->planes[0].dbuf);
 			mbuf = container_of(obj, struct mua_buffer, base);
 			if (mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
