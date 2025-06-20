@@ -137,7 +137,7 @@ to enable DV of frame mode
 #define INVALID_IDX -1  /* Invalid buffer index.*/
 
 #define H264_ERROR_FRAME_DISPLAY 0x80011BD7
-#define H264_ERROR_FRAME_DROP 0x7fCfb6
+#define H264_ERROR_FRAME_DROP 0x7fCff6
 
 static int mmu_enable;
 /*mmu do not support mbaff*/
