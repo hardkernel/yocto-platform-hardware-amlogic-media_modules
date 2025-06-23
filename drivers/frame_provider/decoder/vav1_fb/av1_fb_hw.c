@@ -2826,7 +2826,7 @@ static void config_loop_filter_hw_fb(struct AV1HW_s *hw, union param_u *param)
 	lf->mode_ref_delta_update       = ((param->p.loop_filter_mode_ref_delta_enabled >> 1) & 1);
 	lf->sharpness_level             = param->p.loop_filter_sharpness_level;
 	if (((param->p.loop_filter_mode_ref_delta_enabled)&3) == 3) { // enabled but and update
-	if (pic->prev_frame <= 0) {
+	if (!pic->prev_frame) {
 	// already initialized in Microcode
 		lf->ref_deltas[0]               = conv2int8((uint8_t)(param->p.loop_filter_ref_deltas_0),7);
 		lf->ref_deltas[1]               = conv2int8((uint8_t)(param->p.loop_filter_ref_deltas_0>>8),7);
