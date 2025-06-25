@@ -3,6 +3,7 @@ Major_V=6
 Minor_V=17
 DevelopingChangeId=I29022274edc39ddfd7ac30627b1ef38ffaf60291
 LTS_FLAG=
+RELEASE_FLAG=1
 
 #history version
 #V6.16 Release Notes

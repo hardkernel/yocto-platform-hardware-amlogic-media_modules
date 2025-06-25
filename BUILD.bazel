@@ -1,6 +1,16 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
 
+genrule(
+    name = "generate_version_header",
+    srcs = [
+        "version_control.sh",
+        "VERSION",
+    ],
+    outs = ["drivers/frame_provider/decoder/utils/vdec_version.h"],
+    cmd = "mkdir -p $(@D)&& bash $(location version_control.sh) DDK > $@",
+    visibility = ["//visibility:public"],
+)
 
 # decoder ko format to be compiled
 TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
@@ -166,7 +176,8 @@ ddk_headers(
         "drivers/frame_provider/decoder_v4l/avs3/avs3_fb_hw.c",
         "drivers/frame_provider/decoder_v4l/h265_fb/h265_fb_hw.c",
         "drivers/frame_provider/decoder_v4l/h266/h266_bufmgr.c",
-    ]),
+    ]) + [":generate_version_header"],
+    includes = ["drivers/frame_provider/decoder/utils"],
     linux_includes = [
         "include",
         "include/uapi",
@@ -294,8 +305,13 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        ":generate_version_header",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[decoder_common]: \" fmt"],
+    includes = ["drivers/frame_provider/decoder/utils"],
+    local_defines = [
+    	"pr_fmt(fmt)=\"[decoder_common]: \" fmt",
+    	"DDK_DEFINE",
+    ],
     out = "decoder_common.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -310,6 +326,7 @@ ddk_module(
         "//driver_modules/media_modules:media_clock",
         "//driver_modules/media_modules:firmware",
         "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:media_headers",
     ]),
 )
 

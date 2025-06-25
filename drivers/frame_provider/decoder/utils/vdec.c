@@ -87,7 +87,9 @@
 #include "../../../amvdec_ports/aml_vcodec_drv.h"
 #include "../../../common/media_utils/media_utils.h"
 #include "../../../media_sync/pts_server/pts_server_core.h"
-
+#ifdef DDK_DEFINE
+#include "vdec_version.h"
+#endif
 #ifdef CONFIG_AMLOGIC_IONVIDEO
 #include <linux/amlogic/media/video_sink/ionvideo_ext.h>
 #else
