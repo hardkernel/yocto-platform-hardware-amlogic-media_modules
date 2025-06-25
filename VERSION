@@ -1,11 +1,29 @@
 #Developing Version
 Major_V=6
-Minor_V=17
-DevelopingChangeId=I29022274edc39ddfd7ac30627b1ef38ffaf60291
+Minor_V=18
+DevelopingChangeId=I2b62d7d06b65197994172615d00a9b9340fbb051
 LTS_FLAG=
 RELEASE_FLAG=1
 
 #history version
+#v4l stream mode decoder driver development
+#	Reduced maintenance costs (only one codebase to maintain)
+#	Improved stability
+#	Better performance for DTV time-shift & Trick Mode I
+#	Better performance for playback start and seek operation
+#	Client compatibility with V4L2 framework only (especially Linux project)
+#AVBCD wrapper (HW decoding)
+#	Optimize pipeline for memory usage
+#	Faster efficiency and broader application scenarios
+#Secure memory mmu ((Multi instance)
+#	Faster video playback startup speed
+#	More accurate memory usage
+#VP9/AV1 no head mode
+#	Supports standardized streaming delivery method
+#	CPU usage reduce 3%
+#AV1 scalable streams support
+#	Support AV1 SVC stream
+#	Netflix-promoted feature
 #V6.16 Release Notes
 #AVBCD wrapper (SW decoding)
 #    Optimize pipeline for memory usage in CTS data comparison scenarios
