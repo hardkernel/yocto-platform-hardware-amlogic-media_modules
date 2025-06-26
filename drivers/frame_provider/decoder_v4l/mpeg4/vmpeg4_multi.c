@@ -849,7 +849,11 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 
-	if (v4l2_ctx->enable_di_post && pic->pic_info & INTERLACE_FLAG) {
+	if (v4l2_ctx->enable_di_post &&
+		(pic->pic_info & INTERLACE_FLAG) &&
+		!(((error_frame_skip_level & 0x1) && (pic->error_mark)) ||
+			(((hw->first_i_frame_ready == 0) || pb_skip)
+			&& (pic->pic_type != I_PICTURE)))) {
 		if (!aml_buf_check_uvm_dma_recycled(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key))
 			aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);

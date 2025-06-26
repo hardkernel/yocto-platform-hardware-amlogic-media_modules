@@ -3682,7 +3682,9 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
 	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
 
-	if (v4l2_ctx->enable_di_post && hw->interlace_flag) {
+	if (v4l2_ctx->enable_di_post &&
+		hw->interlace_flag &&
+		!hw->pics[buffer_index].error_flag) {
 		if (!aml_buf_check_uvm_dma_recycled(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key))
 			aml_buf_put_free_dmabuf(&v4l2_ctx->bm, pic->cma_alloc_addr, sub1_buf->entry.key, false);
 		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
