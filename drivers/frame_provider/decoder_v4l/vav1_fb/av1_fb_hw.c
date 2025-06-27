@@ -3005,7 +3005,7 @@ else{
 
 }
 
-void BackEnd_StartDecoding(struct AV1HW_s *hw)
+int BackEnd_StartDecoding(struct AV1HW_s *hw)
 {
 	int ret = 0;
 	AV1_COMMON *cm = &hw->common;
@@ -3034,8 +3034,10 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 
 			if (ret >= 0)
 				cm->cur_fb_idx_mmu = pic->index;
-			else
+			else {
 				pr_err("can't alloc need mmu1,idx %d ret =%d\n", pic->index, ret);
+				return ret;
+			}
 
 			ret = av1_alloc_mmu(hw,
 				aml_buf->fbc->mmu_1,
@@ -3046,8 +3048,10 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 				hw->frame_mmu_map_addr_1);
 			if (ret >= 0)
 				cm->cur_fb_idx_mmu = pic->index;
-			else
+			else {
 				pr_err("can't alloc need mmu1_1,idx %d ret =%d\n", pic->index, ret);
+				return ret;
+			}
 
 #ifdef AOM_AV1_MMU_DW
 			if (get_double_write_mode(hw) & 0x20) {
@@ -3060,8 +3064,10 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 					hw->dw_frame_mmu_map_addr);
 				if (ret >= 0)
 					cm->cur_fb_idx_mmu_dw = pic->index;
-				else
+				else {
 					pr_err("can't alloc need dw mmu1,idx %d ret =%d\n", pic->index, ret);
+					return ret;
+				}
 
 				ret = av1_alloc_mmu_dw(hw,
 					aml_buf->fbc->mmu_dw_1,
@@ -3070,6 +3076,10 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 					pic->y_crop_height/2 + 64 + 8,
 					hw->aom_param.p.bit_depth,
 					hw->dw_frame_mmu_map_addr_1);
+				if (ret < 0) {
+					pr_err("can't alloc need dw mmu1_1,idx %d ret =%d\n", pic->index, ret);
+					return ret;
+				}
 			}
 #endif
 		}
@@ -3123,7 +3133,7 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 
 #ifdef NEW_FB_CODE
 	if (hw->front_back_mode != 1)
-		return;
+		return -1;
 #endif
 	config_bufstate_back_hw(pbi);
 
@@ -3139,5 +3149,7 @@ void BackEnd_StartDecoding(struct AV1HW_s *hw)
 		amhevc_start_b();
 #endif
 #endif
+
+	return ret;
 }
 

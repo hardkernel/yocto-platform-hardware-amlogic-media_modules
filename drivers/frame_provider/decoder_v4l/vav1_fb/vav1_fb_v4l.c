@@ -8202,9 +8202,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 				cur_pic_config->y_crop_height,
 				hw->aom_param.p.bit_depth,
 				hw->frame_mmu_map_addr);
-				if (ret < 0)
+				if (ret < 0) {
 					pr_err("can't alloc need mmu1,idx %d ret =%d\n",
 						cm->cur_frame->buf.index, ret);
+					return ret;
+				}
 #ifdef AOM_AV1_MMU_DW
 				if (get_double_write_mode(hw) & 0x20) {
 					ret = av1_alloc_mmu_dw(hw, aml_buf->fbc->mmu_dw,
@@ -8215,9 +8217,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 					hw->dw_frame_mmu_map_addr);
 					if (ret >= 0)
 						cm->cur_fb_idx_mmu_dw = cm->cur_fb_idx_mmu;
-					else
+					else {
 						pr_err("can't alloc need dw mmu1,idx %d ret =%d\n",
 						cm->cur_fb_idx_mmu, ret);
+						return ret;
+					}
 				}
 #endif
 			}
@@ -12066,6 +12070,8 @@ static void run_back(struct vdec_s *vdec, void (*callback)(struct vdec_s *, void
 	struct AV1HW_s *hw =
 		(struct AV1HW_s *)vdec->private;
 	int loadr = 0;
+	int ret;
+
 	hw->back_start_time = local_clock();
 	if (((fb_ucode_debug == 1) && (hw->front_back_mode == 2)) ||
 		(hw->front_back_mode == 1)) {
@@ -12088,7 +12094,12 @@ static void run_back(struct vdec_s *vdec, void (*callback)(struct vdec_s *, void
 	hw->vdec_back_cb = callback;
 	vdec->back_pic_done = false;
 
-	BackEnd_StartDecoding(hw);
+	ret = BackEnd_StartDecoding(hw);
+	if (ret < 0) {
+		hw->dec_back_result = DEC_BACK_RESULT_FORCE_EXIT;
+		vdec_schedule_work(&hw->work_back);
+		return;
+	}
 
 	if (fb_ucode_debug == 1) {
 		amhevc_start();

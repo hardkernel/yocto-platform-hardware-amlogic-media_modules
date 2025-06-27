@@ -8401,9 +8401,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 			ATRACE_COUNTER(hw->trace.decode_header_memory_time_name, TRACE_HEADER_MEMORY_END);
 			if (ret >= 0)
 				cm->cur_fb_idx_mmu = cm->cur_frame->buf.index;
-			else
+			else {
 				pr_err("can't alloc need mmu1,idx %d ret =%d\n",
 				cm->cur_frame->buf.index, ret);
+				return ret;
+			}
 #ifdef AOM_AV1_MMU_DW
 			if (hw->dw_mmu_enable) {
 				ret = av1_alloc_mmu_dw(hw,
@@ -8414,9 +8416,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 				hw->dw_frame_mmu_map_addr);
 				if (ret >= 0)
 					cm->cur_fb_idx_mmu_dw = cm->cur_frame->buf.index;
-				else
+				else {
 					pr_err("can't alloc need dw mmu1,idx %d ret =%d\n",
 					cm->cur_frame->buf.index, ret);
+					return ret;
+				}
 			}
 #endif
 #ifdef DEBUG_CRC_ERROR

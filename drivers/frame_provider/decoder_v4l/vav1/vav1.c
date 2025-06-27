@@ -8375,6 +8375,7 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 					pr_err("can't alloc need mmu1,idx %d ret =%d\n",
 						cm->cur_frame->buf.index, ret);
 					vdec_v4l_post_error_event(ctx, DECODER_ERROR_ALLOC_BUFFER_FAIL);
+					return ret;
 				}
 #ifdef AOM_AV1_MMU_DW
 				if (get_double_write_mode(hw) & 0x20) {
@@ -8390,6 +8391,7 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 						pr_err("can't alloc need dw mmu1,idx %d ret =%d\n",
 						cm->cur_fb_idx_mmu, ret);
 						vdec_v4l_post_error_event(ctx, DECODER_ERROR_ALLOC_BUFFER_FAIL);
+						return ret;
 					}
 				}
 #endif
