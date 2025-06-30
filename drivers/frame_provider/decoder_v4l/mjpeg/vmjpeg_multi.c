@@ -569,6 +569,13 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 			READ_VREG(VIFF_BIT_CNT));
 
 		if (vdec_frame_based(vdec)) {
+			struct aml_vcodec_ctx *ctx =
+				(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+
+			hw->vfbuf_use[hw->cur_idx]++;
+			vdec_v4l_post_error_frame_event(ctx);
+			vdec_v4l_post_error_event(ctx, DECODER_WARNING_DATA_ERROR);
+			mjpeg_reset_frame_buffer(hw);
 			hw->dec_result = DEC_RESULT_DONE;
 			vdec_schedule_work(&hw->work);
 		} else {
