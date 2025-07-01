@@ -275,7 +275,7 @@ static void set_vdec_property(struct vdec_s *vdec,
 		vdec->port->type |= PORT_TYPE_FRAME;
 	}
 
-	if (vdec->format == VFORMAT_VC1)
+	if ((ada_ctx->ctx->stream_mode) && (vdec->format == VFORMAT_VC1))
 		vdec->type = VDEC_TYPE_SINGLE;
 
 	if (aml_set_vfm_enable)

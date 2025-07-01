@@ -73,6 +73,7 @@ static const struct format_name_s format_name[] = {
 	{VIDEO_ENC_H264,		"h264_enc",		BIT_ULL(47)},
 	{VIDEO_ENC_JPEG,		"jpeg_enc",		BIT_ULL(48)},
 	{VIDEO_DEC_H266_MMU,	"h266_mmu",		BIT_ULL(49)},
+	{VIDEO_DEC_VC1_MULTI,	"vc1_multi",	BIT_ULL(51)},
 	{FIRMWARE_MAX,			"unknown"},
 };
 

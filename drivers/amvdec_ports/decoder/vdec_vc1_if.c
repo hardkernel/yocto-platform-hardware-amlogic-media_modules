@@ -149,25 +149,33 @@ static int vdec_vc1_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 	if (!inst)
 		return -ENOMEM;
 
-	/* init ts fifo */
-	INIT_KFIFO(inst->vc1_ts_q);
+	if (ctx->stream_mode) {
+		/* init ts fifo */
+		INIT_KFIFO(inst->vc1_ts_q);
 
-	ret = kfifo_alloc(&inst->vc1_ts_q, VC1_TS_POOL_SIZE, GFP_KERNEL);
-	if (ret) {
-		v4l_dbg(inst->ctx, 0, "Alloc vc1_ts_q fifo fail.\n");
-		return -ENOMEM;
+		ret = kfifo_alloc(&inst->vc1_ts_q, VC1_TS_POOL_SIZE, GFP_KERNEL);
+		if (ret) {
+			v4l_dbg(inst->ctx, 0, "Alloc vc1_ts_q fifo fail.\n");
+			return -ENOMEM;
+		}
 	}
-
 	inst->vdec.frm_name	= "VC1";
 	inst->vdec.video_type	= VFORMAT_VC1;
 	inst->vdec.filp 	= ctx->dev ? ctx->dev->filp : NULL;
 	inst->vdec.ctx		= ctx;
 	inst->ctx		= ctx;
 
-	if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
-		inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
-	else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
-		inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
+	if (ctx->stream_mode) {
+		if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
+			inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
+		else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
+			inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
+	} else {
+		if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
+			inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
+		else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
+			inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
+	}
 
 	vdec_parser_parms(inst);
 
@@ -178,7 +186,7 @@ static int vdec_vc1_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 		inst->vdec.port.flag |= PORT_FLAG_DMABUF;
 
 	/* probe info from the stream */
-	inst->vsi = aml_media_mem_alloc(sizeof(struct vdec_vc1_inst), GFP_KERNEL);
+	inst->vsi = aml_media_mem_alloc(sizeof(struct vdec_vc1_vsi), GFP_KERNEL);
 	if (!inst->vsi) {
 		ret = -ENOMEM;
 		goto err;
@@ -334,6 +342,7 @@ static int vdec_vc1_probe(unsigned long h_vdec,
 static void vdec_vc1_deinit(unsigned long h_vdec)
 {
 	struct vdec_vc1_inst *inst = (struct vdec_vc1_inst *)h_vdec;
+	struct aml_vcodec_ctx *ctx = inst->ctx;
 
 	if (!inst)
 		return;
@@ -346,9 +355,12 @@ static void vdec_vc1_deinit(unsigned long h_vdec)
 	if (inst->vsi)
 		aml_media_mem_free(inst->vsi);
 
-	kfifo_free(&inst->vc1_ts_q);
+	if (ctx->stream_mode)
+		kfifo_free(&inst->vc1_ts_q);
 
 	aml_media_mem_free(inst);
+
+	ctx->drv_handle = 0;
 }
 
 static int vdec_write_nalu(struct vdec_vc1_inst *inst,
@@ -453,9 +465,10 @@ static void get_pic_info(struct vdec_vc1_inst *inst,
 static void vdec_vc1_get_pts(struct vdec_vc1_inst *inst,
 	u64 *pts)
 {
+	struct aml_vcodec_ctx *ctx = inst->ctx;
 	u64 timestamp = 0;
 
-	if (kfifo_get(&inst->vc1_ts_q, &timestamp)) {
+	if (ctx->stream_mode && (kfifo_get(&inst->vc1_ts_q, &timestamp))) {
 		*pts = timestamp;
 		v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_EXINFO,
 			"%s get pts: timestamp %lld\n", __func__,
@@ -577,8 +590,11 @@ static void set_param_ps_info(struct vdec_vc1_inst *inst,
 
 static void set_param_reset_event(struct vdec_vc1_inst *inst)
 {
+	struct aml_vcodec_ctx *ctx = inst->ctx;
+
 	/* reset fifo */
-	kfifo_reset(&inst->vc1_ts_q);
+	if (ctx->stream_mode)
+		kfifo_reset(&inst->vc1_ts_q);
 
 	v4l_dbg(inst->ctx, V4L_DEBUG_CODEC_PROT,
 		"vc1 instance reset. \n");

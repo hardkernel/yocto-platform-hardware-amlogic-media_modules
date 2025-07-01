@@ -80,6 +80,7 @@
 #define VIDEO_DEC_AVS3_FRONT  TAG('A', 'S', '3', 'F')
 #define VIDEO_DEC_AVS3_BACK   TAG('A', 'S', '3', 'B')
 #define VIDEO_DEC_H266_MMU   TAG('H', '2', '6', '6')
+#define VIDEO_DEC_VC1_MULTI  TAG('V', 'C', '1', 'M')
 
 /* ... */
 #define FIRMWARE_MAX			(UINT_MAX)

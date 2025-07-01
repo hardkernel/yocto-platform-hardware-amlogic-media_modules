@@ -471,6 +471,24 @@ static int vcodec_feature_profile_and_level(u8 *buf, int size, int vformat, int 
 	return pbuf - buf;
 }
 
+static int vcodec_feature_vc1_multiple(u8 *buf, int size, int vformat, int is_v4l)
+{
+	u8 *pbuf = buf;
+
+	if (!is_v4l)
+		return 0;
+
+	switch (vformat) {
+		case VFORMAT_VC1:
+			pbuf += snprintf(pbuf, size, "        \"Multiple Instance\" : true,\n");
+			break;
+		default:
+			break;
+	}
+
+	return pbuf - buf;
+}
+
 int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 {
 	u8 *pbuf = buf;
@@ -562,6 +580,10 @@ int vcodec_feature_get_feature(u8 *buf, int size, int vformat, int is_v4l)
 	pbuf += s;
 
 	s = vcodec_feature_profile_and_level(pbuf, size - tsize, vformat, is_v4l);
+	tsize += s;
+	pbuf += s;
+
+	s = vcodec_feature_vc1_multiple(pbuf, size - tsize, vformat, is_v4l);
 	tsize += s;
 	pbuf += s;
 

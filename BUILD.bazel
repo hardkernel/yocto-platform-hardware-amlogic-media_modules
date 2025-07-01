@@ -56,6 +56,7 @@ outs_h266 = [
 outs_vc1 = [
     "frame_provider/decoder/vc1/amvdec_vc1.ko",
     "frame_provider/decoder_v4l/vc1/amvdec_vc1_v4l.ko",
+    "frame_provider/decoder_v4l/vc1_multi/amvdec_mvc1_v4l.ko",
 ]
 
 outs_h264 = [
@@ -1310,6 +1311,32 @@ ddk_module(
         ],
     local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt"],
     out = "amvdec_vc1_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mvc1_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vc1_multi/*.c",
+            "drivers/frame_provider/decoder_v4l/vc1_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        ],
+    local_defines = ["pr_fmt(fmt)=\"[amvdec_mvc1_v4l]: \" fmt"],
+    out = "amvdec_mvc1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
     deps = ddk_deps_select([

@@ -530,7 +530,10 @@ s32 optee_load_fw(enum vformat_e type, const char *fw_name)
 
 	switch ((u32)type) {
 	case VFORMAT_VC1:
-		format = VIDEO_DEC_VC1;
+		if (!strcmp(name, "vc1_multi"))
+			format = VIDEO_DEC_VC1_MULTI;
+		else
+			format = VIDEO_DEC_VC1;
 		break;
 
 	case VFORMAT_AVS:

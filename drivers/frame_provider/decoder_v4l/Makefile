@@ -15,3 +15,4 @@ obj-y	+=	vav1_t5d/
 obj-y	+=	avs2_fb/
 obj-y	+=	vc1/
 obj-y	+=	h266/
+obj-y	+=	vc1_multi/

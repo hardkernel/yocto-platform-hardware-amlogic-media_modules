@@ -4018,7 +4018,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 
 	/* stream buffer init. */
 	if ((!is_v4l && vdec->vbuf.ops && !vdec->master) ||
-		(is_v4l && (vdec->format == VFORMAT_VC1))) {
+		(vdec_stream_based(vdec) && is_v4l && (vdec->format == VFORMAT_VC1))) {
 		if (vdec_init_stbuf_info(vdec) != 0)
 			goto error;
 	}
@@ -4804,7 +4804,7 @@ int vdec_v4l2_reset(struct vdec_s *vdec, int flag)
 		dec_time_stat_reset = 1;
 		vdec->mc_loaded = 0;/*clear for reload firmware*/
 
-		if (vdec->format == VFORMAT_VC1) {
+		if (vdec_stream_based(vdec) && vdec->format == VFORMAT_VC1) {
 			if (vdec->vbuf.ops)
 				vdec->vbuf.ops->reset(&vdec->vbuf);
 
