@@ -33,7 +33,10 @@
 #include <linux/platform_device.h>
 #include "../../../common/media_utils/media_kernel_version.h"
 
-static int mmu_percent = 100;
+/* Rated Memory Compression Ratio for MMU */
+#define DECODER_MMU_RATED_PERCENT 60
+
+static int mmu_percent = DECODER_MMU_RATED_PERCENT;
 MEDIA_PARAM(mmu_percent, int, 0644);
 
 extern int is_mmu_copy_enable(void);
