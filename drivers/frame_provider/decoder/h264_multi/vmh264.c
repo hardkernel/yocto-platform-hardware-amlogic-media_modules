@@ -4694,8 +4694,12 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 			WRITE_VREG(DCAC_DDR_BYTE64_CTL,
 			(READ_VREG(DCAC_DDR_BYTE64_CTL) & (~0xf)) | 0xa);
 	}
-	else
+	else {
 		CLEAR_VREG_MASK(IQIDCT_CONTROL,(1 << 16));
+		if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_G12A))
+			WRITE_VREG(DCAC_DDR_BYTE64_CTL,
+			(READ_VREG(DCAC_DDR_BYTE64_CTL) & (~0xf)));
+	}
 
 	if (last_pic)
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
