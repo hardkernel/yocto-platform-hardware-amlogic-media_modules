@@ -1833,12 +1833,14 @@ static void aml_vdec_reset(struct aml_vcodec_ctx *ctx)
 
 	aml_codec_disconnect(ctx->ada_ctx);
 
+	mutex_lock(&ctx->combine_lock);
 	if (aml_codec_reset(ctx->ada_ctx, &ctx->reset_flag)) {
 		ctx->state = AML_STATE_ABORT;
 		vdec_tracing(&ctx->vtr, VTRACE_V4L_ST_0, ctx->state);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_STATE,
 			"vcodec state (AML_STATE_ABORT).\n");
 	}
+	mutex_unlock(&ctx->combine_lock);
 out:
 	complete(&ctx->comp);
 }
@@ -3064,8 +3066,9 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 		return -EIO;
 	}
 
+	mutex_lock(&ctx->combine_lock);
 	ret = v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
-
+	mutex_unlock(&ctx->combine_lock);
 	if (V4L2_TYPE_IS_OUTPUT(buf->type)) {
 		if (V4L2_TYPE_IS_MULTIPLANAR(buf->type)) {
 			if (ret == -EAGAIN)
@@ -4865,6 +4868,46 @@ static ulong prepare_get_addr(struct dma_buf *dbuf, struct device	 *dev)
 	dma_buf_detach(dbuf, dba);
 
 	return addr;
+}
+
+void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx)
+{
+	struct aml_buf *am_buf;
+	int ret;
+	struct vb2_v4l2_buffer *vb2_v4l2;
+
+	mutex_lock(&ctx->combine_lock);
+	if (!ctx->bm.bc.dma_free_num ||
+		(ctx->bm.bc.unbind_num < PAIR_DONE) ||
+		(ctx->fresh_uvmdma_num < ctx->dpb_size) ||
+		ctx->master_buf) {
+		mutex_unlock(&ctx->combine_lock);
+		return;
+	}
+
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s\n", __func__);
+	am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
+	vb2_v4l2 = to_vb2_v4l2_buffer(am_buf->vb);
+
+	ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+	if (!ret && (am_buf->pair_state == MASTER_DONE ||
+		am_buf->pair_state == SUB0_DONE)) {
+		struct vb2_v4l2_buffer *vb2_v4l2;
+		aml_buf_put_ref(&ctx->bm, am_buf);
+		for (; am_buf->pair_state < PAIR_DONE && !ret;) {
+			am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
+			if (!am_buf)
+				break;
+			vb2_v4l2 = container_of(am_buf->vb, struct vb2_v4l2_buffer, vb2_buf);
+			ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+			if (ret)
+				break;
+			if (am_buf->master_buf)
+				am_buf = (struct aml_buf *)am_buf->master_buf;
+			aml_buf_put_ref(&ctx->bm, am_buf);
+		}
+	}
+	mutex_unlock(&ctx->combine_lock);
 }
 
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)

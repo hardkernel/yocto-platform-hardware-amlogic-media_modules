@@ -112,6 +112,7 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->comp_lock);
 	mutex_init(&ctx->compressed_buf_info_lock);
 	mutex_init(&ctx->ubuf_lock);
+	mutex_init(&ctx->combine_lock);
 	spin_lock_init(&ctx->slock);
 	spin_lock_init(&ctx->tsplock);
 	spin_lock_init(&ctx->es_wkr_slock);
@@ -168,6 +169,7 @@ static int fops_vcodec_open(struct file *file)
 	ctx->aml_avbc_decode = aml_avbc_decode;
 #endif
 	ctx->vdec_configure_update = aml_buf_configure_update;
+	ctx->vdec_combine_buffer = aml_combine_free_uvm_dma_buffer;
 	aml_vcodec_dec_set_default_params(ctx);
 	ctx->is_stream_off = true;
 	ctx->set_ext_buf_flg = false;

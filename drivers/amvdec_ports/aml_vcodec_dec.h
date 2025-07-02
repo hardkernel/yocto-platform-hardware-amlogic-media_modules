@@ -265,6 +265,7 @@ void fbc_transcode_and_set_vf(struct aml_vcodec_ctx *ctx,
 						  struct aml_buf *aml_buf,
 						  struct vframe_s *vf);
 void aml_buf_configure_update(struct aml_vcodec_ctx *ctx);
+void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx);
 
 ssize_t dump_cma_and_sys_memsize(struct aml_vcodec_ctx *ctx, char *buf);
 

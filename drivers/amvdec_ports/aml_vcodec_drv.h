@@ -1157,6 +1157,8 @@ struct aml_vcodec_ctx {
 	struct aml_buf_mgr_s		bm;
 	void (*vdec_recycle_dec_resource)(void *, struct aml_buf *);
 	void (*update_comp_info)(struct aml_vcodec_ctx *, void *);
+	void (*vdec_combine_buffer)(struct aml_vcodec_ctx *);
+	struct mutex			combine_lock;
 
 	atomic_t		vpp_cache_num;
 	atomic_t		ge2d_cache_num;
@@ -1259,6 +1261,7 @@ int aml_thread_start(struct aml_vcodec_ctx *ctx, aml_thread_func func,
 void aml_thread_stop(struct aml_vcodec_ctx *ctx);
 void aml_vdec_recycle_dec_resource(struct aml_vcodec_ctx * ctx,
 					struct aml_buf *aml_buf);
+
 #ifdef CONFIG_AMLOGIC_MEDIA_PROXY
 extern int notify_msg_to_mediaproxy(void *handle, int num, void *data);
 extern int media_proxy_produce_deinit(void *handle);

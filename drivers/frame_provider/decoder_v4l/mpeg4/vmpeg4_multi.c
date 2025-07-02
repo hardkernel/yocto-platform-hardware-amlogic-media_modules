@@ -2984,6 +2984,9 @@ static bool is_available_buffer(struct vdec_mpeg4_hw_s *hw)
 		return false;
 	}
 
+	if (ctx->vdec_combine_buffer)
+		ctx->vdec_combine_buffer(ctx);
+
 	if (!hw->aml_buf && !aml_buf_empty(&ctx->bm)) {
 		hw->aml_buf = aml_buf_get(&ctx->bm, BUF_USER_DEC, false);
 		if (!hw->aml_buf) {
