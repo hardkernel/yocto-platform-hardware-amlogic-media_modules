@@ -328,6 +328,8 @@ static u32 error_handle_mode = 1;
  */
 static u32 lcu_percentage_threshold = 0;
 
+static u32 enable_hw_timer = 1;
+
 static u32 mv_buf_dynamic_alloc;
 #define DRIVER_NAME "amvdec_avs2_v4l"
 #define DRIVER_HEADER_NAME "amvdec_avs2_header"
@@ -1543,6 +1545,9 @@ static DEFINE_MUTEX(vavs2_mutex);
 #define RPM_CMD_REG               HEVC_ASSIST_SCRATCH_F
 #define LMEM_DUMP_ADR             HEVC_ASSIST_SCRATCH_9
 #define HEVC_STREAM_SWAP_TEST     HEVC_ASSIST_SCRATCH_L
+/*
+bit2: enable hw timeout
+*/
 #define HEVC_COMPATIBILITY        HEVC_ASSIST_SCRATCH_L
 
 /*!!!*/
@@ -6338,11 +6343,11 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 	}
 #endif
 	dec->wait_buf = 0;
-	if (dec_status == AVS2_DECODE_BUFEMPTY) {
+	if ((dec_status == AVS2_DECODE_BUFEMPTY) || (dec_status == AVS2_DECODE_TIMEOUT)) {
 		struct avs2_frame_s *pic = dec->avs2_dec.hc.cur_pic;
 		PRINT_LINE();
 		if (dec->m_ins_flag) {
-			if (!vdec_frame_based(hw_to_vdec(dec)))
+			if (!vdec_frame_based(hw_to_vdec(dec)) && (dec_status == AVS2_DECODE_BUFEMPTY))
 				dec_again_process(dec);
 			else {
 				dec->dec_result = DEC_RESULT_DONE;
@@ -8284,6 +8289,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(dec->v4l2_ctx);
 	int r;
+	u32 tmp_data = 0;
 
 	ATRACE_COUNTER(dec->trace.decode_time_name, DECODER_RUN_START);
 	run_count[dec->index]++;
@@ -8374,16 +8380,27 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	ATRACE_COUNTER(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_END);
 
 	ATRACE_COUNTER(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_START);
+
+	tmp_data = READ_VREG(HEVC_COMPATIBILITY);
 	/*
 		HEVC_COMPATIBILITY
 		bit[0] 1: open efficiency mode, 0: close efficiency mode
 		bit[1] 1: no support rdma, 0: support rdma
 	*/
 	if (efficiency_mode) {
-		WRITE_VREG(HEVC_COMPATIBILITY, (READ_VREG(HEVC_COMPATIBILITY) | (1<<0)));
+		tmp_data |= (1 << 0);
 	} else {
-		WRITE_VREG(HEVC_COMPATIBILITY, (READ_VREG(HEVC_COMPATIBILITY) & (~(1<<0))));
+		tmp_data &= (~(1 << 0));
 	}
+
+	//enable hw timeout
+	if (enable_hw_timer) {
+		tmp_data |= (1 << 2);
+	} else {
+		tmp_data &= (~(1 << 2));
+	}
+
+	WRITE_VREG(HEVC_COMPATIBILITY, tmp_data);
 
 	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7) //disable OW module auto cg on HEVC top for S7
 		SET_VREG_MASK(HEVC_SAO_CTRL11, (1 << 28));
@@ -9293,6 +9310,9 @@ MODULE_PARM_DESC(force_w_h, "\n force_w_h\n");
 
 MEDIA_PARAM(force_fps, uint, 0664);
 MODULE_PARM_DESC(force_fps, "\n force_fps\n");
+
+MEDIA_PARAM(enable_hw_timer, uint, 0664);
+MODULE_PARM_DESC(enable_hw_timer, "\n enable_hw_timer\n");
 
 MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,

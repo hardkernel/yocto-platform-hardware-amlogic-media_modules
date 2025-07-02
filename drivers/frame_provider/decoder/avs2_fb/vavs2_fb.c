@@ -333,6 +333,8 @@ static u32 error_handle_mode = 1;
  */
 static u32 lcu_percentage_threshold = 0;
 
+static u32 enable_hw_timer = 1;
+
 static u32 mv_buf_dynamic_alloc;
 
 #define DRIVER_NAME "amvdec_avs2_fb"
@@ -1630,6 +1632,9 @@ static DEFINE_MUTEX(vavs2_mutex);
 #define RPM_CMD_REG               HEVC_ASSIST_SCRATCH_F
 #define LMEM_DUMP_ADR             HEVC_ASSIST_SCRATCH_9
 #define HEVC_STREAM_SWAP_TEST     HEVC_ASSIST_SCRATCH_L
+/*
+bit2: enable hw timeout
+*/
 #define HEVC_COMPATIBILITY        HEVC_ASSIST_SCRATCH_L
 /*!!!*/
 #define HEVC_DECODE_COUNT       HEVC_ASSIST_SCRATCH_M
@@ -7254,10 +7259,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 	}
 #endif
 	dec->wait_buf = 0;
-	if (dec_status == AVS2_DECODE_BUFEMPTY) {
+	if ((dec_status == AVS2_DECODE_BUFEMPTY) || (dec_status == AVS2_DECODE_TIMEOUT)) {
 		PRINT_LINE();
 		if (dec->m_ins_flag) {
-			if (!vdec_frame_based(hw_to_vdec(dec)))
+			if (!vdec_frame_based(hw_to_vdec(dec)) && (dec_status == AVS2_DECODE_BUFEMPTY))
 				dec_again_process(dec);
 			else {
 				dec->dec_result = DEC_RESULT_DONE;
@@ -10031,6 +10036,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	struct AVS2Decoder_s *dec =
 		(struct AVS2Decoder_s *)vdec->private;
 	int r;
+	u32 tmp_data = 0;
 
 #ifdef NEW_FB_CODE
 	struct avs2_decoder *avs2_dec = &dec->avs2_dec;
@@ -10154,15 +10160,27 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	ATRACE_COUNTER(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_END);
 
 	ATRACE_COUNTER(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_START);
+
+	tmp_data = READ_VREG(HEVC_COMPATIBILITY);
 	/*
 		HEVC_COMPATIBILITY
 		bit[0] 1: open efficiency mode, 0: close efficiency mode
 	*/
 	if (efficiency_mode) {
-		WRITE_VREG(HEVC_COMPATIBILITY, (READ_VREG(HEVC_COMPATIBILITY) | (1<<0)));
+		tmp_data |= (1 << 0);
 	} else {
-		WRITE_VREG(HEVC_COMPATIBILITY, (READ_VREG(HEVC_COMPATIBILITY) & (~(1<<0))));
+		tmp_data &= (~(1 << 0));
 	}
+
+	//enable hw timeout
+	if (enable_hw_timer) {
+		tmp_data |= (1 << 2);
+	} else {
+		tmp_data &= (~(1 << 2));
+	}
+
+	WRITE_VREG(HEVC_COMPATIBILITY, tmp_data);
+
 #ifdef NEW_FB_CODE
 	if (dec->front_back_mode) {
 
@@ -11147,6 +11165,9 @@ MODULE_PARM_DESC(force_w_h, "\n force_w_h\n");
 
 MEDIA_PARAM(force_fps, uint, 0664);
 MODULE_PARM_DESC(force_fps, "\n force_fps\n");
+
+MEDIA_PARAM(enable_hw_timer, uint, 0664);
+MODULE_PARM_DESC(enable_hw_timer, "\n enable_hw_timer\n");
 
 MEDIA_PARAM(start_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(start_decode_buf_level,
