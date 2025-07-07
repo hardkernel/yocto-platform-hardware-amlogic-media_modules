@@ -5509,7 +5509,7 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)vdec->private;
-	struct aml_vcodec_ctx * v4l2_ctx = hw->v4l2_ctx;
+	struct aml_vcodec_ctx * v4l2_ctx = (struct aml_vcodec_ctx *)hw->v4l2_ctx;
 	ulong nv_order = VIDTYPE_VIU_NV21;
 	int dw_mode = get_double_write_mode(hw);
 
@@ -5629,8 +5629,12 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 				= frame_interval;
 		}
 		hw->last_frame_time = time;
-		vf->index_disp = atomic_read(&hw->vf_get_count);
-		vf->frame_index = atomic_read(&hw->vf_get_count);
+		if (!v4l2_ctx->enable_di_post) {
+			vf->index_disp = atomic_read(&hw->vf_get_count);
+			vf->frame_index = atomic_read(&hw->vf_get_count);
+		} else {
+			v4l2_ctx->bm.get_bm_frm_cnt(&v4l2_ctx->bm, vf);
+		}
 		atomic_add(1, &hw->vf_get_count);
 		if (kfifo_peek(&hw->display_q, &next_vf) && next_vf) {
 			vf->next_vf_pts_valid = true;

@@ -9447,8 +9447,12 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 		}
 #endif
 		hevc->show_frame_num++;
-		vf->index_disp = atomic_read(&hevc->vf_get_count);
-		vf->frame_index = atomic_read(&hevc->vf_get_count);
+		if (!ctx->enable_di_post) {
+			vf->index_disp = atomic_read(&hevc->vf_get_count);
+			vf->frame_index = atomic_read(&hevc->vf_get_count);
+		} else {
+			ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+		}
 		atomic_add(1, &hevc->vf_get_count);
 
 		if (kfifo_peek(&hevc->display_q, &next_vf) && next_vf) {

@@ -7226,7 +7226,7 @@ static struct vframe_s *vvp9_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct VP9Decoder_s *pbi = (struct VP9Decoder_s *)vdec->private;
-	struct aml_vcodec_ctx *ctx = pbi->v4l2_ctx;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)pbi->v4l2_ctx;
 
 	if (step == 2)
 		return NULL;
@@ -7240,8 +7240,12 @@ static struct vframe_s *vvp9_vf_get(void *op_arg)
 		ATRACE_COUNTER(pbi->trace.disp_q_name, kfifo_len(&pbi->display_q));
 		if (index < pbi->used_buf_num ||
 			(vf->type & VIDTYPE_V4L_EOS)) {
-			vf->index_disp = atomic_read(&pbi->vf_get_count);
-			vf->frame_index = atomic_read(&pbi->vf_get_count);
+			if (!ctx->enable_di_post) {
+				vf->index_disp = atomic_read(&pbi->vf_get_count);
+				vf->frame_index = atomic_read(&pbi->vf_get_count);
+			} else {
+				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			}
 			atomic_add(1, &pbi->vf_get_count);
 
 			if (debug & VP9_DEBUG_BUFMGR)

@@ -5781,6 +5781,8 @@ static struct vframe_s *vav1_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct AV1HW_s *hw = (struct AV1HW_s *)vdec->private;
+	struct aml_vcodec_ctx *ctx =
+		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
 	if (step == 2)
 		return NULL;
@@ -5793,8 +5795,12 @@ static struct vframe_s *vav1_vf_get(void *op_arg)
 		ATRACE_COUNTER(hw->trace.disp_q_name, kfifo_len(&hw->display_q));
 		if (index < hw->used_buf_num ||
 			(vf->type & VIDTYPE_V4L_EOS)) {
-			vf->index_disp =  atomic_read(&hw->vf_get_count);
-			vf->frame_index = atomic_read(&hw->vf_get_count);
+			if (!ctx->enable_di_post) {
+				vf->index_disp =  atomic_read(&hw->vf_get_count);
+				vf->frame_index = atomic_read(&hw->vf_get_count);
+			} else {
+				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			}
 			atomic_add(1, &hw->vf_get_count);
 			if (debug & AOM_DEBUG_VFRAME) {
 				struct BufferPool_s *pool = hw->common.buffer_pool;

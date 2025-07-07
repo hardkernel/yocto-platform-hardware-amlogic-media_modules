@@ -6344,6 +6344,8 @@ static struct vframe_s *vh266_vf_get(void *op_arg)
 #else
 	struct hevc_state_s *hevc = (struct hevc_state_s *)op_arg;
 #endif
+	struct aml_vcodec_ctx *ctx =
+		(struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
 
 	if (step == 2)
 		return NULL;
@@ -6394,8 +6396,12 @@ static struct vframe_s *vh266_vf_get(void *op_arg)
 			}
 		}
 		hevc->show_frame_num++;
-		vf->index_disp = atomic_read(&hevc->vf_get_count);
-		vf->frame_index = atomic_read(&hevc->vf_get_count);
+		if (!ctx->enable_di_post) {
+			vf->index_disp = atomic_read(&hevc->vf_get_count);
+			vf->frame_index = atomic_read(&hevc->vf_get_count);
+		} else {
+			ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+		}
 		atomic_add(1, &hevc->vf_get_count);
 
 		vf->vf_ud_param.magic_code = UD_MAGIC_CODE;

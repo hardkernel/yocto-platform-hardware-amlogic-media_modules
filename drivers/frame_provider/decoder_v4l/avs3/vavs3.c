@@ -5261,6 +5261,7 @@ static struct vframe_s *vavs3_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct AVS3Decoder_s *dec = (struct AVS3Decoder_s *)vdec->private;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)dec->v4l2_ctx;
 	if (step == 2)
 		return NULL;
 	else if (step == 1)
@@ -5327,7 +5328,11 @@ static struct vframe_s *vavs3_vf_get(void *op_arg)
 			if (vf->pts)
 				vf->vf_ud_param.ud_param.meta_info.vpts_valid = 1;
 
-			vf->frame_index = atomic_read(&dec->vf_get_count);
+			if (!ctx->enable_di_post)
+				vf->frame_index = atomic_read(&dec->vf_get_count);
+			else
+				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+
 			if (pic && (!(pic->error_mark) || !(dec->error_handle_policy & 0x4)))
 				atomic_add(1, &dec->vf_get_count);
 			else

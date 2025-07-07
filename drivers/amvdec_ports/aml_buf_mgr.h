@@ -112,6 +112,8 @@ struct aml_buf_fbc_info {
 
 typedef void (*get_fbc_info)(struct aml_buf_mgr_s *,
 			    struct aml_buf_fbc_info *);
+typedef void (*get_frm_cnt)(struct aml_buf_mgr_s *,
+			    struct vframe_s *);
 
 /*
  * struct aml_buf_fbc - AFBC buffer information.
@@ -215,6 +217,7 @@ struct aml_buf {
  * @mmu		: The context of mmu box.
  * @fbc_array	: AFBC buffer array data.
  * @get_fbc_info : Used to get AFBC data size information.
+ * @get_bm_frm_cnt : Used to get frame cnt from bm and increase 1.
  * @vpp_handle	: The handle of DI post mode.
  */
 struct aml_buf_mgr_s {
@@ -238,6 +241,7 @@ struct aml_buf_mgr_s {
 
 	void				*vpp_handle;
 	u32				frm_cnt;
+	get_frm_cnt			get_bm_frm_cnt;
 	int				dec_type;
 };
 

@@ -5060,6 +5060,7 @@ static struct vframe_s *vavs2_vf_get(void *op_arg)
 	struct vframe_s *vf;
 	struct vdec_s *vdec = op_arg;
 	struct AVS2Decoder_s *dec = (struct AVS2Decoder_s *)vdec->private;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)dec->v4l2_ctx;
 	unsigned long flags = 0;
 
 	if (step == 2)
@@ -5109,8 +5110,12 @@ static struct vframe_s *vavs2_vf_get(void *op_arg)
 				unlock_buffer(dec, flags);
 				return NULL;
 			}
-			vf->index_disp = atomic_read(&dec->vf_get_count);
-			vf->frame_index = atomic_read(&dec->vf_get_count);
+			if (!ctx->enable_di_post) {
+				vf->index_disp = atomic_read(&dec->vf_get_count);
+				vf->frame_index = atomic_read(&dec->vf_get_count);
+			} else {
+				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			}
 			atomic_add(1, &dec->vf_get_count);
 
 			kfifo_put(&dec->newframe_q, (const struct vframe_s *)vf);

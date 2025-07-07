@@ -158,8 +158,6 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	vf->frame_index	= bm->frm_cnt;
 	vf->priority	= bm->config.priority;
 
-	bm->frm_cnt++;
-
 	dmabuf_set_vframe(buf->planes[0].dbuf, &buf->vframe, VF_SRC_DECODER);
 
 	if (buf->dma && bc->is_dynamic_mode_init(bc)) {
@@ -556,6 +554,15 @@ static void aml_buf_get_fbc_info(struct aml_buf_mgr_s *bm,
 	info->max_size		= comp_info.max_size;
 	info->header_size	= comp_info.header_size;
 	info->frame_size	= comp_info.frame_buffer_size;
+}
+
+static void aml_buf_get_frame_cnt(struct aml_buf_mgr_s *bm,
+				struct vframe_s *vf)
+{
+	vf->index_disp	= bm->frm_cnt;
+	vf->frame_index	= bm->frm_cnt;
+
+	bm->frm_cnt++;
 }
 
 static void aml_buf_fbc_destroy(struct aml_buf_mgr_s *bm)
@@ -1314,6 +1321,7 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 	bm->bc.name		= name;
 	bm->priv		= priv;
 	bm->get_fbc_info	= aml_buf_get_fbc_info;
+	bm->get_bm_frm_cnt	= aml_buf_get_frame_cnt;
 
 	bm->bc.config		= aml_buf_configure;
 	bm->bc.get_config	= aml_buf_get_cfg;
