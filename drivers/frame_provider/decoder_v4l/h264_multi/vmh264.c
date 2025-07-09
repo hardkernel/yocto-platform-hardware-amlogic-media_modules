@@ -4089,6 +4089,11 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		vf->sar_height = hw->height_aspect_ratio;
 		vf->dec_set_screen_mode = vdec->screen_mode;
 
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_DPB_DETAIL,
+			"%s %d vf->sar_width:%d, hw->width_aspect_ratio:%d, vf->sar_height:%d, hw->height_aspect_ratio:%d\n",
+			__func__, __LINE__, vf->sar_width, hw->width_aspect_ratio,
+			vf->sar_height, hw->height_aspect_ratio);
+
 		if (vdec_stream_based(vdec)) {
 			/* lookup by decoder */
 			u64 frame_type = 0;
@@ -8771,6 +8776,18 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		aspect_ratio_set(hw, &hw->h264_ar, &ctx->height_aspect_ratio,
 						&ctx->width_aspect_ratio);
 
+		/*timing*/
+		p_H264_Dpb->fixed_frame_rate_flag = p_H264_Dpb->dpb_param.l.data[FIXED_FRAME_RATE_FLAG];
+		p_H264_Dpb->num_units_in_tick = p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK] |
+			(p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK + 1] << 16);
+		p_H264_Dpb->time_scale = p_H264_Dpb->dpb_param.l.data[TIME_SCALE] |
+			(p_H264_Dpb->dpb_param.l.data[TIME_SCALE + 1] << 16);
+
+		vui_config(hw);
+
+		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
+			"%s VUI info\n", __func__);
+
 		p_H264_Dpb->mSPS.profile_idc = (p_H264_Dpb->dpb_param.l.data[PROFILE_IDC_MMCO] >> 8) & 0xff;
 		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
 			"%s profile_idc %d\n", __func__, p_H264_Dpb->mSPS.profile_idc);
@@ -9113,7 +9130,6 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			hevc_sao_set_slice_type(hw,
 				slice_header_process_status,
 					hw->dpb.mSlice.idr_flag);
-		vui_config(hw);
 
 		if (slice_header_process_status == -1) {
 			if (!multi_header_error_frame_flag) {
@@ -11671,6 +11687,11 @@ static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
 				96000 / str_info->frame_dur : (96000 / str_info->frame_dur +1);
 	else
 		str_info->frame_rate = -1;
+	dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
+		"%s, str_info->ratio_size.sar_width:%d, str_info->ratio_size.sar_height:%d, str_info->frame_rate:%d, str_info->frame_height:%d, str_info->frame_width:%d\n",
+		__func__,
+		str_info->ratio_size.sar_width, str_info->ratio_size.sar_height, str_info->frame_rate,
+		str_info->frame_height, str_info->frame_width);
 	ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STREAM, NULL);
 }
 

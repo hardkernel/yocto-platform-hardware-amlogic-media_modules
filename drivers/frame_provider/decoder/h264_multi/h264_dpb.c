@@ -549,29 +549,6 @@ void slice_prepare(struct h264_dpb_stru *p_H264_Dpb,
 	ref_pic_list_reordering(p_H264_Dpb, pSlice);
 #endif
 
-	/*VUI*/
-	p_H264_Dpb->vui_status = p_H264_Dpb->dpb_param.l.data[VUI_STATUS];
-	p_H264_Dpb->aspect_ratio_idc =
-		p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_IDC];
-	p_H264_Dpb->aspect_ratio_sar_width =
-		p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_SAR_WIDTH];
-	p_H264_Dpb->aspect_ratio_sar_height =
-		p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_SAR_HEIGHT];
-
-	p_H264_Dpb->fixed_frame_rate_flag = p_H264_Dpb->dpb_param.l.data[
-		FIXED_FRAME_RATE_FLAG];
-	p_H264_Dpb->num_units_in_tick = p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK] |
-		(p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK + 1] << 16);
-	p_H264_Dpb->time_scale = p_H264_Dpb->dpb_param.l.data[TIME_SCALE] |
-		(p_H264_Dpb->dpb_param.l.data[TIME_SCALE + 1] << 16);
-
-	p_H264_Dpb->bitstream_restriction_flag =
-		(p_H264_Dpb->dpb_param.l.data[SPS_FLAGS2] >> 3) & 0x1;
-	p_H264_Dpb->num_reorder_frames =
-		p_H264_Dpb->dpb_param.l.data[NUM_REORDER_FRAMES];
-	p_H264_Dpb->max_dec_frame_buffering =
-		p_H264_Dpb->dpb_param.l.data[MAX_BUFFER_FRAME];
-
 	/**/
 	dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
 		"%s return\n", __func__);

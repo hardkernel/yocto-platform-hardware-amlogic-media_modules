@@ -8472,6 +8472,34 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		hw->max_dec_frame_buffering =
 			p_H264_Dpb->max_dec_frame_buffering;
 
+		/*get pixelaspect*/
+		p_H264_Dpb->vui_status = p_H264_Dpb->dpb_param.l.data[VUI_STATUS];
+		p_H264_Dpb->aspect_ratio_idc =
+			p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_IDC];
+		p_H264_Dpb->aspect_ratio_sar_width =
+			p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_SAR_WIDTH];
+		p_H264_Dpb->aspect_ratio_sar_height =
+			p_H264_Dpb->dpb_param.l.data[ASPECT_RATIO_SAR_HEIGHT];
+
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_DPB_DETAIL,
+			"vui_status %d aspect_ratio_idc %d aspect_ratio_sar_width %d aspect_ratio_sar_height %d\n",
+			p_H264_Dpb->vui_status,
+			p_H264_Dpb->aspect_ratio_idc,
+			p_H264_Dpb->aspect_ratio_sar_width,
+			p_H264_Dpb->aspect_ratio_sar_height);
+
+		/*timing*/
+		p_H264_Dpb->fixed_frame_rate_flag = p_H264_Dpb->dpb_param.l.data[FIXED_FRAME_RATE_FLAG];
+		p_H264_Dpb->num_units_in_tick = p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK] |
+			(p_H264_Dpb->dpb_param.l.data[NUM_UNITS_IN_TICK + 1] << 16);
+		p_H264_Dpb->time_scale = p_H264_Dpb->dpb_param.l.data[TIME_SCALE] |
+			(p_H264_Dpb->dpb_param.l.data[TIME_SCALE + 1] << 16);
+
+		vui_config(hw);
+
+		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
+			"%s VUI info\n", __func__);
+
 		p_H264_Dpb->mSPS.profile_idc = (p_H264_Dpb->dpb_param.l.data[PROFILE_IDC_MMCO] >> 8) & 0xff;
 		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
 			"%s profile_idc %d\n", __func__, p_H264_Dpb->mSPS.profile_idc);
@@ -8837,7 +8865,6 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			hevc_sao_set_slice_type(hw,
 				slice_header_process_status,
 					hw->dpb.mSlice.idr_flag);
-		vui_config(hw);
 
 		if (slice_header_process_status == -1) {
 			amvdec_stop();
