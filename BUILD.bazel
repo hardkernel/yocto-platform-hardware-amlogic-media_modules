@@ -1433,6 +1433,30 @@ ddk_module(
 )
 
 ddk_module(
+    name = "amvdec_avbcd",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avbcd/*.c",
+            "drivers/frame_provider/decoder/avbcd/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        ],
+    local_defines = ["pr_fmt(fmt)=\"[amvdec_avbcd]: \" fmt"],
+    out = "amvdec_avbcd.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
     name = "media_sync",
     srcs = glob([
         "drivers/media_sync/av_sync/*.h",

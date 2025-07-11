@@ -1062,7 +1062,7 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 			avbcd_work_mode = 0xc;
 	}
 
-	if ((avbcd_work_mode & 0x10) && !(avbcd_work_mode & 0xc)) {
+	if ((avbcd_work_mode & 0x10)) {
 		if (avbc_in && ((avbc_in->img.rect.width == 2560 && avbc_in->img.rect.height == 1090) ||
 			(avbc_in->img.rect.width == 3840 && avbc_in->img.rect.height == 1634)))
 			avbcd_work_mode = 0x12;
