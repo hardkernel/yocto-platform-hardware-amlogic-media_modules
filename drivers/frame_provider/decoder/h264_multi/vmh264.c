@@ -12022,8 +12022,13 @@ static int check_dpb_full(struct vdec_s *vdec)
 	spin_lock_irqsave(&hw->bufspec_lock, flags);
 
 	for (i = 0; i < p_Dpb->used_size; i++) {
-		if (p_Dpb->fs[i]->pre_output)
+		if (p_Dpb->fs[i]->pre_output) {
 			frame_outside_count++;
+		} else if (p_Dpb->fs[i]->is_output && !is_used_for_reference(p_Dpb->fs[i])) {
+			spin_unlock_irqrestore(&hw->bufspec_lock, flags);
+			bufmgr_h264_remove_unused_frame(p_H264_Dpb, 0);
+			return !have_free_buf_spec(vdec);
+		}
 	}
 	spin_unlock_irqrestore(&hw->bufspec_lock, flags);
 	inner_size = p_Dpb->used_size - frame_outside_count;
