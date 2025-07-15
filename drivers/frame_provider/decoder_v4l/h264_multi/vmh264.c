@@ -6440,13 +6440,13 @@ static int get_dec_dpb_size(struct vdec_h264_hw_s *hw, int mb_width,
 		}
 		size_vui = imax (1, p_H264_Dpb->max_dec_frame_buffering);
 		if (size_vui < size) {
-			PR_FILL("%d: Warning: max_dec_frame_buffering(%d) is less than DPB size(%d) calculated from Profile and Level.\n",
-				DECODE_ID(hw), size_vui, size);
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS, "Warning: max_dec_frame_buffering(%d) is less than DPB size(%d) calculated from Profile and Level.\n",
+				size_vui, size);
 		}
 		size = size_vui;
 	} else {
 		if (size < max_reference_size) {
-			dpb_print(DECODE_ID(hw), 0,
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 				"Warning: DPB size(%d) is less than max_reference_size(%d), so correct DPB size as max_reference_size\n", size, max_reference_size);
 			size = max_reference_size;
 		}
