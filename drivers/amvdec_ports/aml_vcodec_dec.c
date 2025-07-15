@@ -5319,10 +5319,16 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 		}
 
 		if (vb->memory == VB2_MEMORY_DMABUF && dmabuf_is_uvm(vb->planes[0].dbuf)) {
-			obj = dmabuf_get_uvm_buf_obj(vb->planes[0].dbuf);
-			mbuf = container_of(obj, struct mua_buffer, base);
-			if (mbuf->size < (ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz))
-				ctx->fresh_uvmdma_num ++;
+			int capbuf_size = ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz;
+			if (ctx->enable_di_post) {
+				obj = dmabuf_get_uvm_buf_obj(vb->planes[0].dbuf);
+				mbuf = container_of(obj, struct mua_buffer, base);
+				if (mbuf->size < capbuf_size)
+					ctx->fresh_uvmdma_num ++;
+			} else {
+				if ((vb->planes[0].dbuf->size + vb->planes[1].dbuf->size) < capbuf_size)
+					ctx->fresh_uvmdma_num ++;
+			}
 		}
 
 		ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
