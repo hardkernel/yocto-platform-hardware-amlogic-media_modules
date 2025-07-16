@@ -8595,7 +8595,7 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 			" [SEGMENT] cm->prev_frame->mi_size : (%d X %d)\n",
 			cm->prev_frame->mi_cols, cm->prev_frame->mi_rows);
 		}
-		cm->cur_frame->prev_segmentation_enabled = (cm->prev_frame > 0) ?
+		cm->cur_frame->prev_segmentation_enabled = (cm->prev_frame) ?
 		(cm->prev_frame->segmentation_enabled & (cm->prev_frame->segmentation_update_map
 		| cm->prev_frame->prev_segmentation_enabled) &
 		(cm->cur_frame->mi_rows == cm->prev_frame->mi_rows) &

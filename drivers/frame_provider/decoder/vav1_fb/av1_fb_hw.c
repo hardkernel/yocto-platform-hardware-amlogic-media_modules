@@ -2874,7 +2874,7 @@ static void config_loop_filter_hw_fb(struct AV1HW_s *hw, union param_u *param)
 }
 	//else if (param->p.loop_filter_mode_ref_delta_enabled == 1) { // enabled but no update
 	else { // match c code -- not enabled, still need to copy prev to used for next
-		if ((pic->prev_frame <= 0) | (param->p.loop_filter_mode_ref_delta_enabled & 4)) {
+		if ((!pic->prev_frame) | (param->p.loop_filter_mode_ref_delta_enabled & 4)) {
 		av1_print(hw, AOM_DEBUG_HW_MORE, "[test.c] mode_ref_delta set to default\n");
 		lf->ref_deltas[0]               = conv2int8((uint8_t)1,7);
 		lf->ref_deltas[1]               = conv2int8((uint8_t)0,7);
@@ -2935,22 +2935,21 @@ if (param->p.segmentation_enabled & 2) { // segmentation_update_data
 		}
 } // segmentation_update_data
 else { // no segmentation_update_data
-if (pic->prev_frame <= 0) {
+	if (!pic->prev_frame) {
 		for (i=0;i<MAX_SEGMENTS;i++) {
-		seg_4lf->seg_lf_info_y[i]   = 0;
-		seg_4lf->seg_lf_info_c[i]   = 0;
+			seg_4lf->seg_lf_info_y[i]   = 0;
+			seg_4lf->seg_lf_info_c[i]   = 0;
 		}
-}
-else {
+	} else {
 		for (i=0;i<MAX_SEGMENTS;i++) {
-		seg_4lf->seg_lf_info_y[i]   = pic->prev_frame->seg_lf_info_y[i];
-		seg_4lf->seg_lf_info_c[i]   = pic->prev_frame->seg_lf_info_c[i];
+			seg_4lf->seg_lf_info_y[i]   = pic->prev_frame->seg_lf_info_y[i];
+			seg_4lf->seg_lf_info_c[i]   = pic->prev_frame->seg_lf_info_c[i];
 #ifdef DBG_LPF_PRINT
 			av1_print(hw, AOM_DEBUG_HW_MORE,
 				" Reference seg_lf_info [%d] : 0x%x, 0x%x\n", i, seg_4lf->seg_lf_info_y[i], seg_4lf->seg_lf_info_c[i]);
 #endif
 		}
-}
+	}
 } // no segmentation_update_data
 } // segmentation_enabled
 else{
