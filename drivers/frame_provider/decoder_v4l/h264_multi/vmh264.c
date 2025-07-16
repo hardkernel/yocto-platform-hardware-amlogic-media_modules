@@ -2650,6 +2650,11 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 
 		v4l->aux_infos.bind_sei_buffer(v4l, &pic->aux_data_buf,
 			&pic->aux_data_size, &pic->ctx_buf_idx);
+
+		aml_buf->sei_buf = pic->aux_data_buf;
+		aml_buf->sei_size = pic->aux_data_size;
+		aml_buf->sei_buf_idx = pic->ctx_buf_idx;
+
 		if (!v4l->avbcd_work_mode) {
 			if ((aml_buf_is_dynamic_mode_inited(&v4l->bm) ||
 				v4l->vpp_is_need) &&
@@ -5699,6 +5704,9 @@ static void h264_recycle_dec_resource(void *priv,
 	int buf_spec_num;
 	int frame_index;
 
+	ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+			&aml_buf->sei_size, aml_buf->sei_buf_idx);
+
 	if (hw->enable_fence && vf->fence) {
 		int ret, i, fence_ref;
 
@@ -8304,8 +8312,8 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 		hw->buffer_spec[buf_spec_num].used = 0;
 		hw->dpb.cur_idx = INVALID_IDX;
 
-		ctx->aux_infos.unbind_sei_buffer(ctx, &hw->buffer_spec[buf_spec_num].aux_data_buf,
-			&hw->buffer_spec[buf_spec_num].aux_data_size, hw->buffer_spec[buf_spec_num].ctx_buf_idx);
+		ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+						&aml_buf->sei_size, aml_buf->sei_buf_idx);
 	}
 }
 

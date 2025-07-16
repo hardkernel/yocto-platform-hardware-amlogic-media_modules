@@ -1946,11 +1946,17 @@ static int v4l_get_free_fb(struct AV1HW_s *hw)
 
 		aml_buf_get_ref(&ctx->bm, hw->aml_buf);
 		hw->cur_idx = i;
-		hw->aml_buf = NULL;
 
 		v4l->aux_infos.bind_sei_buffer(v4l, &free_pic->aux_data_buf,
 			&free_pic->aux_data_size, &free_pic->ctx_buf_idx);
 		v4l->aux_infos.bind_hdr10p_buffer(v4l, &free_pic->hdr10p_data_buf);
+
+		hw->aml_buf->sei_buf = free_pic->aux_data_buf;
+		hw->aml_buf->sei_size = free_pic->aux_data_size;
+		hw->aml_buf->sei_buf_idx = free_pic->ctx_buf_idx;
+
+		hw->aml_buf = NULL;
+
 		free_pic->hdr10p_data_size = 0;
 		free_pic->aux_data_size = 0;
 		free_pic->error_mark = 0;
@@ -6402,6 +6408,9 @@ static void av1_recycle_dec_resource(void *priv,
 	struct vframe_s *vf = &aml_buf->vframe;
 	uint8_t index;
 
+	ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+			&aml_buf->sei_size, aml_buf->sei_buf_idx);
+
 	if (hw->enable_fence && vf->fence) {
 		int ret, i, fence_ref;
 
@@ -9306,6 +9315,9 @@ static void av1_buf_ref_process_for_exception(struct AV1HW_s *hw)
 		hw->m_BUF[cur_idx].v4l_ref_buf_addr = 0;
 
 		hw->cur_idx = INVALID_IDX;
+
+		ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+			&aml_buf->sei_size, aml_buf->sei_buf_idx);
 	}
 }
 
@@ -11644,6 +11656,8 @@ static int av1_recycle_frame_buffer(struct AV1HW_s *hw)
 			aml_buf_put_ref(&ctx->bm, aml_buf);
 			if (!frame_bufs[i].buf.vf_ref) {
 				aml_buf_put_ref(&ctx->bm, aml_buf);
+				ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+					&aml_buf->sei_size, aml_buf->sei_buf_idx);
 			}
 
 			if (hw->mmu_enable && ((frame_bufs[i].buf.vf_ref &&

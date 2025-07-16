@@ -6465,6 +6465,10 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 			}
 		}
 
+		aml_buf->sei_buf = new_pic->aux_data_buf;
+		aml_buf->sei_size = new_pic->aux_data_size;
+		aml_buf->sei_buf_idx = new_pic->ctx_buf_idx;
+
 		hevc->aml_buf = NULL;
 		hevc->buf_allocated = true;
 		if (hevc->chunk)
@@ -9641,6 +9645,9 @@ static void h265_recycle_dec_resource(void *priv,
 	struct vframe_s *vf = &aml_buf->vframe;
 	unsigned long flags;
 
+	ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+			&aml_buf->sei_size, aml_buf->sei_buf_idx);
+
 	if (hevc->enable_fence && vf->fence) {
 		int ret, i, fence_ref;
 
@@ -12207,8 +12214,8 @@ static void vh265_buf_ref_process_for_exception(struct hevc_state_s *hevc)
 		pic->BUF_index = -1;
 		pic->POC = INVALID_POC;
 
-		ctx->aux_infos.unbind_sei_buffer(ctx, &pic->aux_data_buf,
-						&pic->aux_data_size, pic->ctx_buf_idx);
+		ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+						&aml_buf->sei_size, aml_buf->sei_buf_idx);
 		ctx->aux_infos.unbind_hdr10p_buffer(ctx);
 	}
 }
@@ -14702,8 +14709,11 @@ static int h265_recycle_frame_buffer(struct hevc_state_s *hevc)
 				hevc_print(hevc, H265_DEBUG_BUFMGR,
 					"%s error pic conflict!\n", __func__);
 
-			if (pic->drop_mark)
+			if (pic->drop_mark) {
 				pic->drop_mark = 0;
+				ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+						&aml_buf->sei_size, aml_buf->sei_buf_idx);
+			}
 
 			if (hevc->mmu_enable && ctx->no_fbc_output && pic->vf_ref) {
 				if (aml_buf->fbc->used[aml_buf->fbc->index] & 1) {

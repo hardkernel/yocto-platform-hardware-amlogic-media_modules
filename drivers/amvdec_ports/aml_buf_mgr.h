@@ -206,6 +206,9 @@ struct aml_buf {
 	u32			queued_mask;
 	bool			unbind;
 	struct buf_core_dma 	*dma;
+	char *sei_buf;
+	int  sei_size;
+	int  sei_buf_idx;
 };
 
 /*

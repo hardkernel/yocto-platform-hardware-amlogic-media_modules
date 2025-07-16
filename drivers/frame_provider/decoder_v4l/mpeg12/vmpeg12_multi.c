@@ -616,6 +616,10 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 	ctx->aux_infos.bind_sei_buffer(ctx, &hw->pics[i].user_data_buf,
 			&hw->pics[i].user_data_size, &hw->pics[i].ctx_buf_idx);
 
+	aml_buf->sei_buf = hw->pics[i].user_data_buf;
+	aml_buf->sei_size = hw->pics[i].user_data_size;
+	aml_buf->sei_buf_idx = hw->pics[i].ctx_buf_idx;
+
 	aml_buf_get_ref(&ctx->bm, aml_buf);
 	if (ctx->enable_di_post && hw->report_field == V4L2_FIELD_INTERLACED)
 		aml_buf_get_dmabuf_ref(&ctx->bm, hw->pics[i].cma_alloc_addr, true);
@@ -2499,8 +2503,8 @@ static void mpeg2_buf_ref_process_for_exception(struct vdec_mpeg12_hw_s *hw)
 	hw->pics[index].cma_alloc_addr = 0;
 	hw->cur_idx = INVALID_IDX;
 
-	ctx->aux_infos.unbind_sei_buffer(ctx, &hw->pics[index].user_data_buf,
-			&hw->pics[index].user_data_size, hw->pics[index].ctx_buf_idx);
+	ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+						&aml_buf->sei_size, aml_buf->sei_buf_idx);
 }
 
 static void copy_user_data_to_pic(struct vdec_mpeg12_hw_s *hw, struct pic_info_t *pic)
@@ -3485,6 +3489,17 @@ static int mpeg12_valid_vf_check(struct vframe_s *vf, struct vdec_mpeg12_hw_s *h
 	return 0;
 }
 
+static void mpeg12_recycle_dec_resource(void *priv,
+						struct aml_buf *aml_buf)
+{
+	struct vdec_mpeg12_hw_s *hw = (struct vdec_mpeg12_hw_s *)priv;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	//struct vframe_s *vf = &aml_buf->vframe;
+
+	ctx->aux_infos.unbind_sei_buffer(ctx, &aml_buf->sei_buf,
+			&aml_buf->sei_size, aml_buf->sei_buf_idx);
+}
+
 static void vmpeg_vf_put(struct vframe_s *vf, void *op_arg)
 {
 	struct vdec_s *vdec = op_arg;
@@ -3516,6 +3531,7 @@ static void vmpeg_vf_put(struct vframe_s *vf, void *op_arg)
 		vf->index, hw->vfbuf_use[vf->index]);
 
 	aml_buf_put_ref(&ctx->bm, aml_buf);
+	mpeg12_recycle_dec_resource(hw, aml_buf);
 	vdec_up(vdec);
 }
 
@@ -4822,6 +4838,7 @@ static int ammvdec_mpeg12_probe(struct platform_device *pdev)
 {
 	struct vdec_s *pdata = *(struct vdec_s **)pdev->dev.platform_data;
 	struct vdec_mpeg12_hw_s *hw = NULL;
+	struct aml_vcodec_ctx *ctx = NULL;
 	int config_val = 0;
 
 	pr_debug("ammvdec_mpeg12 probe start.\n");
@@ -4839,6 +4856,9 @@ static int ammvdec_mpeg12_probe(struct platform_device *pdev)
 
 	/* the ctx from v4l2 driver. */
 	hw->v4l2_ctx = pdata->private;
+	ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	if (!ctx->avbcd_work_mode)
+		ctx->vdec_recycle_dec_resource = mpeg12_recycle_dec_resource;
 
 	pdata->private = hw;
 	pdata->dec_status = vmmpeg12_dec_status;

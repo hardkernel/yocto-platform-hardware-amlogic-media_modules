@@ -134,6 +134,13 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define INVALID_IDX -1
 #define DEMUX_ES_MAGIC_NUM 0x5a5a5a5a
 
+enum sei_state_type {
+	SEI_STATE_INVALID = 0,
+	SEI_STATE_ALLOC,
+	SEI_STATE_USED,
+	SEI_STATE_FREE,
+};
+
 /*
  *MJPEG only supports streams with 1:1 horizontal and vertical sampling.
 */
@@ -4532,14 +4539,14 @@ void aml_alloc_buffer(struct aml_vcodec_ctx *ctx, int flag)
 			ctx->aux_infos.bufs[i].sei_buf = aml_media_mem_alloc(SEI_BUF_SIZE, GFP_KERNEL);
 			if (ctx->aux_infos.bufs[i].sei_buf) {
 				ctx->aux_infos.bufs[i].sei_size  = 0;
-				ctx->aux_infos.bufs[i].sei_state = 1;
+				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_ALLOC;
 				ctx->aux_infos.sei_need_free = false;
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 					"v4l2 alloc %dth aux buffer:%px\n",
 					i, ctx->aux_infos.bufs[i].sei_buf);
 			} else {
 				ctx->aux_infos.bufs[i].sei_buf = NULL;
-				ctx->aux_infos.bufs[i].sei_state = 0;
+				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_INVALID;
 				ctx->aux_infos.bufs[i].sei_size  = 0;
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"v4l2 alloc %dth aux buffer fail\n", i);
@@ -4588,7 +4595,7 @@ void aml_free_buffer(struct aml_vcodec_ctx *ctx, int flag)
 					"v4l2 free %dth aux buffer:%px\n",
 					i, ctx->aux_infos.bufs[i].sei_buf);
 				aml_media_mem_free(ctx->aux_infos.bufs[i].sei_buf);
-				ctx->aux_infos.bufs[i].sei_state = 0;
+				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_INVALID;
 				ctx->aux_infos.bufs[i].sei_size = 0;
 				ctx->aux_infos.bufs[i].sei_buf = NULL;
 			}
@@ -4616,7 +4623,7 @@ void aml_free_one_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size,
 			idx, ctx->aux_infos.bufs[idx].sei_buf);
 
 		vfree(ctx->aux_infos.bufs[idx].sei_buf);
-		ctx->aux_infos.bufs[idx].sei_state = 0;
+		ctx->aux_infos.bufs[idx].sei_state = SEI_STATE_INVALID;
 		ctx->aux_infos.bufs[idx].sei_size = 0;
 		ctx->aux_infos.bufs[idx].sei_buf = NULL;
 		*addr = NULL;
@@ -4633,7 +4640,7 @@ void aml_bind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, int
 	if (ctx->aux_infos.sei_need_free) {
 		for (count = 0; count < V4L_CAP_BUFF_MAX; count++) {
 			if ((ctx->aux_infos.bufs[index].sei_buf != NULL) &&
-				(ctx->aux_infos.bufs[index].sei_state == 1)) {
+				(ctx->aux_infos.bufs[index].sei_state == SEI_STATE_ALLOC)) {
 				break;
 			}
 			index = (index + 1) % V4L_CAP_BUFF_MAX;
@@ -4641,8 +4648,8 @@ void aml_bind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, int
 	} else {
 		for (count = 0; count < V4L_CAP_BUFF_MAX; count++) {
 			if ((ctx->aux_infos.bufs[index].sei_buf != NULL) &&
-				((ctx->aux_infos.bufs[index].sei_state == 1) ||
-				(ctx->aux_infos.bufs[index].sei_state == 2))) {
+				((ctx->aux_infos.bufs[index].sei_state == SEI_STATE_ALLOC) ||
+				(ctx->aux_infos.bufs[index].sei_state == SEI_STATE_FREE))) {
 				memset(ctx->aux_infos.bufs[index].sei_buf, 0, SEI_BUF_SIZE);
 				ctx->aux_infos.bufs[index].sei_size = 0;
 				break;
@@ -4656,12 +4663,13 @@ void aml_bind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, int
 		*size = 0;
 	} else {
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"v4l2 bind %dth aux buffer:%px, count = %d\n",
-			index, ctx->aux_infos.bufs[index].sei_buf, count);
+			"v4l2 bind %dth aux buffer:%px, count = %d, sei_state %d\n",
+			index, ctx->aux_infos.bufs[index].sei_buf, count,
+			ctx->aux_infos.bufs[index].sei_state);
 		*addr = ctx->aux_infos.bufs[index].sei_buf;
 		*size = ctx->aux_infos.bufs[index].sei_size;
 		*idx  = index;
-		ctx->aux_infos.bufs[index].sei_state = 2;
+		ctx->aux_infos.bufs[index].sei_state = SEI_STATE_USED;
 		ctx->aux_infos.sei_index = (index + 1) % V4L_CAP_BUFF_MAX;
 	}
 }
@@ -4693,9 +4701,24 @@ void aml_unbind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, i
 	int index = ctx->aux_infos.sei_index;
 
 	if ((ctx->aux_infos.bufs[idx].sei_buf == *addr) &&
-		(ctx->aux_infos.bufs[idx].sei_state == 2)) {
-		ctx->aux_infos.bufs[idx].sei_state = 1;
+		(ctx->aux_infos.bufs[idx].sei_state == SEI_STATE_USED)) {
+		ctx->aux_infos.bufs[idx].sei_state = SEI_STATE_FREE;
 		ctx->aux_infos.sei_index = (index + V4L_CAP_BUFF_MAX - 1) % V4L_CAP_BUFF_MAX;
+	}
+}
+
+void aml_reset_sei_buffer(struct aml_vcodec_ctx *ctx)
+{
+	int count = 0;
+
+	for (count = 0; count < V4L_CAP_BUFF_MAX; count++) {
+		if ((ctx->aux_infos.bufs[count].sei_buf != NULL) &&
+			(ctx->aux_infos.bufs[count].sei_state == SEI_STATE_USED)) {
+			memset(ctx->aux_infos.bufs[count].sei_buf, 0, SEI_BUF_SIZE);
+			ctx->aux_infos.bufs[count].sei_state = SEI_STATE_FREE;
+			ctx->aux_infos.bufs[count].sei_size = 0;
+		}
+		ctx->aux_infos.sei_index = 0;
 	}
 }
 
