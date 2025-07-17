@@ -4341,7 +4341,6 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 							vdec->vf_provider_name);
 				}
 			}
-
 			snprintf(vdec->vfm_map_id, VDEC_MAP_NAME_SIZE,
 					"vdec-map-%d", vdec->id);
 		}
@@ -4379,15 +4378,15 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 
 	}
 
-	if ((vdec->slave != NULL) &&
-		(p->frame_base_video_path == FRAME_BASE_PATH_V4LVIDEO_AMLVIDEO)){
+	if (vdec->slave != NULL) {
+		if (p->frame_base_video_path == FRAME_BASE_PATH_V4LVIDEO_AMLVIDEO) {
 #ifdef CONFIG_AMLOGIC_V4L_VIDEO3
 			r = v4lvideo_assign_map(&vdec->vf_receiver_name,
 					&vdec->vf_receiver_inst);
 #else
 			r = -1;
 #endif
-			 if (r < 0) {
+			if (r < 0) {
 				pr_err("V4lVideo frame receiver allocation failed.\n");
 				mutex_lock(&vdec_mutex);
 				inited_vcodec_num--;
@@ -4399,9 +4398,24 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 					"%s %s", vdec->vf_provider_name,
 					vdec->vf_receiver_name);
 #endif
-		vfm_map_remove("dvblpath");
-		vfm_map_add("dvblpath", vdec->vfm_map_chain);
+			vfm_map_remove("dvblpath");
+			vfm_map_add("dvblpath", vdec->vfm_map_chain);
+		} else if (p->frame_base_video_path ==
+			FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
+			if (vdec->mediasync_vfm_dev_id == 0) {
+				snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+						"dvbldec mediasync.0 amvideo");
+				vfm_map_remove("dvblpath");
+				vfm_map_add("dvblpath", vdec->vfm_map_chain);
+			} else if (vdec->mediasync_vfm_dev_id == 1) {
+				snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
+						"dvbldec2 mediasync.1 videopip");
+				vfm_map_remove("dvblpath2");
+				vfm_map_add("dvblpath2", vdec->vfm_map_chain);
+			}
+		}
 	}
+
 #ifndef PXP_DEBUG
 	if (!vdec_single(vdec) && !vdec->disable_vfm) {
 		vf_reg_provider(&p->vframe_provider);
