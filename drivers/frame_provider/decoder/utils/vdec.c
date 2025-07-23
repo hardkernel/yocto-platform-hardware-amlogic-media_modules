@@ -99,6 +99,10 @@ int ionvideo_assign_map(char **receiver_name, int *inst)
 }
 #endif
 
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
+#include <linux/amlogic/media/video_processor/di_proc_buf_mgr.h>
+#endif
+
 //#if IS_ENABLED(CONFIG_AMLOGIC_TEE) || IS_ENABLED(CONFIG_AMLOGIC_TEE_MODULE)
 #include <linux/amlogic/tee.h>
 //#endif
@@ -3773,6 +3777,16 @@ void vdec_avbc_frame_pool_release(struct vdec_s *vdec)
 #endif
 }
 
+static void check_di_proc(void)
+{
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
+	if (get_di_proc_enable())
+		v4lvideo_add_di = 0;
+	else
+		v4lvideo_add_di = 1;
+#endif
+}
+
 /*
  *register vdec_device
  * create output, vfm or create ionvideo output
@@ -4136,6 +4150,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 			if (debug_vdetect && (vdec->vf_receiver_inst == 0))
 				snprintf(postprocess_name + strlen(postprocess_name), sizeof(postprocess_name),
 					 "%s ", "vdetect.0");
+			check_di_proc();
 			/* 8K remove di */
 			if ((vdec->sys_info->width * vdec->sys_info->height > (4096 * 2304))
 				|| (!v4lvideo_add_di))
