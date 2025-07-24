@@ -349,7 +349,7 @@ u32 debug_fgs;
 static u32 force_config_fence;
 
 static u32 force_low_latency;
-
+static u32 save_buffer = 1;
 static u32 fence_drop_error_frame = 1;
 
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
@@ -9127,7 +9127,10 @@ static int vav1_get_ps_info(struct AV1HW_s *hw, struct aml_vdec_ps_infos *ps)
 	ps->dpb_margin		= hw->dynamic_buf_num_margin;
 	ps->dpb_frames = 8;
 
-	ps->dpb_frames += 2;
+	ps->dpb_frames += 1;
+
+	if (!save_buffer)
+		ps->dpb_frames += 1;
 
 	if (ps->dpb_margin + ps->dpb_frames > MAX_BUF_NUM_NORMAL) {
 		u32 delta;
@@ -11448,7 +11451,9 @@ static bool is_available_buffer(struct AV1HW_s *hw)
 		if (hw->used_buf_num == 0)
 			return false;
 	}
-
+	if (save_buffer) {
+		clear_frame_buf_ref_count(hw->pbi);
+	}
 	av1_recycle_frame_buffer(hw);
 
 	for (i = 0; i < hw->used_buf_num; ++i) {
@@ -12533,6 +12538,9 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 	if (low_latency_flag & 0x80000000)
 		hw->low_latency_flag = low_latency_flag & 0xff;
 
+	if (save_buffer) {
+		hw->low_latency_flag = 1;
+	}
 #ifdef AOM_AV1_MMU_DW
 	hw->dw_mmu_enable =
 		get_double_write_mode_init(hw) & 0x20 ? 1 : 0;
@@ -12878,6 +12886,7 @@ static struct param_entry amvdec_av1_v4l_params[] = {
 	PARAM_UINT(efficiency_mode),
 	PARAM_UINT(high_bandwidth_dynamic_enabled),
 	PARAM_UINT(debug_fgs),
+	PARAM_UINT(save_buffer),
 #ifdef FILM_GRAIN_TASK
 	PARAM_UINT(use_sfgs),
 #endif
@@ -13098,6 +13107,9 @@ MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");
 
 MEDIA_PARAM(force_low_latency, uint, 0664);
 MODULE_PARM_DESC(force_low_latency, "\n force low latency\n");
+
+MEDIA_PARAM(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(fence_drop_error_frame, uint, 0664);
 MODULE_PARM_DESC(fence_drop_error_frame, "\n fence drop error frame\n");

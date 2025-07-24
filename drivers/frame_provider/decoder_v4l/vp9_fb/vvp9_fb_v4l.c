@@ -194,7 +194,7 @@ static u32 front_back_mode = 1;
 
 static u32 fb_ucode_debug;
 static u32 efficiency_mode = 1;
-
+static u32 save_buffer = 1;
 #endif
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
@@ -11506,7 +11506,11 @@ static int vvp9_get_ps_info(struct VP9Decoder_s *pbi, struct aml_vdec_ps_infos *
 	2. for frame push out, one more buffer necessary.
 	3. Two consecutive frames cannot use the same buffer.
 	*/
-	ps->dpb_frames += 3;
+	ps->dpb_frames += 2;
+
+	if (!save_buffer) {
+		ps->dpb_frames += 1;
+	}
 
 	if (ps->dpb_margin + ps->dpb_frames > MAX_BUF_NUM_NORMAL) {
 		u32 delta;
@@ -15563,6 +15567,7 @@ static struct param_entry amvdec_vp9_fb_v4l_params[] = {
 	PARAM_UINT(test_dbg),
 	PARAM_UINT(test_schedule),
 	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(save_buffer),
 #endif
 	{ /* sentinel */ }
 };
@@ -15740,6 +15745,10 @@ MODULE_PARM_DESC(test_schedule, "\n test_schedule\n");
 
 MEDIA_PARAM(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
+
+module_param(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
+
 #endif
 
 module_init(amvdec_vp9_driver_init_module);

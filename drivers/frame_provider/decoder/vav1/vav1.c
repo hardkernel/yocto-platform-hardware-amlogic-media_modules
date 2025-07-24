@@ -160,7 +160,7 @@ Bit[10:8] - film_grain_params_ref_idx, For Write request
 #define AOM_NAL_DECODE_DONE            0x25
 
 #define VF_POOL_SIZE        32
-
+#define AV1_DPB_SIZE (8+1)
 #undef pr_info
 #define pr_info pr_cont
 
@@ -245,7 +245,7 @@ static u32 mv_buf_dynamic_alloc;
 static u32 force_max_one_mv_buffer_size;
 static u32 efficiency_mode = 1;
 static u32 debug_mask = 0xffffffff;
-
+static u32 save_buffer = 1;
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
 /* double_write_mode:
  *	0, no double write;
@@ -6127,16 +6127,15 @@ static int av1_local_init(struct AV1HW_s *hw)
 	hw->pbi->frame_height = hw->init_pic_h;
 
 	hw->mv_buf_margin = mv_buf_margin;
-	if (IS_4K_SIZE(hw->init_pic_w, hw->init_pic_h)) {
-		hw->used_buf_num = MAX_BUF_NUM_LESS + hw->dynamic_buf_num_margin;
+	if (save_buffer) {
+		hw->used_buf_num = AV1_DPB_SIZE + hw->dynamic_buf_num_margin;
 		if (hw->used_buf_num > REF_FRAMES_4K)
 			hw->mv_buf_margin = hw->used_buf_num - REF_FRAMES_4K + 1;
 	}
 	else
 		hw->used_buf_num = max_buf_num + hw->dynamic_buf_num_margin;
 
-	if (hw->is_used_v4l)
-		hw->used_buf_num = 9 + hw->dynamic_buf_num_margin;
+
 
 	if (hw->used_buf_num > MAX_BUF_NUM)
 		hw->used_buf_num = MAX_BUF_NUM;
@@ -11352,6 +11351,10 @@ static bool is_available_buffer(struct AV1HW_s *hw)
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	int i, free_count = 0;
 
+	if (save_buffer) {
+		clear_frame_buf_ref_count(hw->pbi);
+	}
+
 	if (ctx->cap_pool.dec < hw->used_buf_num) {
 		free_count = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
 		if (free_count &&
@@ -12359,6 +12362,9 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 	if (low_latency_flag & 0x80000000)
 		hw->low_latency_flag = low_latency_flag & 0xff;
 
+	if (save_buffer) {
+		hw->low_latency_flag = 1;
+	}
 	av1_print(hw, AV1_DEBUG_BUFMGR,
 			"no_head %d  low_latency %d, signal_type 0x%x\n",
 			hw->no_head, hw->low_latency_flag, hw->video_signal_type);
@@ -12704,6 +12710,7 @@ static struct param_entry amvdec_av1_params[] = {
 	PARAM_UINT(force_config_fence),
 	PARAM_UINT(enable_swap),
 	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(save_buffer),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_av1_params, 0644);
@@ -12728,6 +12735,9 @@ MODULE_PARM_DESC(frame_height, "\n amvdec_av1 frame_height\n");
 
 MEDIA_PARAM(multi_frames_in_one_pack, uint, 0664);
 MODULE_PARM_DESC(multi_frames_in_one_pack, "\n multi_frames_in_one_pack\n");
+
+MEDIA_PARAM(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_av1 debug\n");

@@ -493,7 +493,7 @@ static u32 v4l_bitstream_id_enable = 1;
  *      1: fence fd use for app.
  */
 static u32 force_config_fence;
-
+static u32 save_buffer = 1;
 #define DEBUG_REG
 #ifdef DEBUG_REG
 void WRITE_VREG_DBG2(unsigned int adr, unsigned int val)
@@ -10254,8 +10254,8 @@ static int vp9_local_init(struct VP9Decoder_s *pbi)
 	if (pbi->save_buffer_mode)
 		pbi->used_buf_num = MAX_BUF_NUM_SAVE_BUF;
 	else {
-		if (pbi->is_used_v4l)
-			pbi->used_buf_num = 5 + pbi->dynamic_buf_num_margin;
+		if (save_buffer)
+			pbi->used_buf_num = 9 + pbi->dynamic_buf_num_margin;
 		else
 			pbi->used_buf_num = max_buf_num;
 	}
@@ -16693,6 +16693,7 @@ static struct param_entry amvdec_vp9_fb_params[] = {
 	PARAM_UINT(test_dbg),
 	PARAM_UINT(test_schedule),
 	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(save_buffer),
 #endif
 	{ /* sentinel */ }
 };
@@ -16854,6 +16855,9 @@ MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
 MEDIA_PARAM(force_config_fence, uint, 0664);
 MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");
+
+MEDIA_PARAM(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(force_pts_unstable, uint, 0664);
 MODULE_PARM_DESC(force_pts_unstable, "\n force_pts_unstable\n");

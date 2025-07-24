@@ -227,7 +227,7 @@ static u32 mv_buf_dynamic_alloc;
 static u32 force_max_one_mv_buffer_size;
 static u32 efficiency_mode = 1;
 static u32 debug_mask = 0xffffffff;
-
+static u32 save_buffer = 1;
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
 /* double_write_mode:
  *	0, no double write;
@@ -8213,12 +8213,13 @@ static int vav1_get_ps_info(struct AV1HW_s *hw, struct aml_vdec_ps_infos *ps)
 	ps->coded_height 	= ALIGN(hw->frame_height, 64);
 	ps->dpb_size 		= hw->used_buf_num;
 	ps->dpb_margin		= hw->dynamic_buf_num_margin;
-	if (hw->frame_width > 1920 && hw->frame_height > 1088)
-		ps->dpb_frames = 8;
-	else
-		ps->dpb_frames = 10;
 
-	ps->dpb_frames += 2;
+	ps->dpb_frames = 8;
+
+	ps->dpb_frames += 1;
+
+	if (!save_buffer)
+		ps->dpb_frames += 1;
 
 	if (ps->dpb_margin + ps->dpb_frames > MAX_BUF_NUM_NORMAL) {
 		u32 delta;
@@ -10542,7 +10543,9 @@ static bool is_available_buffer(struct AV1HW_s *hw)
 
 	if (hw->t5d_fg_run_rotate == T5D_ROTATE_DW3)
 		return true;
-
+	if (save_buffer) {
+		clear_frame_buf_ref_count(hw->pbi);
+	}
 	av1_recycle_frame_buffer(hw);
 
 	for (i = 0; i < hw->used_buf_num; ++i) {
@@ -11557,7 +11560,9 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 
 	if (low_latency_flag & 0x80000000)
 		hw->low_latency_flag = low_latency_flag & 0xff;
-
+	if (save_buffer) {
+		hw->low_latency_flag = 1;
+	}
 	av1_print(hw, 0,
 			"no_head %d  low_latency %d video_signal_type 0x%x\n",
 			hw->no_head, hw->low_latency_flag, hw->video_signal_type);
@@ -11901,6 +11906,7 @@ static struct param_entry amvdec_av1_v4l_params[] = {
 	PARAM_UINT(enable_swap),
 	PARAM_UINT(efficiency_mode),
 	PARAM_UINT(debug_fgs),
+	PARAM_UINT(save_buffer),
 #ifdef FILM_GRAIN_TASK
 	PARAM_UINT(use_sfgs),
 #endif
@@ -11931,6 +11937,9 @@ MODULE_PARM_DESC(multi_frames_in_one_pack, "\n multi_frames_in_one_pack\n");
 
 MEDIA_PARAM(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n amvdec_av1 debug\n");
+
+MEDIA_PARAM(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(over_decoder_shiftbytes, uint, 0664);
 MODULE_PARM_DESC(over_decoder_shiftbytes, "\n over_decoder_shiftbytes\n");

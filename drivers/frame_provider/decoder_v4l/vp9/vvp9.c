@@ -155,7 +155,7 @@ static u32 force_pts_unstable;
 static u32 mv_buf_dynamic_alloc;
 static u32 debug_mask = 0xffffffff;
 static u32 efficiency_mode = 1;
-
+static u32 save_buffer = 1;
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
 /* double_write_mode:
  *	0, no double write;
@@ -9205,7 +9205,11 @@ static int vvp9_get_ps_info(struct VP9Decoder_s *pbi, struct aml_vdec_ps_infos *
 	2. for frame push out, one more buffer necessary.
 	3. Two consecutive frames cannot use the same buffer.
 	*/
-	ps->dpb_frames += 3;
+	ps->dpb_frames += 2;
+
+	if (!save_buffer) {
+		ps->dpb_frames += 1;
+	}
 
 	if (ps->dpb_margin + ps->dpb_frames > MAX_BUF_NUM_NORMAL) {
 		u32 delta;
@@ -12729,6 +12733,7 @@ static struct param_entry amvdec_vp9_v4l_params[] = {
 	PARAM_UINT(force_pts_unstable),
 	PARAM_UINT(v4l_bitstream_id_enable),
 	PARAM_UINT(efficiency_mode),
+	PARAM_UINT(save_buffer),
 	PARAM_UINT(high_bandwidth_dynamic_enabled),
 	{ /* sentinel */ }
 };
@@ -12885,6 +12890,9 @@ MODULE_PARM_DESC(v4l_bitstream_id_enable, "\n v4l_bitstream_id_enable\n");
 
 MEDIA_PARAM(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
+
+module_param(save_buffer, uint, 0664);
+MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");
 
 MEDIA_PARAM(high_bandwidth_dynamic_enabled, uint, 0664);
 MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_vp9 high_bandwidth_dynamic_enabled\n");
