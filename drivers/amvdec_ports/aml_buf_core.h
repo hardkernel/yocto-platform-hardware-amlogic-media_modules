@@ -378,6 +378,7 @@ struct buf_core_mgr_s {
 	struct list_head	dma_free_que;
 	struct mutex		dma_mutex;
 	struct buf_core_dma 	*dma[DAMBUF_POOL];
+	struct work_struct 	combine_buf_work;
 
 	void	(*config)(struct buf_core_mgr_s *, void *);
 	void	(*get_config)(struct buf_core_mgr_s *, void *);

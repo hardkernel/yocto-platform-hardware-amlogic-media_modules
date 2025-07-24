@@ -52,6 +52,23 @@ void aml_buf_ref_recycle_worker(struct work_struct *work)
 	bc->buf_ops.vpp_cb(bc, entry);
 }
 
+void aml_buf_combine_worker(struct work_struct *work)
+{
+	struct buf_core_mgr_s *bc =
+		container_of(work, struct buf_core_mgr_s, combine_buf_work);
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	struct aml_vcodec_ctx *ctx = container_of(bm,
+		struct aml_vcodec_ctx, bm);
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
+	if (ctx->vdec_combine_buffer) {
+		mutex_lock(&ctx->combine_lock);
+		ctx->vdec_combine_buffer(ctx);
+		mutex_unlock(&ctx->combine_lock);
+	}
+}
+
+
 #ifdef CONFIG_AMLOGIC_DI_PROCESS
 static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 {
@@ -66,6 +83,11 @@ static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 			"%s, idmabuf:%px\n",
 			__func__, dbuf);
 		bc->buf_ops.put_dma(bc, key, 0, false);
+		mutex_lock(&bc->workqueue_mutex);
+		if (bc->workqueue_enabled)
+			queue_work(bc->recycle_buf_ref_workqueue,
+				&bc->combine_buf_work);
+		mutex_unlock(&bc->workqueue_mutex);
 		return;
 	} else {
 		hash_for_each_possible(bc->buf_table, entry, h_node, key) {
@@ -1321,6 +1343,8 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 		v4l_dbg(priv, V4L_DEBUG_CODEC_BUFMGR,
 			"%s\n", __func__);
 	}
+
+	INIT_WORK(&bm->bc.combine_buf_work, aml_buf_combine_worker);
 
 	return ret;
 }

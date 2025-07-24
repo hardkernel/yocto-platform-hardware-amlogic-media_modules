@@ -4877,12 +4877,10 @@ void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx)
 	int ret;
 	struct vb2_v4l2_buffer *vb2_v4l2;
 
-	mutex_lock(&ctx->combine_lock);
 	if (!ctx->bm.bc.dma_free_num ||
 		(ctx->bm.bc.unbind_num < PAIR_DONE) ||
 		(ctx->fresh_uvmdma_num < ctx->dpb_size) ||
 		ctx->master_buf) {
-		mutex_unlock(&ctx->combine_lock);
 		return;
 	}
 
@@ -4908,7 +4906,6 @@ void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx)
 			aml_buf_put_ref(&ctx->bm, am_buf);
 		}
 	}
-	mutex_unlock(&ctx->combine_lock);
 }
 
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
@@ -5031,6 +5028,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		vdec_thread_wakeup(ctx->ada_ctx);
 
 		wake_up_interruptible(&ctx->cap_wq);
+
+		aml_combine_free_uvm_dma_buffer(ctx);
+
 		return;
 	} else if (ctx->output_dma_mode) {
 		struct dma_buf *dbuf = vb->planes[0].dbuf;
