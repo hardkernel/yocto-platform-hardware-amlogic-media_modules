@@ -141,6 +141,10 @@ static short debug_dmx##_dmx##_chanpids_types[CHANNEL_COUNT] = \
 					{[0 ... (CHANNEL_COUNT - 1)] = -1}; \
 module_param_array(debug_dmx##_dmx##_chanpids_types, short, &npidtypes, 0444)
 
+static int aes_ts_out_delay_value = 3;
+module_param_named(aes_ts_out_delay_debug, aes_ts_out_delay_value, int, 0644);
+MODULE_PARM_DESC(aes_ts_out_delay_debug, "enable verbose debug messages");
+
 MOD_PARAM_DECLARE_CHANPIDS_TYPES(0);
 MOD_PARAM_DECLARE_CHANPIDS_TYPES(1);
 MOD_PARAM_DECLARE_CHANPIDS_TYPES(2);
@@ -2070,7 +2074,7 @@ static void aml_ci_plus_config(int key_endian, int mode, int algo)
 		sm4_mode = 1;
 	} else if (algo ==  ALGO_AES){
 		aes_enable = 1;
-		aes_ts_out_delay = 8;
+		aes_ts_out_delay = aes_ts_out_delay_value;
 	} else {
 		if (get_cpu_type() < MESON_CPU_MAJOR_ID_SM1) {
 			des_enable = 1;
