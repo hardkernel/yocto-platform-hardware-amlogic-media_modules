@@ -1878,7 +1878,7 @@ static irqreturn_t vmpeg4_isr_thread_handler(struct vdec_s *vdec, int irq)
 			u32 consume_byte, res_byte, bitcnt;
 
 			bitcnt = READ_VREG(VIFF_BIT_CNT);
-			res_byte = bitcnt >> 3;
+			res_byte = ((ALIGN(bitcnt, 8)) >> 3) + 4; //4: next start code
 
 			if (hw->chunk_size > res_byte) {
 				if (bitcnt > frmbase_cont_bitlevel) {
