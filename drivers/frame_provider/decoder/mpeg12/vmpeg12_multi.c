@@ -1657,6 +1657,7 @@ static void userdata_push_do_work(struct work_struct *work)
 			hw->parse_user_data_size++;
 		} else {
 			debug_print(DECODE_ID(hw), 0,"%s: user data is over %d.\n", __func__, vf_data_length);
+			break;
 		}
 	}
 
