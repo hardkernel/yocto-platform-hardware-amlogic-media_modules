@@ -202,6 +202,8 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_dual_core = false,
 		.is_support_path_monitor = true,
 		.is_support_avbc_wrapper = true,
+		.dos_bus_ctrl = BUSCTL_HEVC_ONLY,
+		.dos_bus_idle_mask = (1 << 28),
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
