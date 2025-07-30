@@ -5633,9 +5633,11 @@ static void m2mops_vdec_job_abort(void *priv)
 
 	flush_work(&ctx->es_wkr_in);
 
-	spin_lock_irqsave(&ctx->input_splock, flags);
-	ctx->stop_schedule = true;
-	spin_unlock_irqrestore(&ctx->input_splock, flags);
+	if (ctx->is_out_stream_off) {
+		spin_lock_irqsave(&ctx->input_splock, flags);
+		ctx->stop_schedule = true;
+		spin_unlock_irqrestore(&ctx->input_splock, flags);
+	}
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 			"%s, input_count: %d\n",
