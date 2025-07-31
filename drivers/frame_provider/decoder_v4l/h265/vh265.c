@@ -11130,8 +11130,7 @@ static int notify_v4l_eos(struct vdec_s *vdec)
 	ulong expires;
 
 	expires = jiffies + msecs_to_jiffies(2000);
-	while (!is_available_buffer(hw) && (!ctx->avbcd_work_mode ||
-		(ctx->avbcd_work_mode && aml_buf_empty(&ctx->bm)))) {
+	while (!is_available_buffer(hw) || (ctx->avbcd_work_mode && aml_buf_empty(&ctx->bm))) {
 		if (time_after(jiffies, expires)) {
 			pr_err("[%d] H265 isn't enough buff for notify eos.\n", ctx->id);
 			return 0;

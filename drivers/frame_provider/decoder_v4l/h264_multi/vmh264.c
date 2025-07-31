@@ -4445,8 +4445,7 @@ int notify_v4l_eos(struct vdec_s *vdec)
 
 	if (hw->eos) {
 		expires = jiffies + msecs_to_jiffies(2000);
-		while (!have_free_buf_spec(vdec, true)  && (!ctx->avbcd_work_mode ||
-			(ctx->avbcd_work_mode && aml_buf_empty(&ctx->bm)))) {
+		while (!have_free_buf_spec(vdec, true)  || (ctx->avbcd_work_mode && aml_buf_empty(&ctx->bm))) {
 			if (time_after(jiffies, expires)) {
 				pr_err("[%d] H264 isn't enough buff for notify eos.\n", ctx->id);
 				return 0;
