@@ -1297,6 +1297,7 @@ static enum ResResult is_csd_valid(struct vdec_h264_hw_s *hw, int mb_width, int 
 static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 						int frame_type,
 						u32 vpts,
+						u64 vpts_64,
 						u32 vpts_valid);
 static int  compute_losless_comp_body_size(int width,
 	int height, bool is_bit_depth_10);
@@ -7995,7 +7996,7 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 #ifdef MH264_USERDATA_ENABLE
 					vmh264_udc_fill_vpts(hw,
 						p_H264_Dpb->mSlice.slice_type,
-						hw->chunk->pts, 1);
+						hw->chunk->pts, hw->chunk->pts64, 1);
 #endif
 					hw->curr_pic_offset += hw->chunk_size;
 				}
@@ -8018,6 +8019,7 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				u64 dur_offset = hw->frame_dur;
 				u32 vpts_valid = 0;
 				u32 vpts = 0;
+				u64 vpts_64 = 0;
 
 				vdec_count_info(&hw->gvs, 0,offset);
 				pic->pic_size = (hw->start_bit_cnt - READ_VREG(VIFF_BIT_CNT)) >> 3;
@@ -8026,17 +8028,19 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 					vpts_valid = 1;
 					vpts = pts_st.pts;
+					vpts_64 = pts_st.pts_64;
 				} else {
 					vpts_valid = 0;
 					vpts = 0;
+					vpts_64 = 0;
 				}
 
 #ifdef MH264_USERDATA_ENABLE
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
-						"%s: id = %x, offset: %x, vpts: %d, vpts_valid %d\n",
-						__func__, vdec->pts_server_id, offset, vpts, vpts_valid);
+						"%s: id = %x, offset: %x, vpts: %d, vpts_64 %lld, vpts_valid %d\n",
+						__func__, vdec->pts_server_id, offset, vpts, vpts_64, vpts_valid);
 
-				vmh264_udc_fill_vpts(hw, p_H264_Dpb->mSlice.slice_type, vpts, vpts_valid);
+				vmh264_udc_fill_vpts(hw, p_H264_Dpb->mSlice.slice_type, vpts, vpts_64, vpts_valid);
 #endif
 			}
 
@@ -11153,11 +11157,13 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 	usd_rep.meta_data.poc_number = meta_info->poc_number;
 	usd_rep.meta_data.video_format = VFORMAT_H264;
 	usd_rep.meta_data.vpts = meta_info->vpts;
+	usd_rep.meta_data.vpts_64 = meta_info->vpts_64;
 	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
 	usd_rep.meta_data.pic_struct = (meta_info->flags >> 12) & 0x3;
 	usd_rep.meta_data.duration = meta_info->duration;
-	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,	"%s: poc %d vpts %d\n",
-			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
+	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,	"%s: poc %d vpts %d, vpts_64 %lld\n",
+			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts,
+			usd_rep.meta_data.vpts_64);
 
 	if (kfifo_is_full(&ctx->dec_intf.ud_done)) {
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL, "%s, ud fifo is full\n", __func__);
@@ -11173,6 +11179,7 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 						int frame_type,
 						u32 vpts,
+						u64 vpts_64,
 						u32 vpts_valid)
 {
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
@@ -11194,6 +11201,7 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 	meta_info.duration = hw->frame_dur;
 	meta_info.flags |= (VFORMAT_H264 << 3);
 	meta_info.vpts = vpts;
+	meta_info.vpts_64 = vpts_64;
 	meta_info.vpts_valid = vpts_valid;
 	meta_info.poc_number = p_H264_Dpb->mVideo.dec_picture->poc;
 	meta_info.flags |= p_H264_Dpb->mVideo.dec_picture->pic_struct << 12;
@@ -11242,6 +11250,7 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 		ud_param->meta_info.flags |=
 			p_H264_Dpb->mVideo.dec_picture->pic_struct << 12;
 		ud_param->meta_info.vpts = vpts;
+		ud_param->meta_info.vpts_64 = vpts_64;
 		ud_param->meta_info.vpts_valid = vpts_valid;
 	}
 
@@ -11481,7 +11490,7 @@ static int vmh264_user_data_read(struct vdec_s *vdec,
 			USERDATA_FIFO_NUM -
 			hw->userdata_info.read_index;
 
-	puserdata_para->version = (0<<24|0<<16|0<<8|1);
+	puserdata_para->version = USERDATA_VERSION;
 
 	mutex_unlock(&hw->userdata_mutex);
 

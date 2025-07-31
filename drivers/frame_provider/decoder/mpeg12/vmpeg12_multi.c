@@ -380,6 +380,7 @@ struct vdec_mpeg12_hw_s {
 	char disp_q_name[32];
 	bool run_flag;
 	u64 last_pts;
+	u64 last_pts64;
 	u8  parse_user_data_buf[CCBUF_SIZE];
 	u32 parse_user_data_size;
 	u32 last_parse_user_data_size;
@@ -1198,7 +1199,7 @@ static void reset_user_data_buf(struct vdec_mpeg12_hw_s *hw)
 #endif
 
 static void user_data_ready_notify(struct vdec_mpeg12_hw_s *hw,
-	u32 pts, u32 pts_valid)
+	u32 pts, u64 pts_64, u32 pts_valid)
 {
 	struct mmpeg2_userdata_record_t *p_userdata_rec;
 	int i;
@@ -1213,6 +1214,7 @@ static void user_data_ready_notify(struct vdec_mpeg12_hw_s *hw,
 
 			hw->ud_record[i].meta_info.vpts_valid = pts_valid;
 			hw->ud_record[i].meta_info.vpts = pts;
+			hw->ud_record[i].meta_info.vpts_64 = pts_64;
 			debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
 				"%s, pts %lld, pts_valid %d, poc %d\n",
 				__func__, pts, pts_valid,
@@ -1430,7 +1432,7 @@ static int vmmpeg2_user_data_read(struct vdec_s *vdec,
 			USERDATA_FIFO_NUM -
 			hw->userdata_info.read_index;
 
-	puserdata_para->version = (0<<24|0<<16|0<<8|1);
+	puserdata_para->version = USERDATA_VERSION;
 
 	mutex_unlock(&hw->userdata_mutex);
 
@@ -1757,6 +1759,7 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 	bool pb_skip = false;
 	u32 vpts_valid = 0;
 	u32 vpts = 0;
+	u64 vpts_64 = 0;
 	checkout_pts_offset pts_info = { 0 };
 
 	/* swap uv */
@@ -1781,31 +1784,40 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 	if (vdec->pts_server_id == 0) {
 		vpts_valid = pic->pts_valid;
 		vpts = pic->pts;
+		vpts_64 = pic->pts64;
 	} else {
 		pts_info.offset = (((u64)hw->frame_dur << 32) & 0xffffffff00000000) | pic->offset;
 
 		if (!ptsserver_peek_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 			vpts = pts_info.pts;
+			vpts_64 = pts_info.pts_64;
 			vpts_valid = 1;
 		}
 	}
 
 	if ((pic->buffer_info & PICINFO_TYPE_MASK) == PICINFO_TYPE_B) {
 		vpts  = hw->last_pts + DUR2PTS(hw->frame_dur);
+		vpts_64 = hw->last_pts64 + DUR2PTS(hw->frame_dur);
 		hw->last_pts = vpts;
+		hw->last_pts64 = vpts_64;
 		vpts_valid = 1;
 	} else {
-		if (vdec->pts_server_id == 0)
+		if (vdec->pts_server_id == 0) {
 			hw->last_pts = pic->pts;
-		else
+			hw->last_pts64 = pic->pts64;
+		}
+		else {
 			hw->last_pts = pts_info.pts;
+			hw->last_pts64 = pts_info.pts_64;
+		}
 	}
 
 	debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL,
 		"%s: id = %x, offset: %x, vpts: %d, vpts_valid %d, info 0x%x type %c\n",
 		__func__, vdec->pts_server_id, pts_info.offset, vpts, vpts_valid, info, GET_SLICE_TYPE(info));
-	user_data_ready_notify(hw, vpts, vpts_valid);
+	user_data_ready_notify(hw, vpts, vpts_64, vpts_valid);
 	pic->ud_param.meta_info.vpts = vpts;
+	pic->ud_param.meta_info.vpts_64 = vpts_64;
 	pic->ud_param.meta_info.vpts_valid = vpts_valid;
 
 	if (hw->frame_prog & PICINFO_PROG) {

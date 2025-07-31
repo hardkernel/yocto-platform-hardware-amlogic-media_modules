@@ -1188,7 +1188,7 @@ static inline bool is_cc_data(char *p)
 }
 
 static void user_data_ready_notify(struct vdec_mpeg12_hw_s *hw,
-	u32 pts, u32 pts_valid)
+	u32 pts, u64 pts_64, u32 pts_valid)
 {
 	struct mmpeg2_userdata_record_t *p_userdata_rec;
 	int i;
@@ -1203,6 +1203,7 @@ static void user_data_ready_notify(struct vdec_mpeg12_hw_s *hw,
 
 			hw->ud_record[i].meta_info.vpts_valid = pts_valid;
 			hw->ud_record[i].meta_info.vpts = pts;
+			hw->ud_record[i].meta_info.vpts_64 = pts_64;
 
 			debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
 				"%s, pts %lld, pts_valid %d, poc %d\n",
@@ -1403,7 +1404,7 @@ static int vmmpeg2_user_data_read(struct vdec_s *vdec,
 			USERDATA_FIFO_NUM -
 			hw->userdata_info.read_index;
 
-	puserdata_para->version = (0<<24|0<<16|0<<8|1);
+	puserdata_para->version = USERDATA_VERSION;
 
 	mutex_unlock(&hw->userdata_mutex);
 
@@ -1498,10 +1499,12 @@ static void v4l_vmpeg2_fill_userdata(struct vdec_mpeg12_hw_s *hw,
 	usd_rep.meta_data.extension_data = meta_info->flags & 0x7;
 	usd_rep.meta_data.frame_type = (meta_info->flags >> 7) & 0x7;
 	usd_rep.meta_data.vpts = meta_info->vpts;
+	usd_rep.meta_data.vpts_64 = meta_info->vpts_64;
 	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
 	usd_rep.meta_data.duration = meta_info->duration;
-	debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL, "%s: poc %d vpts %d\n",
-			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
+	debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL, "%s: poc %d vpts %d, vpts_64 %lld\n",
+			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts,
+			usd_rep.meta_data.vpts_64);
 
 	if (kfifo_is_full(&ctx->dec_intf.ud_done)) {
 		debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL, "%s, ud fifo is full\n", __func__);
@@ -1691,6 +1694,7 @@ static void userdata_push_do_work(struct work_struct *work)
 	if (hw->chunk) {
 		meta_info.vpts_valid = hw->chunk->pts_valid;
 		meta_info.vpts = hw->chunk->pts;
+		meta_info.vpts_64 = hw->chunk->pts64;
 	} else {
 		struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 		struct checkoutptsoffset pts_st = { 0 };
@@ -1701,9 +1705,11 @@ static void userdata_push_do_work(struct work_struct *work)
 		if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 			meta_info.vpts_valid = true;
 			meta_info.vpts = pts_st.pts;
+			meta_info.vpts_64 = pts_st.pts_64;
 		} else {
 			meta_info.vpts_valid = false;
 			meta_info.vpts = 0;
+			meta_info.vpts_64 = 0;
 		}
 	}
 
@@ -1935,8 +1941,9 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 		pb_skip = 1;
 	}
 
-	user_data_ready_notify(hw, pic->pts, pic->pts_valid);
+	user_data_ready_notify(hw, pic->pts, pic->pts64, pic->pts_valid);
 	pic->ud_param.meta_info.vpts = pic->pts;
+	pic->ud_param.meta_info.vpts_64 = pic->pts64;
 	pic->ud_param.meta_info.vpts_valid = pic->pts_valid;
 
 	if (hw->frame_prog & PICINFO_PROG) {

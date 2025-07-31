@@ -8636,7 +8636,7 @@ static int vh265_user_data_read(struct vdec_s *vdec,
 			hevc->userdata_info.write_index +
 			USERDATA_FIFO_NUM - hevc->userdata_info.read_index;
 
-	puserdata_para->version = (0<<24|0<<16|0<<8|1);
+	puserdata_para->version = USERDATA_VERSION;
 
 	mutex_unlock(&hevc->userdata_mutex);
 
@@ -8717,11 +8717,13 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 	usd_rep.meta_data.video_format = VFORMAT_HEVC;
 	usd_rep.meta_data.frame_type = (meta_info->flags >> 7) & 0x7;
 	usd_rep.meta_data.vpts = meta_info->vpts;
+	usd_rep.meta_data.vpts_64 = meta_info->vpts_64;
 	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
 	usd_rep.meta_data.pic_struct = (meta_info->flags >> 12) & 0x3;
 	usd_rep.meta_data.duration = meta_info->duration;
-	hevc_print(hevc, H265_DEBUG_PRINT_SEI,"%s: poc %d vpts %d\n", __func__,
-				usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts);
+	hevc_print(hevc, H265_DEBUG_PRINT_SEI,"%s: poc %d vpts %d, vpts_64 %lld\n",
+			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts,
+			usd_rep.meta_data.vpts_64);
 
 	if (kfifo_is_full(&ctx->dec_intf.ud_done)) {
 		hevc_print(hevc, H265_DEBUG_PRINT_SEI, "%s, ud fifo is full\n", __func__);
@@ -8736,7 +8738,7 @@ static void v4l_vh265_fill_userdata(struct hevc_state_s *hevc,
 
 
 static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
-	u32 vpts, int pts_valid, u32 poc)
+	u32 vpts, u64 vpts_64, int pts_valid, u32 poc)
 {
 	u8 *pdata;
 	u8 *pmax_sei_data_buffer;
@@ -8755,6 +8757,7 @@ static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
 	meta_info.flags |= (VFORMAT_HEVC << 3);
 	meta_info.flags |= (hevc->cur_pic->pic_struct << 12);
 	meta_info.vpts = vpts;
+	meta_info.vpts_64 = vpts_64;
 	meta_info.vpts_valid = pts_valid;
 	meta_info.poc_number = poc;
 
@@ -11916,6 +11919,7 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 	u32 size;
 	int type;
 	u32 vpts = 0;
+	u64 vpts64 = 0;
 	int pts_valid = 0;
 
 	if (!itu_t_t35_enable || pic == NULL)
@@ -11945,6 +11949,7 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 		if (vdec_frame_based(hw_to_vdec(hevc))) {
 			if (hevc->chunk) {
 				vpts = hevc->chunk->pts;
+				vpts64 = hevc->chunk->pts64;
 				pts_valid = 1;
 			}
 		} else {
@@ -11954,13 +11959,14 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 			dur_offset = (dur_offset << 32) | offset;
 			if (ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 				vpts = 0;
+				vpts64 = 0;
 				pts_valid = 0;
 			}
 		}
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
-			"%s: id = %x, offset: %x, vpts: %d, pts_valid: %d\n",
-			__func__, ctx->ptsserver_id, pic->stream_offset, vpts, pts_valid);
-		vh265_userdata_fill_vpts(hevc, vpts, pts_valid, pic->POC);
+			"%s: id = %x, offset: %x, vpts: %d, vpts64 %lld, pts_valid: %d\n",
+			__func__, ctx->ptsserver_id, pic->stream_offset, vpts, vpts64, pts_valid);
+		vh265_userdata_fill_vpts(hevc, vpts, vpts64, pts_valid, pic->POC);
 	}
 
 	return 0;

@@ -211,6 +211,12 @@ enum e_trace_work_status {
 #define SEI_ITU_DATA_SIZE		(5*1024)
 #define SIGNAL_TYPE_DATA_SIZE	(4)
 
+/*
+ * bit 0~7:
+ *    1: base version
+ *    2: support report pts64
+ */
+#define USERDATA_VERSION    (0<<24|0<<16|0<<8|2);
 
 /* same size with SEI_BUF_SIZE in aml_vcodec_dec.h */
 #define AUX_DATA_SIZE1 (24 * 1024)

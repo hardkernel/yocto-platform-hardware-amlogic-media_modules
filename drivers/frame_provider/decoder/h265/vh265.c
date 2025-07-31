@@ -8862,7 +8862,7 @@ static int vh265_user_data_read(struct vdec_s *vdec,
 			hevc->userdata_info.write_index +
 			USERDATA_FIFO_NUM - hevc->userdata_info.read_index;
 
-	puserdata_para->version = (0<<24|0<<16|0<<8|1);
+	puserdata_para->version = USERDATA_VERSION;
 
 	mutex_unlock(&hevc->userdata_mutex);
 
@@ -8894,7 +8894,7 @@ static void vh265_wakeup_userdata_poll(struct vdec_s *vdec)
 }
 
 static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
-	u32 vpts, int pts_valid, u32 poc)
+	u32 vpts, u64 vpts_64, int pts_valid, u32 poc)
 {
 	u8 *pdata;
 	u8 *pmax_sei_data_buffer;
@@ -8926,6 +8926,7 @@ static void vh265_userdata_fill_vpts(struct hevc_state_s *hevc,
 	meta_info.flags |= (VFORMAT_HEVC << 3);
 	meta_info.flags |= (hevc->cur_pic->pic_struct << 12);
 	meta_info.vpts = vpts;
+	meta_info.vpts_64 = vpts_64;
 	meta_info.vpts_valid = pts_valid;
 	meta_info.poc_number = poc;
 
@@ -11111,6 +11112,7 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 		if (vdec_frame_based(hw_to_vdec(hevc))) {
 			if (hevc->chunk) {
 				vpts = hevc->chunk->pts;
+				pts64 = hevc->chunk->pts64;
 				pts_valid = hevc->chunk->pts_valid;
 			}
 		} else {
@@ -11119,6 +11121,7 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 				if (pts_pickout_offset_us64(PTS_TYPE_VIDEO,
 					pic->stream_offset, &vpts, 0, &pts64)) {
 					vpts = 0;
+					pts64 = 0;
 					pts_valid = 0;
 				} else {
 					pts_valid = 1;
@@ -11127,14 +11130,15 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 				pts_info.offset = (((u64)hevc->frame_dur << 32) & 0xffffffff00000000) | pic->stream_offset;
 				if (!ptsserver_peek_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 					vpts = pts_info.pts;
+					pts64 = pts_info.pts_64;
 					pts_valid = 1;
 				}
 			}
 		}
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
-			"%s: id = %x, offset: %x, vpts: %d, pts_valid: %d\n",
-			__func__, vdec->pts_server_id, pic->stream_offset, vpts, pts_valid);
-		vh265_userdata_fill_vpts(hevc, vpts, pts_valid, pic->POC);
+			"%s: id = %x, offset: %x, vpts: %d, pts64 %lld, pts_valid: %d\n",
+			__func__, vdec->pts_server_id, pic->stream_offset, vpts, pts64, pts_valid);
+		vh265_userdata_fill_vpts(hevc, vpts, pts64, pts_valid, pic->POC);
 	}
 
 	return 0;

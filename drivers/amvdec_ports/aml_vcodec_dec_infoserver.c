@@ -561,6 +561,7 @@ int aml_vcodec_decinfo_get(struct v4l2_ctrl *ctrl,
 		break;
 	case AML_DECINFO_GET_USERDATA_TYPE:
 		ret = vcodec_get_data_user_data(ctx, info);
+		info->version_magic = USERDATA_VERSION;
 		break;
 	default:
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,

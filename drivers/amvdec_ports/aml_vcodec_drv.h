@@ -314,7 +314,8 @@ struct v4l_userdata_meta_data_t {
      */
     __u32 pic_struct;
     __u32 duration;
-    __u32 padding_data[62];
+    __u64 vpts_64;
+    __u32 reserved[60];
 };
 
 struct sei_usd_param_s {
