@@ -9543,8 +9543,14 @@ pic_done_proc:
 			(dec_dpb_status == H264_DECODE_TIMEOUT)) {
 
 			if (dec_dpb_status == H264_DECODE_TIMEOUT) {
+				bool head_timeout_flag = 0;
+				unsigned short *p = (unsigned short *)hw->lmem_addr;
+				p_H264_Dpb->dpb_param.l.data[H264_HW_TIMER_STATUS] = p[H264_HW_TIMER_STATUS ^ 0x3];
+				head_timeout_flag = p_H264_Dpb->dpb_param.l.data[H264_HW_TIMER_STATUS] & 0x1;
+
 				dpb_print(DECODE_ID(hw),
-					PRINT_FLAG_ERROR, "%s decoder timeout\n", __func__);
+					PRINT_FLAG_ERROR, "%s decoder timeout status:%s\n", __func__,
+					head_timeout_flag ? "HEAD" :"PIC");
 			}
 
 			if ((hw->csd_restore_flag == true) && (dec_dpb_status == H264_DECODE_TIMEOUT))

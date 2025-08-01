@@ -132,6 +132,7 @@ union param {
 #define OFFSET_DELIMITER_LO                     0x2f
 #define OFFSET_DELIMITER_HI                     0x30
 
+#define H264_HW_TIMER_STATUS				0x3e
 
 #define SLICE_IPONLY_BREAK						0X5C
 #define PREV_MAX_REFERENCE_FRAME_NUM					0X5D
