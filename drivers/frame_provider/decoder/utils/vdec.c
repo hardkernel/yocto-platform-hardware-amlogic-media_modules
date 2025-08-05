@@ -2942,11 +2942,15 @@ bool vdec_has_more_input(struct vdec_s *vdec)
 	if (input_frame_based(input))
 		return vdec_input_next_input_chunk(input) != NULL;
 	else {
-		if (input->target == VDEC_INPUT_TARGET_VLD)
-			return READ_VREG(VLD_MEM_VIFIFO_WP) !=
-				STBUF_READ(&vdec->vbuf, get_wp);
-		else {
-			return (READ_VREG(HEVC_STREAM_WR_PTR) & ~0x3) !=
+		dos_addr_t wp = 0;
+		if (input->target == VDEC_INPUT_TARGET_VLD) {
+			wp = READ_VREG(VLD_MEM_VIFIFO_WP) | PREFIX_ADDR_MASK(stream_prefix_get());
+
+			return wp != STBUF_READ(&vdec->vbuf, get_wp);
+		} else {
+			wp = READ_VREG(HEVC_STREAM_WR_PTR) | PREFIX_ADDR_MASK(stream_prefix_get());
+
+			return (wp & ~0x3) !=
 				(STBUF_READ(&vdec->vbuf, get_wp) & ~0x3);
 		}
 	}
