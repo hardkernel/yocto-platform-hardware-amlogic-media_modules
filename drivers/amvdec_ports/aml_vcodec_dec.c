@@ -5326,8 +5326,13 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 				if (mbuf->size < capbuf_size)
 					ctx->fresh_uvmdma_num ++;
 			} else {
-				if ((vb->planes[0].dbuf->size + vb->planes[1].dbuf->size) < capbuf_size)
-					ctx->fresh_uvmdma_num ++;
+				if (V4L2_TYPE_IS_MULTIPLANAR(vb->vb2_queue->type)) {
+					if ((vb->planes[0].dbuf->size + vb->planes[1].dbuf->size) < capbuf_size)
+						ctx->fresh_uvmdma_num ++;
+				} else {
+					if (vb->planes[0].dbuf->size < capbuf_size)
+						ctx->fresh_uvmdma_num ++;
+				}
 			}
 		}
 
