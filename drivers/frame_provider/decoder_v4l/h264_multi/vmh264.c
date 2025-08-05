@@ -7239,10 +7239,12 @@ static void vui_config(struct vdec_h264_hw_s *hw)
 			u32 rem = hw->time_scale % hw->num_units_in_tick;
 
 			if (rem == 0) {
-				if (hw->fixed_frame_rate_flag == 1) {
-					frame_rate = frame_rate / 2;
-				}
+				frame_rate = frame_rate / 2;
 				hw->frame_dur = 96000 / frame_rate;
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_DPB_DETAIL,
+					"fixed_frame_rate_flag: %d, frame_dur:%d\n",
+					hw->fixed_frame_rate_flag,
+					hw->frame_dur);
 			} else {
 				if (frame_rate == 119) {
 					hw->frame_dur = RATE_11988_FPS;
