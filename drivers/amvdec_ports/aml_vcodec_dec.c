@@ -3506,8 +3506,7 @@ static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type)
 	 * to DM_YUV_ONLY. Driver will set width alignment to 64, also satisfy width
 	 * alignment 32
 	 */
-	if ((!is_vdec_core_fmt(ctx->output_pix_fmt) || (dw_mode != DM_YUV_ONLY)) &&
-		is_hevc_align32(0))
+	if (is_hevc_align32(0) && (ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG))
 		w_align = 32;
 
 	if (V4L2_TYPE_IS_MULTIPLANAR(type)) {
@@ -3585,9 +3584,9 @@ static void copy_v4l2_format_dimension(struct aml_vcodec_ctx *ctx,
 		pix_mp->height		= q_data->coded_height;
 		pix_mp->num_planes	= q_data->fmt->num_planes;
 		pix_mp->pixelformat	= q_data->fmt->fourcc;
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%d: w: %d, h: %d, size: %d\n",
-			__LINE__, pix_mp->width, pix_mp->height,
-			pix_mp->pixelformat);
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s: is_multiplanar: %d, w: %d, h: %d, pixelformat: %s\n",
+			__func__, V4L2_TYPE_IS_MULTIPLANAR(type), pix_mp->width, pix_mp->height,
+			FOURCC_TO_STR(pix_mp->pixelformat));
 
 		for (i = 0; i < q_data->fmt->num_planes; i++) {
 			pix_mp->plane_fmt[i].bytesperline = q_data->bytesperline[i];
@@ -3605,9 +3604,9 @@ static void copy_v4l2_format_dimension(struct aml_vcodec_ctx *ctx,
 		pix->bytesperline	= q_data->bytesperline[0];
 		pix->sizeimage		= q_data->sizeimage[0];
 
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%d: w: %d, h: %d, size: %d\n",
-			__LINE__, pix_mp->width, pix_mp->height,
-			pix_mp->pixelformat);
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s: is_multiplanar: %d, w: %d, h: %d, pixelformat: %s\n",
+			__func__, V4L2_TYPE_IS_MULTIPLANAR(type), pix_mp->width, pix_mp->height,
+			FOURCC_TO_STR(pix_mp->pixelformat));
 
 		if ((dw_mode == DM_AVBC_ONLY) && tw_mode) {
 			pix->bytesperline	= q_data->bytesperline_tw[0];
@@ -3767,8 +3766,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		q_data->coded_height = pix_mp->height;
 
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"w: %d, h: %d, size: %d\n",
-			pix_mp->width, pix_mp->height,
+			"%s: f->type: %d, w: %d, h: %d, size: %d\n",
+			__func__, f->type, pix_mp->width, pix_mp->height,
 			pix_mp->plane_fmt[0].sizeimage);
 
 		ctx->output_pix_fmt = pix_mp->pixelformat;
@@ -3830,8 +3829,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		}
 
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"w: %d, h: %d, size: %d\n",
-			pix->width, pix->height,
+			"%s: f->type: %d, w: %d, h: %d, size: %d\n",
+			__func__, f->type, pix->width, pix->height,
 			pix->sizeimage);
 
 		ctx->output_pix_fmt = pix->pixelformat;
@@ -5623,7 +5622,8 @@ static int get_width_align(struct aml_vcodec_ctx *ctx)
 
 	return align;
 #else
-	if (ctx->avbcd_work_mode || (!is_hevc_align32(0)))
+	if (ctx->avbcd_work_mode || (!is_hevc_align32(0))
+			|| (ctx->output_pix_fmt == V4L2_PIX_FMT_MJPEG))
 		return 64;
 
 	return 32;

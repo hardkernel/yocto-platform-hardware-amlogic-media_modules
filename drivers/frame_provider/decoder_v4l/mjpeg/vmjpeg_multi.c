@@ -350,7 +350,11 @@ static int vmjpeg_get_ps_info(struct vdec_mjpeg_hw_s *hw, int width, int height,
 	ps->visible_width	= width;
 	ps->visible_height	= height;
 
-	ps->coded_width 	= vdec_width_align_force(width, hw->canvas_mode);
+	/* decode mjpeg will get I420 (3 planes),
+	 * ge2d requires width 64 align on old chips, such as TXHD2;
+	 * ge2d requires width 32 align on new chips, such as T6W
+	 */
+	ps->coded_width 	= ALIGN(width, 64);
 	ps->coded_height 	= ALIGN(height, 64);
 	ps->dpb_size 		= hw->buf_num;
 	ps->dpb_frames		= DECODE_BUFFER_NUM_DEF;
@@ -1011,7 +1015,7 @@ static int vmjpeg_v4l_alloc_buff_config_canvas(struct vdec_mjpeg_hw_s *hw, int i
 		decbuf_v_start	= decbuf_u_start + decbuf_u_size;
 		decbuf_v_size	= decbuf_u_size;
 
-		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
+		canvas_width	= ALIGN(hw->frame_width, 64);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = aml_buf->planes[0].length;
 	} else if (aml_buf->num_planes == 2) {
@@ -1022,7 +1026,7 @@ static int vmjpeg_v4l_alloc_buff_config_canvas(struct vdec_mjpeg_hw_s *hw, int i
 		decbuf_v_start	= decbuf_u_start + decbuf_u_size;
 		decbuf_v_size	= decbuf_u_size;
 
-		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
+		canvas_width	= ALIGN(hw->frame_width, 64);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = aml_buf->planes[0].length;
 		aml_buf->planes[1].bytes_used = aml_buf->planes[1].length;
@@ -1034,7 +1038,7 @@ static int vmjpeg_v4l_alloc_buff_config_canvas(struct vdec_mjpeg_hw_s *hw, int i
 		decbuf_v_start	= aml_buf->planes[2].addr;
 		decbuf_v_size	= aml_buf->planes[2].length;
 
-		canvas_width	= vdec_width_align_force(hw->frame_width, hw->canvas_mode);
+		canvas_width	= ALIGN(hw->frame_width, 64);
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = aml_buf->planes[0].length;
 		aml_buf->planes[1].bytes_used = aml_buf->planes[1].length;

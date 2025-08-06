@@ -283,7 +283,7 @@ static void fill_vdec_params(struct vdec_mjpeg_inst *inst,
 	rect->height		= pic->visible_height;
 
 	/* config canvas size that be used for decoder. */
-	pic->coded_width	= vdec_width_align_force(ps->width, 0);
+	pic->coded_width	= ALIGN(ps->width, 64);
 	pic->coded_height	= ALIGN(ps->height, 64);
 
 	pic->y_len_sz		= pic->coded_width * pic->coded_height;

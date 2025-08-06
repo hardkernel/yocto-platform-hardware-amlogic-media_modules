@@ -1291,4 +1291,13 @@ void v4l2_m2m_job_resume(struct v4l2_m2m_dev *m2m_dev,
 #define V4L2_PIX_FMT_AVS3     v4l2_fourcc('A', 'V', 'S', '3') /* avs3 */
 #define V4L2_PIX_FMT_H266     v4l2_fourcc('H', '2', '6', '6') /* h266 */
 
+#define FOURCC_TO_STR(fourcc) \
+        ((char[]){ \
+            (char)((fourcc) & 0xFF), \
+            (char)(((fourcc) >> 8) & 0xFF), \
+            (char)(((fourcc) >> 16) & 0xFF), \
+            (char)(((fourcc) >> 24) & 0xFF), \
+            '\0' \
+        })
+
 #endif /* _AML_VCODEC_DRV_H_ */
