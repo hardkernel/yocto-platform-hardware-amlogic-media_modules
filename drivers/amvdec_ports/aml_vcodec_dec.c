@@ -4780,7 +4780,7 @@ static void aml_uvm_buf_free(void *arg)
 	aml_buf_detach(&ctx->bm, (ulong)ubuf->dbuf);
 
 	kref_put(ubuf->ref, aml_v4l_ctx_release);
-	vfree(ubuf);
+	kvfree(ubuf);
 }
 
 int aml_uvm_buff_attach(struct vb2_buffer * vb)
@@ -4802,7 +4802,7 @@ int aml_uvm_buff_attach(struct vb2_buffer * vb)
 	if (aml_ubuf_queue_check(vb))
 		goto out;
 
-	ubuf = vzalloc(sizeof(struct aml_uvm_buff_ref));
+	ubuf = aml_media_mem_alloc(sizeof(struct aml_uvm_buff_ref), GFP_KERNEL);
 	if (ubuf == NULL)
 		return -ENOMEM;
 

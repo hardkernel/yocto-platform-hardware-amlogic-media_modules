@@ -423,8 +423,8 @@ static inline bool close_to(int a, int b, int m)
 #define h264_alloc_hw_stru(dev, size, opt) devm_kzalloc(dev, size, opt)
 #define h264_free_hw_stru(dev, hw) devm_kfree(dev, hw)
 #else
-#define h264_alloc_hw_stru(dev, size, opt) vzalloc(size)
-#define h264_free_hw_stru(dev, hw) vfree(hw)
+#define h264_alloc_hw_stru(dev, size, opt) aml_media_mem_alloc(size, opt)
+#define h264_free_hw_stru(dev, hw) kvfree(hw)
 #endif
 
 /* #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6 */

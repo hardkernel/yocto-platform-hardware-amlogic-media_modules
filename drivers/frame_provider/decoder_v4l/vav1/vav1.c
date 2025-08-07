@@ -4695,9 +4695,9 @@ static void release_dblk_struct(struct AV1HW_s *hw)
 	if (hw->lfi)
 		vfree(hw->lfi);
 	if (hw->lf)
-		vfree(hw->lf);
+		kvfree(hw->lf);
 	if (hw->seg_4lf)
-		vfree(hw->seg_4lf);
+		kvfree(hw->seg_4lf);
 	hw->lfi = NULL;
 	hw->lf = NULL;
 	hw->seg_4lf = NULL;
@@ -4708,8 +4708,8 @@ static int init_dblk_struc(struct AV1HW_s *hw)
 {
 #ifdef AOM_AV1_DBLK_INIT
     hw->lfi = vmalloc(sizeof(loop_filter_info_n));
-    hw->lf = vmalloc(sizeof(struct loopfilter));
-    hw->seg_4lf = vmalloc(sizeof(struct segmentation_lf));
+    hw->lf = aml_media_mem_alloc(sizeof(struct loopfilter), GFP_KERNEL);
+    hw->seg_4lf = aml_media_mem_alloc(sizeof(struct segmentation_lf), GFP_KERNEL);
 
     if (hw->lfi == NULL || hw->lf == NULL || hw->seg_4lf == NULL) {
 		printk("[test.c] aom_loop_filter init malloc error!!!\n");

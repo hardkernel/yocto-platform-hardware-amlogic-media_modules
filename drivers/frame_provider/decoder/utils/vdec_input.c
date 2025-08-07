@@ -916,7 +916,7 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 	if ((vdec->hdr10p_data_valid == true) &&
 		(vdec->hdr10p_data_size != 0)) {
 		char *new_buf;
-		new_buf = vzalloc(vdec->hdr10p_data_size);
+		new_buf = aml_media_mem_alloc(vdec->hdr10p_data_size, GFP_KERNEL);
 		if (new_buf) {
 			memcpy(new_buf, vdec->hdr10p_data_buf, vdec->hdr10p_data_size);
 			chunk->hdr10p_data_buf = new_buf;
@@ -935,7 +935,7 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 
 	if (vdec->signal_type_data_valid == true) {
 		char *new_buf;
-		new_buf = vzalloc(SIGNAL_TYPE_DATA_SIZE);
+		new_buf = aml_media_mem_alloc(SIGNAL_TYPE_DATA_SIZE, GFP_KERNEL);
 		if (new_buf) {
 			memcpy(new_buf, vdec->signal_type_data_buf, SIGNAL_TYPE_DATA_SIZE);
 			chunk->signal_type_data_buf = new_buf;
@@ -956,7 +956,7 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 			head_metadata[2] << 8 |
 			head_metadata[3];
 		if (size != 0) {
-			new_buf = vzalloc(size);
+			new_buf = aml_media_mem_alloc(size, GFP_KERNEL);
 			if (new_buf) {
 				memcpy(new_buf, head_metadata, size);
 				chunk->head_meta_buf = new_buf;
@@ -1000,7 +1000,7 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 		if (vframe_chunk_fill(input, chunk, buf, count, block)) {
 			pr_err("vframe_chunk_fill failed\n");
 			if (chunk->hdr10p_data_buf != NULL) {
-				vfree(chunk->hdr10p_data_buf);
+				kvfree(chunk->hdr10p_data_buf);
 				chunk->hdr10p_data_buf = NULL;
 				chunk->hdr10p_data_size = 0;
 			}
@@ -1188,18 +1188,18 @@ void vdec_input_release_chunk(struct vdec_input_s *input,
 	vdec_input_unlock(input, flags);
 
 	if (chunk->hdr10p_data_buf != NULL) {
-		vfree(chunk->hdr10p_data_buf);
+		kvfree(chunk->hdr10p_data_buf);
 		chunk->hdr10p_data_buf = NULL;
 		chunk->hdr10p_data_size = 0;
 	}
 
 	if (chunk->signal_type_data_buf != NULL) {
-		vfree(chunk->signal_type_data_buf);
+		kvfree(chunk->signal_type_data_buf);
 		chunk->signal_type_data_buf = NULL;
 	}
 
 	if (chunk->head_meta_buf != NULL) {
-		vfree(chunk->head_meta_buf);
+		kvfree(chunk->head_meta_buf);
 		chunk->head_meta_buf = NULL;
 	}
 

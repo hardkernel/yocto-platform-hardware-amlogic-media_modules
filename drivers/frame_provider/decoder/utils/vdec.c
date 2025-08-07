@@ -2148,9 +2148,9 @@ void vdec_set_metadata(struct vdec_s *vdec, ulong meta_ptr)
 	if (!meta_ptr)
 		return;
 
-	tmp_buf = vzalloc(VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4);
+	tmp_buf = aml_media_mem_alloc(VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4, GFP_KERNEL);
 	if (!tmp_buf) {
-		pr_err("%s:vmalloc 256+4 fail\n", __func__);
+		pr_err("%s:aml_media_mem_alloc 256+4 fail\n", __func__);
 		return;
 	}
 	memcpy(tmp_buf, (void *)meta_ptr, VDEC_META_DATA_SIZE + SIGNAL_TYPE_DATA_SIZE + 4);
@@ -2179,7 +2179,7 @@ void vdec_set_metadata(struct vdec_s *vdec, ulong meta_ptr)
 		vdec->signal_type_data_valid = true;
 	}
 
-	vfree(tmp_buf);
+	kvfree(tmp_buf);
 }
 EXPORT_SYMBOL(vdec_set_metadata);
 

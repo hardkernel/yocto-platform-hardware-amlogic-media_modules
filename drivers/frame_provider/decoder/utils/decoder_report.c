@@ -536,7 +536,7 @@ EXPORT_SYMBOL(set_debug_configs);
 int report_module_init(void)
 {
 	int ret = -1;
-	report_dev = (struct aml_dec_report_dev *)vzalloc(sizeof(struct aml_dec_report_dev));
+	report_dev = (struct aml_dec_report_dev *)aml_media_mem_alloc(sizeof(struct aml_dec_report_dev), GFP_KERNEL);
 
 	if (platform_driver_register(&report_driver)) {
 		pr_info("failed to register decoder report module\n");
@@ -556,7 +556,7 @@ int report_module_init(void)
 unregister:
 	platform_driver_unregister(&report_driver);
 err:
-	vfree(report_dev);
+	kvfree(report_dev);
 	return ret;
 }
 EXPORT_SYMBOL(report_module_init);
@@ -565,7 +565,7 @@ void report_module_exit(void)
 {
 	struct module_debug_node *node = NULL;
 
-	vfree(report_dev);
+	kvfree(report_dev);
 	platform_driver_unregister(&report_driver);
 	class_unregister(&report_class);
 

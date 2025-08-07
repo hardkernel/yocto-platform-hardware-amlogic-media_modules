@@ -395,7 +395,7 @@ static int parse_stream_cpu(struct vdec_vp9_inst *inst, u8 *buf, u32 size)
 	int ret = 0;
 	struct vp9_param_sets *ps = NULL;
 
-	ps = vzalloc(sizeof(struct vp9_param_sets));
+	ps = aml_media_mem_alloc(sizeof(struct vp9_param_sets), GFP_KERNEL);
 	if (ps == NULL)
 		return -ENOMEM;
 
@@ -411,7 +411,7 @@ static int parse_stream_cpu(struct vdec_vp9_inst *inst, u8 *buf, u32 size)
 
 	ret = ps->head_parsed ? 0 : -1;
 out:
-	vfree(ps);
+	kvfree(ps);
 
 	return ret;
 }
@@ -655,7 +655,7 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 
 	if (is_no_head_mode) {
 		if (ctx->is_drm_mode) {
-			metadata = vzalloc(VDEC_META_DATA_SIZE);
+			metadata = aml_media_mem_alloc(VDEC_META_DATA_SIZE, GFP_KERNEL);
 			if (!metadata) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"alloc size %d failed.\n", VDEC_META_DATA_SIZE);
@@ -673,7 +673,7 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 				aml_vdec_dispatch_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
 				ctx->signal_type_update = 0;
 			}
-			vfree(metadata);
+			kvfree(metadata);
 		} else {
 			stbuf_vaddr = codec_mm_vmap(addr, count);
 			if (stbuf_vaddr) {
@@ -687,7 +687,7 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 					return ret;
 				}
 				if (s.nb_frames > 1) {
-					metadata = vzalloc(VDEC_META_DATA_SIZE);
+					metadata = aml_media_mem_alloc(VDEC_META_DATA_SIZE, GFP_KERNEL);
 					if (!metadata) {
 						v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 							"alloc size %d failed.\n", VDEC_META_DATA_SIZE);
@@ -719,7 +719,7 @@ static int parser_head_metadata_with_dma(struct aml_vdec_adapt *ada_ctx,
 					aml_vdec_dispatch_event(ctx, V4L2_EVENT_REPORT_SIGNAL_TYPE);
 					ctx->signal_type_update = 0;
 				}
-				vfree(metadata);
+				kvfree(metadata);
 				codec_mm_unmap_phyaddr(stbuf_vaddr);
 			} else {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
@@ -773,7 +773,7 @@ static int vdec_write_nalu(struct vdec_vp9_inst *inst,
 		}
 		if (is_no_head_mode) {
 			if (s.nb_frames > 1) {
-				head_metadata = vzalloc(VDEC_META_DATA_SIZE);
+				head_metadata = aml_media_mem_alloc(VDEC_META_DATA_SIZE, GFP_KERNEL);
 				if (!head_metadata) {
 					v4l_dbg(vdec->ctx, V4L_DEBUG_CODEC_ERROR,
 						"alloc size %d failed.\n", VDEC_META_DATA_SIZE);
@@ -799,7 +799,7 @@ static int vdec_write_nalu(struct vdec_vp9_inst *inst,
 			v4l_dbg(vdec->ctx, V4L_DEBUG_CODEC_INPUT,
 				"size:%d superframe_len:%d nb_frames:%d\n", size, superframe_len, s.nb_frames);
 			ret = vdec_vframe_write(vdec, buf, size - superframe_len, ts, 0, free, head_metadata);
-			vfree(head_metadata);
+			kvfree(head_metadata);
 		} else {
 			/*add headers.*/
 			add_prefix_data(&s, &data, &length);

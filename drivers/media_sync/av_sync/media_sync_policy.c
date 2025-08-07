@@ -15,6 +15,7 @@
 #include <trace/events/meson_atrace.h>
 #include "media_sync_core.h"
 #include "media_sync_policy.h"
+#include "../../../drivers/common/media_utils/media_utils.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
 #include <linux/moduleparam.h>
 #include <linux/amlogic/gki_module.h>
@@ -1685,7 +1686,7 @@ static void mediasync_policy_destroy(struct kref *kref)
 
 	//pr_info("VTP(%px) destroy.\n", vtp_mgr);
 
-	vfree(policy_mgr);
+	kvfree(policy_mgr);
 }
 
 int mediasync_policy_parameter_init(mediasync_policy_instance *policyInst) {
@@ -1795,7 +1796,7 @@ int mediasync_policy_inst_release(ulong handle)
 
 int mediasync_policy_manager_init(void)
 {
-	m_mgr = vzalloc(sizeof(struct mediasync_policy_manager));
+	m_mgr = aml_media_mem_alloc(sizeof(struct mediasync_policy_manager), GFP_KERNEL);
 	if (m_mgr == NULL)
 		return -ENOMEM;
 
