@@ -5,6 +5,9 @@
 
 #define VDEC_DEBUG_MODULE  "VDEC_DEBUG"
 
+#define DEVICE_NAME "vdec_debug"
+#define CLASS_NAME  "vdec_debug"
+
 #define LPRINT0
 #define LPRINT1(...)        printk(__VA_ARGS__)
 
@@ -63,6 +66,11 @@ struct amvdec_debug_port_t {
 	u32 enable[MAX_INSTANCE_NUM];
 	u32 fatal_error;
 	u32 debug_flag;
+
+	dev_t dev_num;
+	struct cdev cdev;
+	struct class *class;
+	struct device *device;
 };
 
 

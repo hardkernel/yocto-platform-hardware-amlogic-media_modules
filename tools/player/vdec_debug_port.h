@@ -30,6 +30,7 @@ typedef unsigned long ulong;
 
 #define DUMP_FILE_PATH "/data/tmp/"
 
+#define DEC_DEBUG_CHAR_DEV  "/dev/vdec_debug"
 
 enum vformat_e {
 	VFORMAT_MPEG12 = 0,

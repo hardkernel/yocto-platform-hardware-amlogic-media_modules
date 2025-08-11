@@ -296,8 +296,12 @@ int main(int argc, char *argv[])
 
 	dev_fd = open(DEC_DEBUG_PORT_DEV, O_RDWR);
 	if (dev_fd < 0) {
-		printf("open %s failed, error %d\n", DEC_DEBUG_PORT_DEV, errno);
-		return 0;
+		dev_fd = open(DEC_DEBUG_CHAR_DEV, O_RDWR);
+		if (dev_fd < 0) {
+			printf("open %s and %s failed, error %d\n",
+				DEC_DEBUG_PORT_DEV, DEC_DEBUG_CHAR_DEV, errno);
+			return 0;
+		}
 	}
 
 	dump_buf = (char *)malloc(MALLOC_BUF_SIZE);

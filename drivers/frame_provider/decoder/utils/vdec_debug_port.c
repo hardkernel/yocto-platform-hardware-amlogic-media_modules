@@ -671,16 +671,13 @@ static const struct file_operations vdec_dbg_port_fops = {
 static u32 dec_debug_buf_size;
 module_param(dec_debug_buf_size, uint, 0664);
 
-static int vdec_debug_port_probe(struct amvdec_debug_port_t **p_mdbg)
+static int vdec_debug_port_probe(struct amvdec_debug_port_t *mport)
 {
-	struct amvdec_debug_port_t *mport;
 	int flags = CODEC_MM_FLAGS_DMA;
 	u32 buf_size = SZ_1M * 16;
 
-	mport = (struct amvdec_debug_port_t *)vzalloc(sizeof(struct amvdec_debug_port_t));
-	if (!mport) {
+	if (mport == NULL)
 		return -1;
-	}
 
 	INIT_LIST_HEAD(&mport->head);
 	mutex_init(&mport->mlock);
@@ -714,12 +711,9 @@ static int vdec_debug_port_probe(struct amvdec_debug_port_t **p_mdbg)
 	mport->rp = mport->buf_vaddr;
 	mport->wp = mport->buf_vaddr;
 	mport->fatal_error = 0;
-	//mport->enable[] = 0;
 
 	init_waitqueue_head(&mport->poll_wait);
 	init_waitqueue_head(&mport->wait_data_done);
-
-	*p_mdbg = mport;
 
 	vdec_debug_port_register(debug_port_write_data,
 		debug_port_update_vinfo);
@@ -751,14 +745,75 @@ static void vdec_debug_port_remove(struct amvdec_debug_port_t *mport)
 	}
 
 	vdec_debug_port_unregister();
-
-	vfree(mport);
 }
 
-int __init vdec_debug_module_init(void)
+static int vdec_debug_register(struct amvdec_debug_port_t *mport)
+{
+	int ret;
+
+	if (mport == NULL)
+		return -1;
+
+	ret = alloc_chrdev_region(&mport->dev_num, 0, 1, DEVICE_NAME);
+	if (ret) {
+		pr_err("Failed to allocate char dev region\n");
+		return ret;
+	}
+
+	cdev_init(&mport->cdev, &vdec_dbg_port_fops);
+	ret = cdev_add(&mport->cdev, mport->dev_num, 1);
+	if (ret) {
+		pr_err("Failed to add cdev\n");
+		goto unregister_chrdev;
+	}
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
+	mport->class = class_create(THIS_MODULE, CLASS_NAME);
+#else
+	mport->class = class_create(CLASS_NAME);
+#endif
+	if (IS_ERR(mport->class)) {
+		pr_err("Failed to create class\n");
+		ret = PTR_ERR(mport->class);
+		goto del_cdev;
+	}
+
+	mport->device = device_create(mport->class, NULL, mport->dev_num, NULL, DEVICE_NAME);
+	if (IS_ERR(mport->device)) {
+		pr_err("Failed to create device\n");
+		ret = PTR_ERR(mport->device);
+		goto destroy_class;
+	}
+
+	pr_info("chardev initialized: /dev/%s\n", DEVICE_NAME);
+	return 0;
+
+destroy_class:
+	class_destroy(mport->class);
+del_cdev:
+	cdev_del(&mport->cdev);
+unregister_chrdev:
+	unregister_chrdev_region(mport->dev_num, 1);
+	return ret;
+}
+
+static void vdec_debug_unregister(struct amvdec_debug_port_t *mport)
+{
+	if (mport == NULL)
+		return;
+
+	device_destroy(mport->class, mport->dev_num);
+	class_destroy(mport->class);
+	cdev_del(&mport->cdev);
+	unregister_chrdev_region(mport->dev_num, 1);
+}
+
+static int vdec_debug_init_debugfs(struct amvdec_debug_port_t *mport)
 {
 	struct dentry *proot, *entry;
-	int ret;
+
+	if (mport == NULL)
+		return -1;
 
 	proot = debugfs_lookup("vdec_profile", NULL);
 	if (proot == NULL) {
@@ -768,16 +823,9 @@ int __init vdec_debug_module_init(void)
 
 	entry = debugfs_create_file("debug_port", 0666, proot, NULL,
 		&vdec_dbg_port_fops);
-	if (!entry) {
+	if (entry == NULL) {
 		pr_info("%s create failed\n", __func__);
 		return 0;
-	}
-
-	ret = vdec_debug_port_probe(&dec_debug_port);
-	if (ret < 0) {
-		debugfs_remove(entry);
-		pr_info("debug utils probe failed, ret = %d\n", ret);
-		return ret;
 	}
 
 	dec_debug_entry = entry;
@@ -786,13 +834,57 @@ int __init vdec_debug_module_init(void)
 	return 0;
 }
 
-void __exit vdec_debug_module_exit(void)
+static void vdec_debug_exit_debugfs(void)
 {
-	vdec_debug_port_remove(dec_debug_port);
-
 	debugfs_remove(dec_debug_entry);
 
 	pr_info("vdec debugfs entry removed\n");
+}
+
+static int __init vdec_debug_module_init(void)
+{
+	int ret;
+	struct amvdec_debug_port_t *mport;
+
+	mport = (struct amvdec_debug_port_t *)vzalloc(sizeof(struct amvdec_debug_port_t));
+	if (mport == NULL)
+		return -1;
+
+	ret = vdec_debug_register(mport);
+	if (ret < 0)
+		return ret;
+
+	ret = vdec_debug_init_debugfs(mport);
+	if (ret < 0) {
+		vdec_debug_unregister(mport);
+		return ret;
+	}
+
+	ret = vdec_debug_port_probe(mport);
+	if (ret < 0) {
+		pr_info("debug utils probe failed, ret = %d\n", ret);
+		vdec_debug_exit_debugfs();
+		vdec_debug_unregister(mport);
+		return ret;
+	}
+
+	dec_debug_port = mport;
+
+	return 0;
+}
+
+static void __exit vdec_debug_module_exit(void)
+{
+	if (dec_debug_port) {
+		vdec_debug_port_remove(dec_debug_port);
+
+		vdec_debug_exit_debugfs();
+
+		vdec_debug_unregister(dec_debug_port);
+
+		vfree(dec_debug_port);
+		dec_debug_port = NULL;
+	}
 }
 
 module_init(vdec_debug_module_init);
