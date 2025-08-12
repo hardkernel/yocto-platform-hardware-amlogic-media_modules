@@ -8323,10 +8323,17 @@ static void hevc_local_uninit(struct hevc_state_s *hevc)
 #ifdef SWAP_HEVC_UCODE
 	if (hevc->is_swap) {
 		if (hevc->mc_cpu_addr != NULL) {
+#ifdef PXP_DEBUG_34BIT
+			dma_unmap_single(get_vdec_device(),
+				hevc->mc_dma_handle, hevc->swap_size, DMA_TO_DEVICE);
+			free_pages((unsigned long)hevc->mc_cpu_addr, get_order(hevc->swap_size));
+			hevc->mc_dma_handle = 0;
+#else
 			decoder_dma_free_coherent(hevc->mc_cpu_handle,
 				hevc->swap_size, hevc->mc_cpu_addr,
 				hevc->mc_dma_handle);
 				hevc->mc_cpu_addr = NULL;
+#endif
 		}
 
 	}
@@ -13549,16 +13556,26 @@ static s32 vh265_init(struct hevc_state_s *hevc)
 #ifdef SWAP_HEVC_UCODE
 	if (!fw_tee_enabled() && hevc->is_swap) {
 		hevc->swap_size = (4 * (4 * SZ_1K)); /*max 4 swap code, each 0x400*/
+#ifdef PXP_DEBUG_34BIT
+		hevc->mc_cpu_addr =
+			(void *)__get_free_pages(
+				GFP_KERNEL | GFP_DMA32, get_order(hevc->swap_size));
+#else
 		hevc->mc_cpu_addr =
 			decoder_dma_alloc_coherent(&hevc->mc_cpu_handle,
 				hevc->swap_size,
 				&hevc->mc_dma_handle, "H.265_MC_CPU_BUF");
+#endif
 		if (!hevc->mc_cpu_addr) {
 			amhevc_disable();
 			pr_info("vh265 mmu swap ucode loaded fail.\n");
 			vfree(fw);
 			return -ENOMEM;
 		}
+#ifdef PXP_DEBUG_34BIT
+		hevc->mc_dma_handle = dma_map_single(get_vdec_device(),
+					hevc->mc_cpu_addr, hevc->swap_size, DMA_TO_DEVICE);
+#endif
 
 		memcpy((u8 *) hevc->mc_cpu_addr, fw->data + SWAP_HEVC_OFFSET,
 			hevc->swap_size);
@@ -16135,7 +16152,6 @@ static void vh265_dump_state(struct vdec_s *vdec)
 	}
 
 }
-
 
 static int ammvdec_h265_probe(struct platform_device *pdev)
 {

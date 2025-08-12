@@ -416,7 +416,6 @@ static s32 aml_loadmc_vdec(const u32 *p, int id)
 	timeout = READ_VREG(MPSR);
 	timeout = READ_VREG(MPSR);
 
-	timeout = jiffies + HZ;
 
 	WRITE_VREG(IMEM_DMA_ADR, mc_addr_map);
 
@@ -432,9 +431,10 @@ static s32 aml_loadmc_vdec(const u32 *p, int id)
 		WRITE_VREG(IMEM_DMA_CTRL, (0x8000 | (7 << 16)));
 	}
 
+	timeout = jiffies + HZ/10;
 	while (READ_VREG(IMEM_DMA_CTRL) & 0x8000) {
 		if (time_before(jiffies, timeout))
-			schedule();
+			usleep_range(100, 200);
 		else {
 			pr_err("vdec load mc error\n");
 			ret = -EBUSY;
@@ -482,7 +482,6 @@ static s32 amvdec_loadmc(const u32 *p)
 	timeout = READ_VREG(MPSR);
 	timeout = READ_VREG(MPSR);
 
-	timeout = jiffies + HZ;
 
 	WRITE_VREG(IMEM_DMA_ADR, mc_addr_map);
 
@@ -497,9 +496,10 @@ static s32 amvdec_loadmc(const u32 *p)
 		WRITE_VREG(IMEM_DMA_CTRL, (0x8000 | (7 << 16)));
 	}
 
+	timeout = jiffies + HZ/10;
 	while (READ_VREG(IMEM_DMA_CTRL) & 0x8000) {
 		if (time_before(jiffies, timeout))
-			schedule();
+			usleep_range(100, 200);
 		else {
 			pr_err("vdec load mc error\n");
 			ret = -EBUSY;
@@ -778,15 +778,15 @@ static s32 amvdec2_loadmc(const u32 *p)
 		timeout = READ_VREG(VDEC2_MPSR);
 		timeout = READ_VREG(VDEC2_MPSR);
 
-		timeout = jiffies + HZ;
 
 		WRITE_VREG(VDEC2_IMEM_DMA_ADR, mc_addr_map);
 		WRITE_VREG(VDEC2_IMEM_DMA_COUNT, 0x1000);
 		WRITE_VREG(VDEC2_IMEM_DMA_CTRL, (0x8000 | (7 << 16)));
 
+		timeout = jiffies + HZ/10;
 		while (READ_VREG(VDEC2_IMEM_DMA_CTRL) & 0x8000) {
 			if (time_before(jiffies, timeout))
-				schedule();
+				usleep_range(100, 200);
 			else {
 				pr_err("vdec2 load mc error\n");
 				ret = -EBUSY;
@@ -891,8 +891,6 @@ static s32 amhevc_loadmc(const u32 *p)
 		timeout = READ_VREG(HEVC_MPSR);
 		timeout = READ_VREG(HEVC_MPSR);
 
-		timeout = jiffies + HZ;
-
 		WRITE_VREG(HEVC_IMEM_DMA_ADR, mc_addr_map);
 
 		if (is_amrisc_imem_size_6k())
@@ -910,9 +908,10 @@ static s32 amhevc_loadmc(const u32 *p)
 		else
 			WRITE_VREG(HEVC_IMEM_DMA_CTRL, (0x8000 | (0x7 << 16)));
 
+		timeout = jiffies + HZ/10;
 		while (READ_VREG(HEVC_IMEM_DMA_CTRL) & 0x8000) {
 			if (time_before(jiffies, timeout))
-				schedule();
+				usleep_range(100, 200);
 			else {
 				pr_err("hevc load mc error\n");
 				ret = -EBUSY;
@@ -962,15 +961,14 @@ static s32 amhevc_back_loadmc(const u32 *p)
 		timeout = READ_VREG(HEVC_MPSR_DBE);
 		timeout = READ_VREG(HEVC_MPSR_DBE);
 
-		timeout = jiffies + HZ;
-
 		WRITE_VREG(HEVC_IMEM_DMA_ADR_DBE, mc_addr_map_dbe);
 		WRITE_VREG(HEVC_IMEM_DMA_COUNT_DBE, 0x1000);
 		WRITE_VREG(HEVC_IMEM_DMA_CTRL_DBE, (0x8000 | (0xf << 16)));
 
+		timeout = jiffies + HZ/10;
 		while (READ_VREG(HEVC_IMEM_DMA_CTRL_DBE) & 0x8000) {
 			if (time_before(jiffies, timeout))
-				schedule();
+				usleep_range(100, 200);
 			else {
 				pr_err("hevc load mc error\n");
 				ret = -EBUSY;
@@ -1171,10 +1169,6 @@ void amvdec_stop(void)
 	}
 	/* #endif */
 
-	if (is_vdec_hevc_combine()) {
-		dos_gclk_en_set(VDEC_1, 0, 0);
-	}
-
 #ifdef CONFIG_WAKELOCK
 	amvdec_wake_unlock();
 #endif
@@ -1245,12 +1239,6 @@ void amhevc_stop(void)
 		READ_VREG(DOS_SW_RESET3);
 		READ_VREG(DOS_SW_RESET3);
 		READ_VREG(DOS_SW_RESET3);
-
-		if (is_vdec_hevc_combine()) {
-			dos_gclk_en_set(VDEC_HEVC, 0, 0);
-		} else if (is_vcpu_clk_set()) {
-			CLEAR_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn off vcpu clock
-		}
 
 #ifdef CONFIG_WAKELOCK
 		amvdec_wake_unlock();

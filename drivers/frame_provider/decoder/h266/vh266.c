@@ -285,7 +285,6 @@ static u32 dirty_again_threshold = 100;
 static u32 double_write_mode;
 
 static u32 mem_map_mode; /* 0:linear 1:32x32 2:64x32 ; m8baby test1902 */
-static u32 enable_mem_saving = 1;
 #ifndef MULTI_INSTANCE_SUPPORT
 static u32 workaround_enable;
 #endif
@@ -318,7 +317,6 @@ static u32 radr;
 static u32 rval;
 static u32 dbg_cmd;
 static u32 dump_nal;
-static u32 dbg_skip_decode_index;
 /*
  * bit 0~3, for HEVCD_IPP_AXIIF_CONFIG endian config
  * bit 8~23, for HEVC_SAO_CTRL1 endian config
@@ -375,33 +373,9 @@ static u32 run_ready_max_buf_num = 0xff;
 #endif
 
 static u32 dynamic_buf_num_margin = 4;
-static u32 buf_alloc_width;
-static u32 buf_alloc_height;
 
 static u32 max_buf_num = 16;
 static u32 buf_alloc_size;
-/*static u32 re_config_pic_flag;*/
-/*
- *bit[0]: 0,
- *bit[1]: 0, always release cma buffer when stop
- *bit[1]: 1, never release cma buffer when stop
- *bit[0]: 1, when stop, release cma buffer if blackout is 1;
- *do not release cma buffer is blackout is not 1
- *
- *bit[2]: 0, when start decoding, check current displayed buffer
- *	 (only for buffer decoded by h266) if blackout is 0
- *	 1, do not check current displayed buffer
- *
- *bit[3]: 1, if blackout is not 1, do not release current
- *			displayed cma buffer always.
- */
-/* set to 1 for fast play;
- *	set to 8 for other case of "keep last frame"
- */
-static u32 buffer_mode = 1;
-
-/* buffer_mode_dbg: debug only*/
-static u32 buffer_mode_dbg = 0xffff0000;
 /**/
 /*
  *bit[1:0]PB_skip_mode: 0, start decoding at begin;
@@ -473,8 +447,6 @@ static u32 max_decoding_time;
 static u32 error_handle_policy;
 static u32 error_skip_nal_count = 6;
 static u32 error_handle_threshold = 30;
-static u32 error_handle_nal_skip_threshold = 10;
-static u32 error_handle_system_threshold = 30;
 static u32 interlace_enable = 1;
 static u32 fr_hint_status;
 
@@ -3559,7 +3531,12 @@ static int config_mpred_hw(struct hevc_state_s *hevc, BuffInfo_t* buf_spec)
 		col_pic->has_inter_slice || cur_pic->inter_slice_allowed_flag);
 
 	WRITE_VREG(HEVC_MPRED_MV_WR_START_ADDR, cur_pic->mpred_mv_wr_start_addr);
-	WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100);
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6)
+		WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100);
+	else
+		WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100 | (PREFIX_ADDR(hevc->buf_start) << 30));
+
 	WRITE_VREG(VVC_MPP_MV_WRPTR, cur_pic->mpred_mv_wr_start_addr);
 	WRITE_VREG(VVC_MPP_LCU_INFO, ((vvc_dec->lcu_x_num)|(vvc_dec->lcu_y_num)<<16));
 	data32 = (vvc_dec->vvc_monochrome << 6) | (vvc_dec->lcu_size_log2 << 2)|(cur_pic->mv_wr_en?0x0:0x2); // |vvc_dec->slice_type
@@ -8175,6 +8152,9 @@ muti_output:
 		hevc->crop_h = hevc->pic_h;
 		hevc->bit_depth_luma = hevc->vvc_dec->param.p.sps_bitdepth_minus8 + 8;
 		hevc->bit_depth_chroma = hevc->bit_depth_luma;
+		bit_depth_luma = hevc->bit_depth_luma;
+		bit_depth_chroma = hevc->bit_depth_chroma;
+
 		if (vvc_dec->init_hw_flag == 0) {
 			init_pic_list(hevc); //init_pic_list_hw(vvc_dec, buf_spec, mc_buf_spec);
 			init_pic_list_hw(hevc);
@@ -11051,7 +11031,6 @@ static void vh266_dump_state(struct vdec_s *vdec)
 
 }
 
-
 static int ammvdec_h266_probe(struct platform_device *pdev)
 {
 	struct vdec_s *pdata = *(struct vdec_s **)pdev->dev.platform_data;
@@ -11559,7 +11538,6 @@ static struct mconfig h266_configs[] = {
 	MC_PU32("radr", &radr),
 	MC_PU32("rval", &rval),
 	MC_PU32("dbg_cmd", &dbg_cmd),
-	MC_PU32("dbg_skip_decode_index", &dbg_skip_decode_index),
 	MC_PU32("endian", &endian),
 	MC_PU32("step", &step),
 	MC_PU32("udebug_flag", &udebug_flag),
@@ -11569,23 +11547,14 @@ static struct mconfig h266_configs[] = {
 	MC_PU32("i_only_flag", &i_only_flag),
 	MC_PU32("error_handle_policy", &error_handle_policy),
 	MC_PU32("error_handle_threshold", &error_handle_threshold),
-	MC_PU32("error_handle_nal_skip_threshold",
-		&error_handle_nal_skip_threshold),
-	MC_PU32("error_handle_system_threshold",
-		&error_handle_system_threshold),
 	MC_PU32("error_skip_nal_count", &error_skip_nal_count),
 	MC_PU32("debug", &debug),
 	MC_PU32("debug_mask", &debug_mask),
-	MC_PU32("buffer_mode", &buffer_mode),
 	MC_PU32("double_write_mode", &double_write_mode),
-	MC_PU32("buf_alloc_width", &buf_alloc_width),
-	MC_PU32("buf_alloc_height", &buf_alloc_height),
 	MC_PU32("dynamic_buf_num_margin", &dynamic_buf_num_margin),
 	MC_PU32("max_buf_num", &max_buf_num),
 	MC_PU32("buf_alloc_size", &buf_alloc_size),
-	MC_PU32("buffer_mode_dbg", &buffer_mode_dbg),
 	MC_PU32("mem_map_mode", &mem_map_mode),
-	MC_PU32("enable_mem_saving", &enable_mem_saving),
 	MC_PU32("force_w_h", &force_w_h),
 	MC_PU32("force_fps", &force_fps),
 	MC_PU32("max_decoding_time", &max_decoding_time),

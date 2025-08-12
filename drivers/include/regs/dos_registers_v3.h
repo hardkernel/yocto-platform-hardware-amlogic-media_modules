@@ -1091,6 +1091,17 @@
 #define HEVC_VDEC_AXI_ID3                          0x2093
 #define HEVC_AXI_BRESP_INT_STATU                   0x2094
 
+//T6X Register
+#define PCLATCH                                    0x0344
+#define HEVC_AXI_MON_CTRL                          0x2095
+#define HEVC_AXI_MON_A_START                       0x2096
+#define HEVC_AXI_MON_A_END                         0x2097
+#define HEVC_AXI_MON_A_RSV                         0x2098
+#define HEVC_AXI_MON_B_START                       0x2099
+#define HEVC_AXI_MON_B_END                         0x209a
+#define HEVC_AXI_MON_B_ERR_ID                      0x209b
+#define HEVC_AXI_MON_B_ERR_ADDR                    0x209c
+#define HEVC_AXI_MON_B_IGN_ID                      0x209d
 //------------------------------------------------------------------------------
 // HEVC_PARSER module level register offset
 //------------------------------------------------------------------------------
@@ -1218,10 +1229,23 @@
 #define HEVC_SHIFT_CRC                             0x2175
 #define VP9_ACP_CTRL                               0x2176
 #define PARSER_TOP_CLK_GATING_CTL                  0x2177
+
+//T6X Register
+#define PARSER_LCEVC_CTL                           0x2178
+#define PARSER_LCEVC_RESOLUTION                    0x2179
+#define PARSER_LCEVC_RW_CTL                        0x217a
+#define PARSER_LCEVC_MMU_OFFSET                    0x217b
+#define PARSER_LCEVC_BUFFER                        0x217c
+#define PARSER_LCEVC_MAX_BITS                      0x217d
+//GXLX4 Register
 #define HEVC_SCATTER_CONTROL                       0x217e
 #define HEVC_SCATTER_WRAP                          0x217f
 #define HEVC_SCATTER_DATA_START_ADDR               0x2180
 #define HEVC_SCATTER_DATA_ADDR_ADJUST              0x2181
+
+//T6X Register
+#define HEVC_SCATTER_MAP_FIFO_LEVEL                HEVC_SCATTER_DATA_START_ADDR
+#define HEVC_SW_PARSER_CLK_ENABLE                  0x218f
 
 //------------------------------------------------------------------------------
 // HEVC_MPRED module level register offset
@@ -1400,6 +1424,11 @@
 #define HEVCD_IPP_SWMPREDIF_PUINFO1                0x2414
 #define HEVCD_IPP_SWMPREDIF_PUINFO2                0x2415
 #define HEVCD_IPP_SWMPREDIF_PUINFO3                0x2416
+
+//T6X register add
+#define HEVCD_IPP_GCLKGATE_CONFIG                  0x2416
+
+//GXLX4 register
 #define HEVCD_IPP_AXIADDR_PREFIX                   0x2418
 #define AV1D_IPP_DIR_CFG                           0x2419
 #define HEVCD_IPP_DYNCLKGATE_CONFIG                0x2420
@@ -1407,6 +1436,12 @@
 #define HEVCD_MPP_DYNCLKGATE_CONFIG                0x2422
 #define HEVCD_MPP_SUB_DYNCLKGATE_CONFIG            0x2422
 #define HEVCD_MPP_DYNCLKGATE_STATUS                0x2423
+
+//T6X register
+#define HEVCD_MCR_DYNCLKGATE_CONFIG                0x2424
+#define HEVCD_MCR_DYNCLKGATE_STATUS                0x2425
+
+//GXLX4 register
 #define HEVCD_IPP_DBG_SEL                          0x2430
 #define HEVCD_IPP_DBG_DATA                         0x2431
 #define HEVCD_IPP_LMCS_DELTA_CW_INDEX              0x2432
@@ -1416,6 +1451,12 @@
 #define HEVCD_IPP_CRC_CTL                          0x2436
 #define HEVCD_IPP_CRC_VAL                          0x2437
 #define HEVCD_MC_FLD_ARB_DYNCLKGATE_CONFIG         0x2438
+
+//T6X register
+#define HEVCD_MPP_SUBMODULE_GCLK_EN_CONFIG         HEVCD_MC_FLD_ARB_DYNCLKGATE_CONFIG
+#define HEVCD_MCR_DCM_FRM_REQ                      0x2439
+
+//GXLX4 register
 #define HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR            0x2460
 #define HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR             0x2461
 #define HEVCD_MPP_ANC2AXI_TBL_DATA                 0x2464
@@ -1543,6 +1584,15 @@
 #define HEVC_DBLK_LMCS_DELTA_CW_INDEX              0x252c
 #define HEVC_DBLK_LMCS_DELTA_CW_DATA               0x252d
 #define HEVC_DBLK_LMCS_DELTA_CTRL                  0x252e
+
+#define HEVC_LPF_GCLK_EN0                          0x2530
+#define HEVC_LPF_GCLK_EN1                          0x2531
+#define HEVC_LPF_GCLK_EN2                          0x2532
+// LPF clock gate disable for sub-modules
+#define HEVC_LPF_CG_OFF0                           0x2533
+#define HEVC_LPF_CG_OFF1                           0x2534
+#define HEVC_LPF_CG_OFF2                           0x2535
+
 #define HEVC_DBLK_SAO0                             0x2540
 #define HEVC_DBLK_SAO1                             0x2541
 #define HEVC_DBLK_SAO2                             0x2542

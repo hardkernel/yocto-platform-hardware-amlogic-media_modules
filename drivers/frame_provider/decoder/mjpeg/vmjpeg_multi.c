@@ -620,7 +620,7 @@ static void vmjpeg_canvas_init(struct vdec_mjpeg_hw_s *hw)
 		ret = decoder_bmmu_box_alloc_buf_phy(hw->mm_blk_handle, i,
 				decbuf_size, DRIVER_NAME, &buf_start);
 		if (ret < 0) {
-			pr_err("CMA alloc failed! size 0x%d  idx %d\n",
+			pr_err("CMA alloc failed! size 0x%x, idx %d\n",
 				decbuf_size, i);
 			return;
 		}

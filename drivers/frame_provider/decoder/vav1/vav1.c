@@ -4458,7 +4458,8 @@ static void config_sao_hw(struct AV1HW_s *hw, union param_u *params)
 		data32 &= ~(0xff << 16);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 
-		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X)) {
 			/* bit 5: dw_fgs_byass=1(Film Grain module bypass) */
 			SET_VREG_MASK(HEVC_SAO_CTRL5, (0x1 << 5));
 
@@ -5978,8 +5979,15 @@ static void av1_local_uninit(struct AV1HW_s *hw)
 	vav1_mmu_map_free(hw);
 #ifdef SWAP_HEVC_UCODE
 	if (!fw_tee_enabled() && hw->is_swap) {
-		if (hw->swap_virt_addr)
+		if (hw->swap_virt_addr) {
+#ifdef PXP_DEBUG_34BIT
+			dma_unmap_single(get_vdec_device(),
+				hw->swap_phy_addr, hw->swap_size, DMA_TO_DEVICE);
+			free_pages((unsigned long)hw->swap_virt_addr, get_order(hw->swap_size));
+#else
 			codec_mm_dma_free_coherent(hw->swap_mem_handle);
+#endif
+		}
 		hw->swap_mem_handle = 0;
 		hw->swap_virt_addr = NULL;
 		hw->swap_phy_addr = 0;
@@ -10396,14 +10404,24 @@ static s32 vav1_init(struct AV1HW_s *hw)
 	if (!fw_tee_enabled() && hw->is_swap) {
 		char *swap_data;
 		hw->swap_size = (4 * (4 * SZ_1K)); /*max 4 swap code, each 0x400*/
+#ifdef PXP_DEBUG_34BIT
+		hw->swap_virt_addr =
+			(void *)__get_free_pages(
+				GFP_KERNEL | GFP_DMA32, get_order(hw->swap_size));
+#else
 		hw->swap_virt_addr =
 			codec_mm_dma_alloc_coherent(&hw->swap_mem_handle, &hw->swap_phy_addr,
 				hw->swap_size, "AV1_UCODE_SWAP");
+#endif
 		if (!hw->swap_virt_addr) {
 			amhevc_disable();
 			av1_print(hw, 0, "av1 front swap ucode loaded fail.\n");
 			return -ENOMEM;
 		}
+#ifdef PXP_DEBUG_34BIT
+		hw->swap_phy_addr = dma_map_single(get_vdec_device(),
+				hw->swap_virt_addr, hw->swap_size, DMA_TO_DEVICE);
+#endif
 		memcpy((u8 *)hw->swap_virt_addr, fw->data + SWAP_HEVC_OFFSET,
 			hw->swap_size);
 		swap_data = hw->swap_virt_addr;

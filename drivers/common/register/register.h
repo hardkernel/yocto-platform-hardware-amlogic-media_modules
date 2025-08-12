@@ -118,8 +118,8 @@ struct bus_reg_desc {
 #define READ_VREG(addr) read_dos_reg_comp(addr)
 
 #ifdef CONFIG_ARM64
-#define PREFIX_ADDR_MASK(addr)  (0x300000000UL & addr)
-#define PREFIX_ADDR(addr) (PREFIX_ADDR_MASK(addr) >> 32)
+#define PREFIX_ADDR_MASK(addr)  (0x300000000UL & (addr))
+#define PREFIX_ADDR(addr) ((PREFIX_ADDR_MASK(addr)) >> 32)
 #else
 #define PREFIX_ADDR_MASK(addr)  (0x0UL)
 #define PREFIX_ADDR(addr) (0UL)

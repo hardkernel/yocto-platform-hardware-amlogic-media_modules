@@ -253,6 +253,9 @@ enum vdec_irq_num {
 	VDEC_IRQ_1,
 	VDEC_IRQ_2,
 	ASSIST_MAILBOX_IRQ0,
+	VIFF_EMPTY,
+	AXI_MONITOR,
+	//below irq unused
 	ASSIST_MAILBOX_IRQ1,
 	ASSIST_MAILBOX_IRQ2,
 	ASSIST_MAILBOX_IRQ3,
@@ -529,6 +532,10 @@ struct vdec_s {
 			void (*callback)(struct vdec_s *, void *, int), void *);
 	void (*reset)(struct vdec_s *vdec);
 	void (*dump_state)(struct vdec_s *vdec);
+
+	void (*low_power_clk_on)(void);
+	void (*low_power_clk_off)(void);
+
 	irqreturn_t (*irq_handler)(struct vdec_s *vdec, int irq);
 	irqreturn_t (*threaded_irq_handler)(struct vdec_s *vdec, int irq);
 	irqreturn_t (*back_irq_handler)(struct vdec_s *vdec, int irq);
@@ -1045,7 +1052,5 @@ void stream_prefix_config(u32 prefix, u32 target);
 struct device *get_vdec_dev(void);
 
 void arb_ctrl_wait_idle(int enable);
-
-void dos_gclk_en_set(enum vdec_type_e core, bool enable, bool mmu_enable);
 
 #endif /* VDEC_H */

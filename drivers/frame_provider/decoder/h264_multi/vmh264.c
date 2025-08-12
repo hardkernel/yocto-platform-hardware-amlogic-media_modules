@@ -6271,6 +6271,11 @@ static int clear_mmu_config(struct vdec_h264_hw_s *hw)
 
 	hw->mmu_enable = 0;
 
+	vdec->low_power_clk_on =
+		low_power_clk_on_get(VFORMAT_H264, hw->mmu_enable);
+	vdec->low_power_clk_off =
+		low_power_clk_off_get(VFORMAT_H264, hw->mmu_enable);
+
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_MMU_DETAIL, "enter clear mmu config\n");
 	if (!is_vdec_hevc_combine())
 		amhevc_stop();
@@ -6400,6 +6405,11 @@ int set_mmu_config(struct vdec_h264_hw_s *hw)
 			ucode_copy(hw->mc_cpu_addr, hw->fw_mmu->data);
 		}
 	}
+
+	vdec->low_power_clk_on =
+		low_power_clk_on_get(VFORMAT_H264, hw->mmu_enable);
+	vdec->low_power_clk_off =
+		low_power_clk_off_get(VFORMAT_H264, hw->mmu_enable);
 
 	hevc_source_changed(VFORMAT_HEVC, 3840, 2160, 60);
 
@@ -10317,9 +10327,15 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 
 	if (!fw_tee_enabled()) {
 		/* -- ucode loading (amrisc and swap code) */
+#ifdef PXP_DEBUG_34BIT
+		hw->mc_cpu_addr =
+			(void *)__get_free_pages(
+				GFP_KERNEL | GFP_DMA32, get_order(MC_TOTAL_SIZE));
+#else
 		hw->mc_cpu_addr =
 			decoder_dma_alloc_coherent(&hw->mc_cpu_handle,
 					MC_TOTAL_SIZE, &hw->mc_dma_handle, "H264_MMU_BUF");
+#endif
 		if (!hw->mc_cpu_addr) {
 			amvdec_enable_flag = false;
 			amvdec_disable();
@@ -10330,6 +10346,11 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 			return -ENOMEM;
 		}
 
+#ifdef PXP_DEBUG_34BIT
+		hw->mc_dma_handle = dma_map_single(get_vdec_device(),
+				hw->mc_cpu_addr, MC_TOTAL_SIZE, DMA_TO_DEVICE);
+		pr_info("%s, alloc imem mc phy addr %lx\n", __func__, hw->mc_dma_handle);
+#endif
 		ucode_copy(hw->mc_cpu_addr, fw->data);
 	}
 
@@ -10425,9 +10446,15 @@ static int vh264_stop(struct vdec_h264_hw_s *hw)
 
 	if (hw->stat & STAT_MC_LOAD) {
 		if (hw->mc_cpu_addr != NULL) {
+#ifdef PXP_DEBUG_34BIT
+			dma_unmap_single(get_vdec_device(),
+				hw->mc_dma_handle, MC_TOTAL_SIZE, DMA_TO_DEVICE);
+			free_pages((unsigned long)hw->mc_cpu_addr, get_order(MC_TOTAL_SIZE));
+#else
 			decoder_dma_free_coherent(hw->mc_cpu_handle,
 					MC_TOTAL_SIZE, hw->mc_cpu_addr,
 					hw->mc_dma_handle);
+#endif
 			hw->mc_cpu_addr = NULL;
 		}
 		if (hw->frame_mmu_map_addr != NULL) {
@@ -12236,6 +12263,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		(struct vdec_h264_hw_s *)vdec->private;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 	int size, ret = -1;
+
 	if (!hw->vdec_pg_enable_flag) {
 		hw->vdec_pg_enable_flag = 1;
 		amvdec_enable();
@@ -12248,8 +12276,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	vdec_reset_core(vdec);
 	if (hw->mmu_enable || is_vdec_hevc_combine())
 		hevc_reset_core(vdec);
-	if (hw->mmu_enable && is_vdec_hevc_combine())
-		dos_gclk_en_set(VDEC_1, 1, 1);
+
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
 

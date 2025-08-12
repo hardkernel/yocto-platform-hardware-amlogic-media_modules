@@ -11502,6 +11502,12 @@ int set_mmu_config(struct vdec_h264_hw_s *hw, struct vdec_s *vdec)
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	hw->mmu_enable = 1;
+
+	vdec->low_power_clk_on =
+		low_power_clk_on_get(VFORMAT_H264, hw->mmu_enable);
+	vdec->low_power_clk_off =
+		low_power_clk_off_get(VFORMAT_H264, hw->mmu_enable);
+
 	{
 		hw->canvas_mode = CANVAS_BLKMODE_LINEAR;
 		hw->double_write_mode &= 0xffff;
@@ -11565,6 +11571,11 @@ int set_mmu_config(struct vdec_h264_hw_s *hw, struct vdec_s *vdec)
 static int clear_mmu_config(struct vdec_h264_hw_s *hw, struct vdec_s *vdec)
 {
 	hw->mmu_enable = 0;
+
+	vdec->low_power_clk_on =
+		low_power_clk_on_get(VFORMAT_H264, hw->mmu_enable);
+	vdec->low_power_clk_off =
+		low_power_clk_off_get(VFORMAT_H264, hw->mmu_enable);
 
 	if (!is_vdec_hevc_combine()) {
 		amhevc_stop();
@@ -12992,6 +13003,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 	int size, ret = -1;
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)hw->v4l2_ctx;
+
 	if (!hw->vdec_pg_enable_flag) {
 		hw->vdec_pg_enable_flag = 1;
 		amvdec_enable();
@@ -13004,8 +13016,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	vdec_reset_core(vdec);
 	if (hw->mmu_enable || is_vdec_hevc_combine())
 		hevc_reset_core(vdec);
-	if (hw->mmu_enable && is_vdec_hevc_combine())
-		dos_gclk_en_set(VDEC_1, 1, 1);
+
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
 

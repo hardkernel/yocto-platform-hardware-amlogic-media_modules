@@ -3138,7 +3138,12 @@ static int config_mpred_hw(struct hevc_state_s *hevc, BuffInfo_t* buf_spec)
 		col_pic->has_inter_slice || cur_pic->inter_slice_allowed_flag);
 
 	WRITE_VREG(HEVC_MPRED_MV_WR_START_ADDR, cur_pic->mpred_mv_wr_start_addr);
-	WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100);
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6)
+		WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100);
+	else
+		WRITE_VREG(VVC_MPP_AXI_CTL, 0x0100c100 | (PREFIX_ADDR(hevc->buf_start) << 30));
+
 	WRITE_VREG(VVC_MPP_MV_WRPTR, cur_pic->mpred_mv_wr_start_addr);
 	WRITE_VREG(VVC_MPP_LCU_INFO, ((vvc_dec->lcu_x_num)|(vvc_dec->lcu_y_num)<<16));
 	data32 = (vvc_dec->vvc_monochrome << 6) | (vvc_dec->lcu_size_log2 << 2)|(cur_pic->mv_wr_en?0x0:0x2); // |vvc_dec->slice_type
@@ -8608,6 +8613,8 @@ muti_output:
 		hevc->crop_h = hevc->pic_h;
 		hevc->bit_depth_luma = hevc->vvc_dec->param.p.sps_bitdepth_minus8 + 8;
 		hevc->bit_depth_chroma = hevc->bit_depth_luma;
+		bit_depth_luma = hevc->bit_depth_luma;
+		bit_depth_chroma = hevc->bit_depth_chroma;
 #endif
 		if (vvc_dec->init_hw_flag == 0) {
 			init_pic_list(hevc); //init_pic_list_hw(vvc_dec, buf_spec, mc_buf_spec);
@@ -11380,7 +11387,6 @@ static void vh266_dump_state(struct vdec_s *vdec)
 	}
 
 }
-
 
 static int ammvdec_h266_probe(struct platform_device *pdev)
 {

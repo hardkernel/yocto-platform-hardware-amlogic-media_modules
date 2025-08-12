@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "../register/register.h"
+#include "../media_clock/clk/low_power_clk.h"
 #include "chips.h"
 
 /* majoy chip id define */
@@ -82,6 +83,7 @@ enum AM_MESON_CPU_MAJOR_ID {
 	AM_MESON_CPU_MAJOR_ID_S6	= 0x48,
 	AM_MESON_CPU_MAJOR_ID_T6D	= 0x49,
 	AM_MESON_CPU_MAJOR_ID_GXLX4	= 0x4a,
+	AM_MESON_CPU_MAJOR_ID_T6X	= 0x4b,
 	AM_MESON_CPU_MAJOR_ID_MAX,
 };
 
@@ -158,6 +160,7 @@ struct dos_of_dev_s {
 	bool hevc_clk_combine_flag;
 
 	/* resolution. necessary!! */
+	u32 fmt_support_flags;
 	u32 vdec_max_resolution;	//just for h264
 	u32 hevc_max_resolution;
 
@@ -176,29 +179,32 @@ struct dos_of_dev_s {
 	bool is_support_rdma;
 	bool is_support_mmu_copy;
 
-	bool is_vp9_adapt_prob_hw_mode;
+	bool is_vp9_hw_adapt_prob;
 	bool is_vdec_hevc_combine;  /* vdec merged in hevc */
 
 	bool is_support_path_monitor;    /* hevc path monitor */
 	bool is_support_bandwidth_msr; /* bandwidth measure in path monitor */
 
 	int hevc_stream_extra_shift;  /* extra shift bytes in hevc parser */
-	bool is_vcpu_clk_set;    /* amrisc clk off in frame idle */
 
 	bool is_support_34bit;   /* 34bit axi, 34bit addr, 16G addr */
 
 	bool is_amrisc_imem_size_6k;
 
-	u32 fmt_support_flags;
-
 	struct profile_level_t profile_level_idc;
 
+	/* low power ctrl */
+	bool is_vcpu_clk_set;    		/* amrisc clk off in frame idle */
+
+	struct low_power_ctrl_t *lpc;
+
+	/* avbcd */
 	bool is_support_avbc_wrapper;  /**/
 
+	/* bus idle ctrl for reset */
 	int dos_bus_ctrl;
 	int dos_bus_idle_mask;  /* afifo idle mask */
 };
-
 
 /* export functions */
 struct platform_device *initial_dos_device(void);
@@ -296,6 +302,8 @@ inline bool is_mjpeg_endian_rematch(void);
 
 inline bool is_vcpu_clk_set(void);
 
+struct low_power_ctrl_t *dos_low_power_ctrl_get(void);
+
 inline bool is_vp9_adapt_prob_hw_mode(void);
 
 inline bool is_support_34bit_mode(void);
@@ -315,6 +323,8 @@ inline bool is_use_dcac_dma_hw(void);
 inline bool is_use_ipp_dyn_cache(void);
 
 inline bool is_amrisc_imem_size_6k(void);
+
+inline bool is_support_axi_monitor(void);
 
 void pr_dos_infos(void);
 

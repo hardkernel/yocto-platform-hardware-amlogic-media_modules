@@ -110,6 +110,7 @@ int ionvideo_assign_map(char **receiver_name, int *inst)
 #include "vdec_power_ctrl.h"
 #include <linux/amlogic/media/frame_sync/timestamp.h>
 #include "firmware.h"
+#include "debug/dos_axi_monitor.h"
 
 static DEFINE_MUTEX(vdec_mutex);
 
@@ -1229,70 +1230,148 @@ void hevc_prefix_config(int dma_prefix, int bmmu_prefix)
 		return;
 
 	prefix = dma_prefix & 0x3;
-	/*
-	 * HEVC_ASSIST_AXIADDR_PREFIX
-	 * bit[21:20] ipp_intralbuf_axiaddr_prefix
-	 * bit[19:18] awaddr_axi_dma_prefix
-	 * bit[17:16] araddr_axi_dma_prefix
-	 * bit[15:14] awaddr_axi_stream_prefix
-	 * bit[13:12] araddr_axi_stream_prefix
-	 * bit[11:10] awaddr_axi_fb_prefix
-	 * bit[9:8]  araddr_axi_fb_prefix
-	 * bit[7:6]  vcpu_lmem_dma_prefix
-	 * bit[5:4]  vcpu_imem_dma_prefix
-	 * bit[3:2]  fb_wr_mmu_map_addr_prefix
-	 * bit[1:0]	 fb_rd_mmu_map_addr_prefix
-	 */
-	WRITE_VREG(HEVC_ASSIST_AXIADDR_PREFIX,
-					(prefix << 0) |
-					(prefix << 2) |  //vcpu_imem_dma
-					(prefix << 6) |
-					(prefix << 8) |
-					(prefix << 10) |
-					(stream_prefix << 12) |
-					(stream_prefix << 14) |
-					(prefix << 16) |
-					(prefix << 18) |
-					(prefix << 20));
 
-	prefix = bmmu_prefix & 0x3;
-	/*
-	 * HEVC_MPRED_CTRL11
-	 * bit[5:4] abv_prefix
-	 * bit[3:2] col_prefix
-	 * bit[1:0] cm_ptr_prefix
-	 */
-	WRITE_VREG(HEVC_MPRED_CTRL11,
+	if (is_vdec_hevc_combine()) {
+		/*
+		 * HEVC_ASSIST_AXIADDR_PREFIX
+		 * bit[23:22] dma wr
+		 * bit[21:20] dma rd
+		 * bit[19:18] stream wr
+		 * bit[17:16] stream rd
+		 * bit[11:10] vcpu lmem
+		 * bit[9:8]   vcpu imem
+		 */
+		WRITE_VREG(HEVC_ASSIST_AXIADDR_PREFIX,
+					(prefix << 10) |
+					(stream_prefix << 16) |
+					(stream_prefix << 18) |
+					(prefix << 20) |
+					(prefix << 22));
+
+		prefix = bmmu_prefix & 0x3;
+
+		/*
+		 * HEVCD_IPP_AXIADDR_PREFIX
+		 * bit[9:8] comp
+		 * bit[5:4] nv21
+		 * bit[1:0] intra
+		 */
+		WRITE_VREG(HEVCD_IPP_AXIADDR_PREFIX,
+					(prefix << 0) |
+					(prefix << 4) |
+					(prefix << 8));
+
+		/*
+		 * HEVC_MPRED_CTRL11
+		 * bit[5:4] abv
+		 * bit[3:2] col
+		 * bit[1:0] cm_ptr
+		 */
+		WRITE_VREG(HEVC_MPRED_CTRL11,
 					(prefix << 0) |
 					(prefix << 2) |
 					(prefix << 4));
-	/*
-	 * HEVC_OW_AXIADDR_PREFIX
-	 * bit[1:0]    nv21
-	 * bit[5:4]    dw_vbh
-	 * bit[9:8]    fgs_table
-	 * bit[13:12]  mmu_dma_baddr  (afbc)
-	 * bit[17:16]  vinfo_addr     (afbc)
-	 * bit[21:20]  header_addr    (afbc)
-	 * bit[25:24]  mmu_dma_baddr  (dw cm)
-	 * bit[29:28]  vinfo_addr     (dw cm)
-	 */
-	WRITE_VREG(HEVC_OW_AXIADDR_PREFIX,
-					(prefix << 0) | //nv21
+
+		/*
+		 * HEVC_DBLK_PREFIX
+		 * bit[11:10] aps
+		 * bit[9:8]   upscl
+		 * bit[7:6]   cdef
+		 * bit[5:4]   adp
+		 * bit[3:2]   xio
+		 * bit[1:0]   cpi
+		 */
+		WRITE_VREG(HEVC_DBLK_PREFIX,
+					(prefix << 0) |
+					(prefix << 2) |
+					(prefix << 4) |
+					(prefix << 6) |
+					(prefix << 8) |
+					(prefix << 10));
+
+		/*
+		 * HEVC_OW_AXIADDR_PREFIX
+		 * bit[29:28] vinfo_addr(DWCM)
+		 * bit[25:24] mmu_dma_baddr(DWCM)
+		 * bit[21:20] header_addr(AFBC)
+		 * bit[17:16] vinfo_addr(AFBC)
+		 * bit[13:12] mmu_dma_baddr(AFBC)
+		 * bit[9:8]   fgs_table_start_addr
+		 * bit[5:4]   dw_vh_addr
+		 * bit[1:0]   nv21_addr
+		 */
+		WRITE_VREG(HEVC_OW_AXIADDR_PREFIX,
+					(prefix << 0) |
 					(prefix << 4) |
 					(prefix << 12) |
 					(prefix << 16) |
 					(prefix << 20));
-	WRITE_VREG(HEVC_DBLK_PREFIX,
-					(prefix << 0) |
-					(prefix << 2) |
-					(prefix << 4) |
-					(prefix << 6) |
-					(prefix << 8));
-	WRITE_VREG(HEVCD_IPP_AXIADDR_PREFIX,
-					(prefix << 0) |
-					(prefix << 4) |
-					(prefix << 8));
+	} else {
+		/*
+		 * HEVC_ASSIST_AXIADDR_PREFIX
+		 * bit[21:20] ipp_intralbuf_axiaddr_prefix
+		 * bit[19:18] awaddr_axi_dma_prefix
+		 * bit[17:16] araddr_axi_dma_prefix
+		 * bit[15:14] awaddr_axi_stream_prefix
+		 * bit[13:12] araddr_axi_stream_prefix
+		 * bit[11:10] awaddr_axi_fb_prefix
+		 * bit[9:8]  araddr_axi_fb_prefix
+		 * bit[7:6]  vcpu_lmem_dma_prefix
+		 * bit[5:4]  vcpu_imem_dma_prefix
+		 * bit[3:2]  fb_wr_mmu_map_addr_prefix
+		 * bit[1:0]	 fb_rd_mmu_map_addr_prefix
+		 */
+		WRITE_VREG(HEVC_ASSIST_AXIADDR_PREFIX,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 6) |
+						(prefix << 8) |
+						(prefix << 10) |
+						(stream_prefix << 12) |
+						(stream_prefix << 14) |
+						(prefix << 16) |
+						(prefix << 18) |
+						(prefix << 20));
+
+		prefix = bmmu_prefix & 0x3;
+		/*
+		 * HEVC_MPRED_CTRL11
+		 * bit[5:4] abv_prefix
+		 * bit[3:2] col_prefix
+		 * bit[1:0] cm_ptr_prefix
+		 */
+		WRITE_VREG(HEVC_MPRED_CTRL11,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 4));
+		/*
+		 * HEVC_OW_AXIADDR_PREFIX
+		 * bit[1:0]    nv21
+		 * bit[5:4]    dw_vbh
+		 * bit[9:8]    fgs_table
+		 * bit[13:12]  mmu_dma_baddr  (afbc)
+		 * bit[17:16]  vinfo_addr     (afbc)
+		 * bit[21:20]  header_addr    (afbc)
+		 * bit[25:24]  mmu_dma_baddr  (dw cm)
+		 * bit[29:28]  vinfo_addr     (dw cm)
+		 */
+		WRITE_VREG(HEVC_OW_AXIADDR_PREFIX,
+						(prefix << 0) | //nv21
+						(prefix << 4) |
+						(prefix << 12) |
+						(prefix << 16) |
+						(prefix << 20));
+		WRITE_VREG(HEVC_DBLK_PREFIX,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 4) |
+						(prefix << 6) |
+						(prefix << 8));
+		WRITE_VREG(HEVCD_IPP_AXIADDR_PREFIX,
+						(prefix << 0) |
+						(prefix << 4) |
+						(prefix << 8));
+	}
 }
 EXPORT_SYMBOL(hevc_prefix_config);
 
@@ -1304,46 +1383,77 @@ void vdec_prefix_config(u32 prefix)
 		return;
 
 	prefix &= 0x3;
-	/*
-	 * DOS VDEC AXI ID:
-	 * 0x00: VLD
-	 * 0x04: DCAC
-	 * 0x08: PSC
-	 * 0x0c: PIC_DC
-	 * 0x10: Amrisc IMEM
-	 * 0x14: Amrisc LMEM
-	 * 0x19: CO_MB
-	 * 0x1c: DOubleWrite
-	 * 0x20: PIC_DC2 (mpeg2/mepg4)
-	 * 0x21: PIC_DC2 (h264)
-	 * 0x24: H264TOP
-	 * 0x28: MC_MBBOT
-	 * 0x2c~0x2f: EXTIF BUF0~BUF3 Write
-	 * 0x30~0x33: EXTIF BUF0~BUF3 Read
-	 */
-	WRITE_VREG(VDEC_AXI34_CONFIG_0,
-					(stream_prefix << 14) | (0x00 << 8));
-	WRITE_VREG(VDEC_AXI34_CONFIG_1,
-					(prefix << 14) | (0x08 << 8) |
-					(prefix <<  6) | (0x04 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_2,
-					(prefix << 14) | (0x14 << 8) |
-					(prefix <<  6) | (0x0c << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_3,
-					(prefix << 14) | (0x1c << 8) |
-					(prefix <<  6) | (0x19 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_4,
-					(prefix << 14) | (0x24 << 8) |
-					(prefix <<  6) | (0x21 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_5,
-					(0 << 14) | (0x10 << 8) |     // IMEM 0x10
-					(prefix <<  6) | (0x28 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_6,
-					(prefix << 14) | (0x2d << 8) |
-					(prefix <<  6) | (0x2c << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_7,
-					(prefix << 14) | (0x20 << 8) |
-					(prefix <<  6) | (0x2e << 0));
+
+	if (is_vdec_hevc_combine()) {
+		/*
+		 * AXI_ADDR_34
+		 * bit[21:20] pscale wr/rd
+		 * bit[19:18] dblkr rd
+		 * bit[17:16] dc dw wr
+		 * bit[15:14] dc2 wr
+		 * bit[13:12] extif wr/rd
+		 * bit[11:10] ost wr/rd
+		 * bit[9:8]   mc wr
+		 * bit[7:6]   iqidct wr/rd
+		 * bit[5:4]   co mb wr/rd
+		 * bit[3:2]   h264 top wr/rd
+		 * bit[1:0]   vld wr/rd
+		 */
+		WRITE_VREG(AXI_ADDR_34,
+					(stream_prefix << 0) |
+					(prefix << 2) |
+					(prefix << 4) |
+					(prefix << 6) |
+					(prefix << 8) |
+					(prefix << 10) |
+					(prefix << 12) |
+					(prefix << 14) |
+					(prefix << 16) |
+					(prefix << 18) |
+					(prefix << 20));
+		hevc_prefix_config(prefix, prefix);
+	} else {
+		/*
+		 * DOS VDEC AXI ID:
+		 * 0x00: VLD
+		 * 0x04: DCAC
+		 * 0x08: PSC
+		 * 0x0c: PIC_DC
+		 * 0x10: Amrisc IMEM
+		 * 0x14: Amrisc LMEM
+		 * 0x19: CO_MB
+		 * 0x1c: DOubleWrite
+		 * 0x20: PIC_DC2 (mpeg2/mepg4)
+		 * 0x21: PIC_DC2 (h264)
+		 * 0x24: H264TOP
+		 * 0x28: MC_MBBOT
+		 * 0x2c~0x2f: EXTIF BUF0~BUF3 Write
+		 * 0x30~0x33: EXTIF BUF0~BUF3 Read
+		 */
+		WRITE_VREG(VDEC_AXI34_CONFIG_0,
+						(stream_prefix << 14) | (0x00 << 8));
+		WRITE_VREG(VDEC_AXI34_CONFIG_1,
+						(prefix << 14) | (0x08 << 8) |
+						(prefix <<  6) | (0x04 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_2,
+						(prefix << 14) | (0x14 << 8) |
+						(prefix <<  6) | (0x0c << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_3,
+						(prefix << 14) | (0x1c << 8) |
+						(prefix <<  6) | (0x19 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_4,
+						(prefix << 14) | (0x24 << 8) |
+						(prefix <<  6) | (0x21 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_5,
+						(0 << 14) | (0x10 << 8) |     // IMEM 0x10
+						(prefix <<  6) | (0x28 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_6,
+						(prefix << 14) | (0x2d << 8) |
+						(prefix <<  6) | (0x2c << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_7,
+						(prefix << 14) | (0x20 << 8) |
+						(prefix <<  6) | (0x2e << 0));
+	}
 }
 EXPORT_SYMBOL(vdec_prefix_config);
 
@@ -1355,63 +1465,94 @@ void vdec_mmu_prefix_config(u32 prefix)
 		return;
 
 	prefix &= 0x3;
-	WRITE_VREG(VDEC_AXI34_CONFIG_0,
-					(stream_prefix << 14) | (0x00 << 8));
-	WRITE_VREG(VDEC_AXI34_CONFIG_1,
-					(prefix << 14) | (0x0c << 8) |
-					(prefix <<  6) | (0x04 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_2,
-					(prefix << 14) | (0x19 << 8) |
-					(prefix <<  6) | (0x14 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_3,
-					(prefix << 14) | (0x28 << 8) |
-					(prefix <<  6) | (0x24 << 0));
 
-	/*extif*/
-	WRITE_VREG(VDEC_AXI34_CONFIG_4,
-					(prefix << 14) | (0x2d << 8) |
-					(prefix <<  6) | (0x2c << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_5,
-					(prefix << 14) | (0x2f << 8) |
-					(prefix <<  6) | (0x2e << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_6,
-					(prefix << 14) | (0x31 << 8) |
-					(prefix <<  6) | (0x30 << 0));
-	WRITE_VREG(VDEC_AXI34_CONFIG_7,
-					(prefix << 14) | (0x33 << 8) |
-					(prefix <<  6) | (0x32 << 0));
-
-	WRITE_VREG(HEVC_ASSIST_AXIADDR_PREFIX,
-					(prefix << 0) |
-					(prefix << 2) |  //vcpu_imem_dma
+	if (is_vdec_hevc_combine()) {
+		/*
+		 * AXI_ADDR_34
+		 * bit[21:20] pscale wr/rd
+		 * bit[19:18] dblkr rd
+		 * bit[17:16] dc dw wr
+		 * bit[15:14] dc2 wr
+		 * bit[13:12] extif wr/rd
+		 * bit[11:10] ost wr/rd
+		 * bit[9:8]   mc wr
+		 * bit[7:6]   iqidct wr/rd
+		 * bit[5:4]   co mb wr/rd
+		 * bit[3:2]   h264 top wr/rd
+		 * bit[1:0]   vld wr/rd
+		 */
+		WRITE_VREG(AXI_ADDR_34,
+					(stream_prefix << 0) |
+					(prefix << 2) |
+					(prefix << 4) |
 					(prefix << 6) |
 					(prefix << 8) |
 					(prefix << 10) |
-					(stream_prefix << 12) |
-					(stream_prefix << 14) |
+					(prefix << 12) |
+					(prefix << 14) |
 					(prefix << 16) |
 					(prefix << 18) |
 					(prefix << 20));
-	WRITE_VREG(HEVC_MPRED_CTRL11,
-					(prefix << 0) |
-					(prefix << 2) |
-					(prefix << 4));
-	WRITE_VREG(HEVC_OW_AXIADDR_PREFIX,
-					(prefix << 0) | //nv21
-					(prefix << 4) |
-					(prefix << 12) |
-					(prefix << 16) |
-					(prefix << 20));
-	WRITE_VREG(HEVC_DBLK_PREFIX,
-					(prefix << 0) |
-					(prefix << 2) |
-					(prefix << 4) |
-					(prefix << 6) |
-					(prefix << 8));
-	WRITE_VREG(HEVCD_IPP_AXIADDR_PREFIX,
-					(prefix << 0) |
-					(prefix << 4) |
-					(prefix << 8));
+		hevc_prefix_config(prefix, prefix);
+	} else {
+		WRITE_VREG(VDEC_AXI34_CONFIG_0,
+						(stream_prefix << 14) | (0x00 << 8));
+		WRITE_VREG(VDEC_AXI34_CONFIG_1,
+						(prefix << 14) | (0x0c << 8) |
+						(prefix <<  6) | (0x04 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_2,
+						(prefix << 14) | (0x19 << 8) |
+						(prefix <<  6) | (0x14 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_3,
+						(prefix << 14) | (0x28 << 8) |
+						(prefix <<  6) | (0x24 << 0));
+
+		/*extif*/
+		WRITE_VREG(VDEC_AXI34_CONFIG_4,
+						(prefix << 14) | (0x2d << 8) |
+						(prefix <<  6) | (0x2c << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_5,
+						(prefix << 14) | (0x2f << 8) |
+						(prefix <<  6) | (0x2e << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_6,
+						(prefix << 14) | (0x31 << 8) |
+						(prefix <<  6) | (0x30 << 0));
+		WRITE_VREG(VDEC_AXI34_CONFIG_7,
+						(prefix << 14) | (0x33 << 8) |
+						(prefix <<  6) | (0x32 << 0));
+
+		WRITE_VREG(HEVC_ASSIST_AXIADDR_PREFIX,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 6) |
+						(prefix << 8) |
+						(prefix << 10) |
+						(stream_prefix << 12) |
+						(stream_prefix << 14) |
+						(prefix << 16) |
+						(prefix << 18) |
+						(prefix << 20));
+		WRITE_VREG(HEVC_MPRED_CTRL11,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 4));
+		WRITE_VREG(HEVC_OW_AXIADDR_PREFIX,
+						(prefix << 0) | //nv21
+						(prefix << 4) |
+						(prefix << 12) |
+						(prefix << 16) |
+						(prefix << 20));
+		WRITE_VREG(HEVC_DBLK_PREFIX,
+						(prefix << 0) |
+						(prefix << 2) |
+						(prefix << 4) |
+						(prefix << 6) |
+						(prefix << 8));
+		WRITE_VREG(HEVCD_IPP_AXIADDR_PREFIX,
+						(prefix << 0) |
+						(prefix << 4) |
+						(prefix << 8));
+	}
 }
 EXPORT_SYMBOL(vdec_mmu_prefix_config);
 
@@ -1424,13 +1565,17 @@ void stream_prefix_config(u32 prefix, u32 target)
 	stream_prefix_set((u64)prefix << 32);
 
 	if (target == VDEC_INPUT_TARGET_VLD) {
-		/* bit[14:15]: high-bits | bit[13:8]: axi_id */
-		SET_VREG_MASK(VDEC_AXI34_CONFIG_0, (prefix << 14) | (0 << 8));
+		if (is_vdec_hevc_combine())
+			SET_VREG_MASK(AXI_ADDR_34, (prefix << 0));
+		else
+			SET_VREG_MASK(VDEC_AXI34_CONFIG_0, (prefix << 14) | (0 << 8));
 	} else if (target == VDEC_INPUT_TARGET_HEVC) {
-		SET_VREG_MASK(HEVC_ASSIST_AXIADDR_PREFIX, (prefix << 12) | (prefix << 14));
+		if (is_vdec_hevc_combine())
+			SET_VREG_MASK(HEVC_ASSIST_AXIADDR_PREFIX, (prefix << 16) | (prefix << 18));
+		else
+			SET_VREG_MASK(HEVC_ASSIST_AXIADDR_PREFIX, (prefix << 12) | (prefix << 14));
 	} else {
-		pr_err("[%s]error, invalid target:%d\n",
-				__func__, target);
+		pr_err("[%s]error, invalid target:%d\n", __func__, target);
 	}
 }
 EXPORT_SYMBOL(stream_prefix_config);
@@ -3085,6 +3230,25 @@ u64 vdec_get_stream_size(struct vdec_s *vdec)
 }
 EXPORT_SYMBOL(vdec_get_stream_size);
 
+static void vdec_low_power_clk_on_cm(struct vdec_s *vdec)
+{
+	if (vdec->low_power_clk_on)
+		vdec->low_power_clk_on();
+}
+
+static void vdec_low_power_clock_off(struct vdec_s *vdec)
+{
+	if (vdec->next_status == VDEC_STATUS_DISCONNECTED)
+		return;
+
+	/* private clock off */
+	if (vdec->low_power_clk_off) {
+		if (is_vdec_hevc_combine())
+			arb_ctrl_wait_idle(0);
+		vdec->low_power_clk_off();
+	}
+}
+
 void vdec_save_input_context(struct vdec_s *vdec)
 {
 	struct vdec_input_s *input = &vdec->input;
@@ -3169,6 +3333,7 @@ void vdec_save_input_context(struct vdec_s *vdec)
 			/* pr_info("master->input.last_swap_slave = %d\n",
 				master->input.last_swap_slave); */
 		}
+		vdec_low_power_clock_off(vdec);
 	}
 }
 EXPORT_SYMBOL(vdec_save_input_context);
@@ -3745,10 +3910,16 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 		}
 	}
 #endif
-	if (vdec_single(vdec) ||
-		(vdec_get_debug_flags() & 0x2) ||
-		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12B))
+	/* low power clk config function get */
+	vdec->low_power_clk_on = low_power_clk_on_get(vdec->format, 0);
+	vdec->low_power_clk_off = low_power_clk_off_get(vdec->format, 0);
+
+	if (vdec_single(vdec) || (vdec_get_debug_flags() & 0x2) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12B)) {
+		pr_info("enable low power clock for single mode\n");
+		vdec_low_power_clk_on_cm(vdec);
 		vdec_enable_DMC(vdec);
+	}
 	p->cma_dev = vdec_core->cma_dev;
 
 	r = vdec_canvas_port_register(vdec);
@@ -4600,32 +4771,6 @@ void vdec_free_cmabuf(void)
 	mutex_unlock(&vdec_mutex);
 }
 
-void dos_gclk_en_set(enum vdec_type_e core, bool enable, bool mmu_enable)
-{
-	if (enable) {
-		switch (core) {
-			case VDEC_1:
-				WRITE_VREG_BITS(DOS_GCLK_EN0, 0x3ff, 0, 10);
-				if (mmu_enable)
-					WRITE_VREG(DOS_GCLK_EN3, 0x1ffa7);
-				else
-					WRITE_VREG(DOS_GCLK_EN3, 0x1f7a7);
-				break;
-			case VDEC_HEVC:
-				CLEAR_VREG_MASK(DOS_GCLK_EN0, 0x3ff);
-				WRITE_VREG(DOS_GCLK_EN3, 0xffffffff);
-				break;
-			default:
-				break;
-		}
-	} else {
-		CLEAR_VREG_MASK(DOS_GCLK_EN0, 0x3ff);
-		/* turn off vcpu clock */
-		CLEAR_VREG_MASK(DOS_GCLK_EN3, (1 << 5));
-	}
-}
-EXPORT_SYMBOL(dos_gclk_en_set);
-
 void vdec_core_request(struct vdec_s *vdec, unsigned long mask)
 {
 	unsigned long flags = 0;
@@ -4717,7 +4862,12 @@ void vdec_core_finish_run(struct vdec_s *vdec, unsigned long mask)
 {
 	unsigned long i;
 	unsigned long t = mask;
+
 	mutex_lock(&vdec_mutex);
+
+	if (vdec_frame_based(vdec))
+		vdec_low_power_clock_off(vdec);
+
 	while (t) {
 		i = __ffs(t);
 		clear_bit(i, &vdec->active_mask);
@@ -4895,6 +5045,17 @@ thread_isr_done:
 			vdec->back_irq_thread_cnt++;
 	}
 	return ret;
+}
+
+static irqreturn_t scatter_map_empty_isr(int irq, void *dev_id)
+{
+	//pr_info("%s in \n", __func__);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t axi_monitor_isr(int irq, void *dev_id)
+{
+	return dec_axi_monitor_isr();
 }
 
 int vdec_check_rec_num_enough(struct vdec_s *vdec) {
@@ -5140,6 +5301,8 @@ unsigned long vdec_ready_to_run(struct vdec_s *vdec, unsigned long mask)
 	if (debug & 0x8)
 		pr_info("%s:%d ready_mask = 0x%lx, mask = 0x%lx, core->stream_buff_flag 0x%lx\n",
 			__func__, vdec->id, ready_mask, mask, core->stream_buff_flag);
+
+	vdec_low_power_clk_on_cm(vdec);
 
 	return ready_mask;
 error_handle:
@@ -5817,10 +5980,6 @@ EXPORT_SYMBOL(vdec_source_changed);
 
 void vdec_reset_core(struct vdec_s *vdec)
 {
-	if (is_vdec_hevc_combine()) {
-		dos_gclk_en_set(VDEC_1, 1, 0);
-	}
-
 	dec_pipeline_idle_ctrl(vdec, VDEC_INPUT_TARGET_VLD, 0);
 
 	/*
@@ -5932,13 +6091,6 @@ void hevc_reset_core(struct vdec_s *vdec)
 {
 	int cpu_type = get_cpu_major_id();
 
-	if (is_vdec_hevc_combine()) {
-		if (is_core_hevc_fmt(vdec->format))
-			dos_gclk_en_set(VDEC_HEVC, 1, 0);
-	} else if (is_vcpu_clk_set()) {
-		SET_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn on vcpu clock
-	}
-
 	WRITE_VREG(HEVC_STREAM_CONTROL, 0);
 
 	dec_pipeline_idle_ctrl(vdec, VDEC_INPUT_TARGET_HEVC, 0);
@@ -5977,73 +6129,82 @@ void hevc_reset_core(struct vdec_s *vdec)
 	WRITE_VREG(HEVC_SAO_MMU_RESET_CTRL,
 			READ_VREG(HEVC_SAO_MMU_RESET_CTRL) & (~1));
 
-	if (cpu_type == AM_MESON_CPU_MAJOR_ID_TL1 &&
-			is_meson_rev_b())
+	if (cpu_type == AM_MESON_CPU_MAJOR_ID_TL1 && is_meson_rev_b())
 		cpu_type = AM_MESON_CPU_MAJOR_ID_G12B;
-	switch (cpu_type) {
-	case AM_MESON_CPU_MAJOR_ID_G12B:
-		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
-				READ_RESET_REG(RESET7_REGISTER_LEVEL) & (~((1<<13)|(1<<14))));
-		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
-				READ_RESET_REG((RESET7_REGISTER_LEVEL)) | ((1<<13)|(1<<14)));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_G12A:
-	case AM_MESON_CPU_MAJOR_ID_SM1:
-	case AM_MESON_CPU_MAJOR_ID_TL1:
-	case AM_MESON_CPU_MAJOR_ID_TM2:
-	case AM_MESON_CPU_MAJOR_ID_T5:
-	case AM_MESON_CPU_MAJOR_ID_T5D:
-	case AM_MESON_CPU_MAJOR_ID_T5W:
-	case AM_MESON_CPU_MAJOR_ID_TXHD2:
-		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
-				READ_RESET_REG(RESET7_REGISTER_LEVEL) & (~((1<<13))));
-		WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
-				READ_RESET_REG((RESET7_REGISTER_LEVEL)) | ((1<<13)));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_SC2:
-	case AM_MESON_CPU_MAJOR_ID_S4:
-	case AM_MESON_CPU_MAJOR_ID_S4D:
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<12)|(1<<13))));
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<12)|(1<<13)));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_T5M:
-	case AM_MESON_CPU_MAJOR_ID_T6D:
-		WRITE_RESET_REG((P_RESETCTRL_RESET6_LEVEL),
-				READ_RESET_REG(P_RESETCTRL_RESET6_LEVEL) & (~(1<<1)));
-		WRITE_RESET_REG((P_RESETCTRL_RESET6_LEVEL),
-				READ_RESET_REG((P_RESETCTRL_RESET6_LEVEL)) | (1<<1));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_S7:
-	case AM_MESON_CPU_MAJOR_ID_S7D:
-	case AM_MESON_CPU_MAJOR_ID_S6:
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~(1<<12)));
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | (1<<12));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_S1A:
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<5))));
-		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
-				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<5)));
-		break;
-	case AM_MESON_CPU_MAJOR_ID_GXLX4:
-	case AM_MESON_CPU_MAJOR_ID_T6W:
+
+	if (cpu_type >= AM_MESON_CPU_MAJOR_ID_T6X) {
 		reset_control_assert(vdec_core->hevc_reset);
 		reset_control_deassert(vdec_core->hevc_reset);
-		break;
-	default:
-		break;
+	} else {
+		switch (cpu_type) {
+		case AM_MESON_CPU_MAJOR_ID_G12B:
+			WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
+					READ_RESET_REG(RESET7_REGISTER_LEVEL) & (~((1<<13)|(1<<14))));
+			WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
+					READ_RESET_REG((RESET7_REGISTER_LEVEL)) | ((1<<13)|(1<<14)));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_G12A:
+		case AM_MESON_CPU_MAJOR_ID_SM1:
+		case AM_MESON_CPU_MAJOR_ID_TL1:
+		case AM_MESON_CPU_MAJOR_ID_TM2:
+		case AM_MESON_CPU_MAJOR_ID_T5:
+		case AM_MESON_CPU_MAJOR_ID_T5D:
+		case AM_MESON_CPU_MAJOR_ID_T5W:
+		case AM_MESON_CPU_MAJOR_ID_TXHD2:
+			WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
+					READ_RESET_REG(RESET7_REGISTER_LEVEL) & (~((1<<13))));
+			WRITE_RESET_REG((RESET7_REGISTER_LEVEL),
+					READ_RESET_REG((RESET7_REGISTER_LEVEL)) | ((1<<13)));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_SC2:
+		case AM_MESON_CPU_MAJOR_ID_S4:
+		case AM_MESON_CPU_MAJOR_ID_S4D:
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<12)|(1<<13))));
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<12)|(1<<13)));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_T5M:
+		case AM_MESON_CPU_MAJOR_ID_T6D:
+			WRITE_RESET_REG((P_RESETCTRL_RESET6_LEVEL),
+					READ_RESET_REG(P_RESETCTRL_RESET6_LEVEL) & (~(1<<1)));
+			WRITE_RESET_REG((P_RESETCTRL_RESET6_LEVEL),
+					READ_RESET_REG((P_RESETCTRL_RESET6_LEVEL)) | (1<<1));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_S7:
+		case AM_MESON_CPU_MAJOR_ID_S7D:
+		case AM_MESON_CPU_MAJOR_ID_S6:
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~(1<<12)));
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | (1<<12));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_S1A:
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<5))));
+			WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+					READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<5)));
+			break;
+		case AM_MESON_CPU_MAJOR_ID_GXLX4:
+		case AM_MESON_CPU_MAJOR_ID_T6W:
+			reset_control_assert(vdec_core->hevc_reset);
+			reset_control_deassert(vdec_core->hevc_reset);
+			break;
+		default:
+#if 0
+	//todo
+			if (is_use_std_reset_if())
+				pr_warn("warn: no inited reset ctrl interface\n");
+#endif
+			break;
+		}
 	}
-
 	dec_pipeline_idle_ctrl(vdec, VDEC_INPUT_TARGET_HEVC, 1);
 
 	if (vdec_get_debug() & VDEC_DBG_AUTO_CLK_GATE_DISABLE) {
 		hevc_auto_clk_gate_disable();
 	}
-
+	hw_axi_monitor_config();
 }
 EXPORT_SYMBOL(hevc_reset_core);
 
@@ -6375,8 +6536,10 @@ static ssize_t debug_store(KV_CLASS_CONST struct class *class,
 	} else if (strcmp(cbuf, "power_off") == 0) {
 		pr_info("VDEC_DEBUG: power off core %d\n", id);
 		vdec_poweroff(id);
+		amports_switch_gate("vdec", 0);
 	} else if (strcmp(cbuf, "power_on") == 0) {
 		pr_info("VDEC_DEBUG: power_on core %d\n", id);
+		amports_switch_gate("vdec", 1);
 		vdec_poweron(id);
 	} else if (strcmp(cbuf, "wr") == 0) {
 		pr_info("VDEC_DEBUG: WRITE_VREG(0x%x, 0x%x)\n",
@@ -6548,7 +6711,7 @@ static ssize_t pxp_buf_store(KV_CLASS_CONST struct class *class,
 	} else if (strcmp(cbuf, "save") == 0) {
 		unsigned file_size = 0;
 		struct file* fp;
-		loff_t pos;
+		loff_t pos = 0;
 		unsigned int wr_size;
 		char path[32];
 		sscanf(buf, "%s %s %d", cbuf, path, &file_size);
@@ -7740,6 +7903,21 @@ static ssize_t dos_dev_info_show(KV_CLASS_CONST struct class *class,
 	return 0;
 }
 
+static ssize_t axi_monitor_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	return show_dos_axi_monitor_config(buf);
+}
+
+static ssize_t axi_monitor_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr,
+	const char *buf, size_t size)/*set*/
+{
+	axi_monitor_config_setup(buf, size);
+
+	return size;
+}
+
 static CLASS_ATTR_RO(amrisc_regs);
 static CLASS_ATTR_RO(dump_trace);
 static CLASS_ATTR_RO(clock_level);
@@ -7772,6 +7950,7 @@ static CLASS_ATTR_RO(profile_idc);
 static CLASS_ATTR_RO(level_idc);
 static CLASS_ATTR_RO(version);
 static CLASS_ATTR_RO(dos_dev_info);
+static CLASS_ATTR_RW(axi_monitor);
 
 static struct attribute *vdec_class_attrs[] = {
 	&class_attr_amrisc_regs.attr,
@@ -7806,6 +7985,7 @@ static struct attribute *vdec_class_attrs[] = {
 	&class_attr_level_idc.attr,
 	&class_attr_version.attr,
 	&class_attr_dos_dev_info.attr,
+	&class_attr_axi_monitor.attr,
 	NULL
 };
 
@@ -8015,6 +8195,15 @@ static int vdec_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+
+	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+		vdec_request_threaded_irq(VIFF_EMPTY,
+			scatter_map_empty_isr, NULL, IRQF_ONESHOT, "scatter_map_empty", NULL);
+
+		vdec_request_threaded_irq(AXI_MONITOR,
+			axi_monitor_isr, NULL, IRQF_ONESHOT, "dos_axi_monitor", NULL);
+	}
+
 	r = of_reserved_mem_device_init(&pdev->dev);
 	if (r == 0)
 		pr_info("vdec_probe done\n");

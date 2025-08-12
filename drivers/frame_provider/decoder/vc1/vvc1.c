@@ -1864,6 +1864,7 @@ static KV_INT_TO_VOID amvdec_vc1_remove(struct platform_device *pdev)
 	}
 
 	cancel_work_sync(&set_clk_work);
+#ifndef PXP_DEBUG
 	if (stat & STAT_VF_HOOK) {
 		if (!is_reset)
 			vf_notify_receiver(PROVIDER_NAME,
@@ -1873,7 +1874,7 @@ static KV_INT_TO_VOID amvdec_vc1_remove(struct platform_device *pdev)
 		vf_unreg_provider(&vvc1_vf_prov);
 		stat &= ~STAT_VF_HOOK;
 	}
-
+#endif
 	amvdec_disable();
 
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_TM2)

@@ -97,7 +97,11 @@ static u32 debug;
 static u32 detail;
 static bool new_package = false;
 
+#ifdef PXP_DEBUG
+static bool dos_tee_enabled = false;
+#else
 static bool dos_tee_enabled = true;
+#endif
 MEDIA_PARAM(dos_tee_enabled, bool, 0664);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
@@ -148,7 +152,7 @@ void fw_get_format_from_dtb(void)
 	}
 	ret = of_property_read_u64(pnode, "ucode_format", &g_fw_mask);
 	if (ret) {
-		pr_info("read format in dts failed, ret = %d\n", ret);
+		pr_info("no format cfgs found in dts (%d)\n", ret);
 		return;
 	}
 

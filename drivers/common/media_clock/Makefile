@@ -3,6 +3,7 @@ obj-m = $(MODULE_NAME).o
 $(MODULE_NAME)-y += ../chips/chips.o
 $(MODULE_NAME)-y += clk/clkg12.o
 $(MODULE_NAME)-y += clk/clk.o
+$(MODULE_NAME)-y += clk/low_power_clk.o
 $(MODULE_NAME)-y += switch/amports_gate.o
 $(MODULE_NAME)-y += ../chips/decoder_cpu_ver_info.o
 $(MODULE_NAME)-y += ../register/register.o

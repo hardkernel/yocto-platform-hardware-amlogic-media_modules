@@ -4161,7 +4161,8 @@ static void config_sao_hw(struct AV1HW_s *hw, union param_u *params)
 		data32 &= ~(0xff << 16);
 		WRITE_VREG(HEVC_SAO_CTRL5, data32);
 
-		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W) ||
+			(get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6W)) {
 			/* bit 5: dw_fgs_byass=1(Film Grain module bypass) */
 			SET_VREG_MASK(HEVC_SAO_CTRL5, (0x1 << 5));
 

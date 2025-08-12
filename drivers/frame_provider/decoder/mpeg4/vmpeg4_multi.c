@@ -2166,7 +2166,7 @@ static int vmpeg4_canvas_init(struct vdec_mpeg4_hw_s *hw)
 			ret = decoder_bmmu_box_alloc_buf_phy(hw->mm_blk_handle, i,
 					decbuf_size, DRIVER_NAME, &decbuf_start);
 			if (ret < 0) {
-				pr_err("bmmu alloc failed! size %d  idx %d\n",
+				pr_err("bmmu alloc failed! size 0x%x, idx %d\n",
 					decbuf_size, i);
 				return ret;
 			}

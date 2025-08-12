@@ -37,5 +37,58 @@
 #define ASSIST_AMR1_INT8 VDEC_ASSIST_AMR1_INT8
 #define ASSIST_AMR1_INT9 VDEC_ASSIST_AMR1_INT9
 
+/*
+ * Pseudodefinition for build
+ * example:
+ * New registers defined in DOS_REGISTERS_V3, but no definition
+ * in DOS_REGISTERS_V1. To fix DOS_REGISTERS_V1 code build error,
+ * Pseudodefinite registers here, and it should be removed after
+ * it's really defined.
+ */
+#define PSEUDODEF_REG (0)
+
+#ifndef DOS_REGISTERS_V3
+
+#define HEVC_AXI_BRESP_INT_STATU           PSEUDODEF_REG
+
+#define PCLATCH                            PSEUDODEF_REG
+#define HEVC_AXI_MON_CTRL                  PSEUDODEF_REG
+#define HEVC_AXI_MON_A_START               PSEUDODEF_REG
+#define HEVC_AXI_MON_A_END                 PSEUDODEF_REG
+#define HEVC_AXI_MON_A_RSV                 PSEUDODEF_REG
+#define HEVC_AXI_MON_B_START               PSEUDODEF_REG
+#define HEVC_AXI_MON_B_END                 PSEUDODEF_REG
+#define HEVC_AXI_MON_B_ERR_ID              PSEUDODEF_REG
+#define HEVC_AXI_MON_B_ERR_ADDR            PSEUDODEF_REG
+#define HEVC_AXI_MON_B_IGN_ID              PSEUDODEF_REG
+
+#define HEVC_SCATTER_WRAP                  PSEUDODEF_REG
+#define HEVC_SCATTER_DATA_START_ADDR       PSEUDODEF_REG
+#define HEVC_SCATTER_DATA_ADDR_ADJUST      PSEUDODEF_REG
+#define HEVC_SCATTER_MAP_FIFO_LEVEL        PSEUDODEF_REG
+
+#define HEVC_SW_PARSER_CLK_ENABLE          PSEUDODEF_REG
+#define HEVCD_IPP_GCLKGATE_CONFIG          PSEUDODEF_REG
+#define HEVCD_MCR_DYNCLKGATE_CONFIG        PSEUDODEF_REG
+#define HEVCD_MCR_DYNCLKGATE_STATUS        PSEUDODEF_REG
+#define HEVCD_MPP_SUBMODULE_GCLK_EN_CONFIG PSEUDODEF_REG
+#define HEVCD_MCR_DCM_FRM_REQ              PSEUDODEF_REG
+
+#define HEVC_LPF_GCLK_EN0                  PSEUDODEF_REG
+#define HEVC_LPF_GCLK_EN1                  PSEUDODEF_REG
+#define HEVC_LPF_GCLK_EN2                  PSEUDODEF_REG
+// LPF clock gate disable for sub-modules
+#define HEVC_LPF_CG_OFF0                   PSEUDODEF_REG
+#define HEVC_LPF_CG_OFF1                   PSEUDODEF_REG
+#define HEVC_LPF_CG_OFF2                   PSEUDODEF_REG
+#define HEVC_IQIT_CRC_1                    PSEUDODEF_REG
+#define HEVC_IQIT_CRC_2                    PSEUDODEF_REG
+
+#endif
+
+#if !defined(DOS_REGISTERS_V3) &&  !defined(DOS_REGISTERS_V2)
+#define  AXI_ADDR_34                       PSEUDODEF_REG
+#endif
+
 #endif // DOS_REGISTERS_HEADER_
 
