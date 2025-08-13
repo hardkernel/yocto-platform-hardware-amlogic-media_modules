@@ -2264,6 +2264,8 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	mbuf->size =  ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz;
 	dbuf->size = PAGE_ALIGN(mbuf->size);
 	handle = dbuf->priv;
+	if (vb2_plane_size(&vb->vb2_buf, 0) < dbuf->size)
+		vb->vb2_buf.planes[0].length = dbuf->size;
 
 	if (ctx->master_buf) {
 		struct aml_buf *master_buf = ctx->master_buf;
