@@ -165,6 +165,7 @@ int set_display_axis(int recovery)
             str[127] = '\0';
             printf("read axis %s, length %zu\n", str, strlen(str));
             count = parse_para(str, 8, axis);
+            printf("count = %d\n", count);
         }
         if (recovery) {
             sprintf(str, "%d %d %d %d %d %d %d %d",
@@ -548,7 +549,6 @@ int parser_frame(
     ObuHeader obu_header;
     memset(&obu_header, 0, sizeof(obu_header));
     int seen_frame_header = 0;
-    int next_start_tile = 0;
     DataBuffer obu_size_hdr;
     uint8_t header[20] = {
         0x00, 0x00, 0x01, 0x54,
@@ -627,7 +627,6 @@ int parser_frame(
         switch (obu_header.type) {
         case OBU_TEMPORAL_DELIMITER:
             seen_frame_header = 0;
-            next_start_tile = 0;
             break;
         case OBU_SEQUENCE_HEADER:
             // The sequence header should not change in the middle of a frame.
@@ -758,9 +757,13 @@ int parser_frame(
 
 bool is_video_file_type_ivf(FILE *fp, int video_type, char *buffer)
 {
-    int ret;
+    size_t ret;
     if (fp && video_type == VFORMAT_AV1) {
         ret = fread(buffer, 1, 4, fp);
+        if (ret != 4) {
+            fputs("Reading error, please check video file!", stderr);
+            exit(EXIT_FAILURE);
+        }
         fseek(fp, 0, SEEK_SET);
         if ((buffer[0] == 0x44) &&
             (buffer[1] == 0x4B) &&
