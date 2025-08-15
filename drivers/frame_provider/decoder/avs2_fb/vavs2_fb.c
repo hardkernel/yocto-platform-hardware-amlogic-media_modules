@@ -9839,7 +9839,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 */
 #endif
 		dec->first_sc_checked = 1;
-		avs2_print(dec, 0, "vavs2 cached=%d  need_size=%d speed= %lld ms\n",
+		avs2_print(dec, PRINT_FLAG_VDEC_DETAIL, "vavs2 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (dec->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - dec->sc_start_time) * (1000/HZ));
 	}

@@ -5115,7 +5115,7 @@ static void set_frame_info(struct AVS3Decoder_s *dec, struct vframe_s *vf)
 	vf->flag = 0;
 
 	if (dec->last_dur != dec->frame_dur) {
-		avs3_print(dec, 0,
+		avs3_print(dec, PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", dec->last_dur, dec->frame_dur);
 		dec->last_dur = dec->frame_dur;
 		v4l_avs3_collect_stream_info(hw_to_vdec(dec), dec);
@@ -7941,7 +7941,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 					struct aml_vdec_ps_infos ps;
 					struct vdec_comp_buf_info comp;
 
-					avs3_print(dec, 0, "set ucode parse\n");
+					avs3_print(dec, PRINT_FLAG_VDEC_DETAIL, "set ucode parse\n");
 					if (get_valid_double_write_mode(dec) != 16) {
 						vavs3_get_comp_buf_info(dec, &comp);
 						vdec_v4l_set_comp_buf_info(v4l2_ctx, &comp);
@@ -10319,7 +10319,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			size_1 = decoder_mmu_box_sc_check(ctx->bm.mmu_1, tvp);
 #endif
 		dec->first_sc_checked = 1;
-		avs3_print(dec, 0, "vavs3 cached=%d  need_size=%d speed= %lld ms\n",
+		avs3_print(dec, PRINT_FLAG_VDEC_DETAIL, "vavs3 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (dec->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - dec->sc_start_time) * (1000/HZ));
 	}

@@ -5764,7 +5764,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 	if (ctrl->id == AML_V4L2_SET_DRMMODE) {
 		ctx->is_drm_mode = ctrl->val;
 		ctx->param_sets_from_ucode = true;
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set DRM mode: %x\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_UEVENT_DURATION) {
 		vdec_set_duration(ctrl->val);
@@ -5772,7 +5772,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			"set uevent duration: %d\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_VF_DURATION) {
 		vdec_set_vf_duration(ctrl->val);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set vf duration: %x\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_INPUT_BUFFER_NUM_CACHE) {
 		ctx->cache_input_buffer_num = ctrl->val;
@@ -5810,7 +5810,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			return 0;
 		}
 		vdec_set_trickmode_adapt(ctx->ada_ctx, ctrl->val);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set trickmode: %x\n", ctrl->val);
 
 	} else if (ctrl->id == AML_V4L2_SET_SCREEN_MODE) {
@@ -5819,7 +5819,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			return 0;
 		}
 		vdec_set_screen_mode(ctx->ada_ctx, ctrl->val);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set screenmode: %x\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_CHANNEL_PRIORITY) {
 		struct aml_buf_config config = { 0 };
@@ -5832,7 +5832,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 		aml_buf_get_configure(&ctx->bm, &config);
 		config.priority	= ctx->priority;
 		aml_buf_configure(&ctx->bm, &config);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set channel priority: %x\n", ctrl->val);
 	}
 
@@ -6321,7 +6321,7 @@ static int check_dec_cfginfo(struct aml_vcodec_ctx *ctx, struct aml_vdec_cfg_inf
 		return -1;
 	}
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO, "DW:%x, TW:%x, Margin:%d\n",
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "DW:%x, TW:%x, Margin:%d\n",
 		cfg->double_write_mode,
 		cfg->triple_write_mode,
 		cfg->ref_buf_margin);

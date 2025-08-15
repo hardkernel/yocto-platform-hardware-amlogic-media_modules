@@ -8124,7 +8124,7 @@ static int init_buf_spec(struct hevc_state_s *hevc)
 	int pic_height = hevc->pic_h;
 
 	hevc_print(hevc, 0,
-		"%s2 %d %d\n", __func__, pic_width, pic_height);
+		"%s %d %d\n", __func__, pic_width, pic_height);
 
 	if (hevc->frame_width == 0 || hevc->frame_height == 0) {
 		hevc->frame_width = pic_width;
@@ -8462,7 +8462,7 @@ static irqreturn_t avbcd_isr_thread_fn(int irq, void *data)
 			if (hevc->bit_depth_chroma !=
 				(((hevc->param.p.bit_depth >> 4) & 0xf) + 8)) {
 				reconfig_flag = 1;
-				hevc_print(hevc, 0, "Bit depth chroma = %d\n",
+				hevc_print(hevc, AVBCD_DEBUG_REG, "Bit depth chroma = %d\n",
 					((hevc->param.p.bit_depth >> 4) &
 					0xf) + 8);
 			}
@@ -9314,12 +9314,12 @@ static int avbcd_local_init(struct hevc_state_s *hevc)
 	hevc->res_change = false;
 	if (vdec->sys_info)
 		pts_unstable = ((unsigned long)vdec->sys_info->param & 0x40) >> 6;
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"AVBCD:pts_unstable=%d\n", pts_unstable);
 /*
  *TODO:FOR VERSION
  */
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"AVBCD: ver (%d,%d) decinfo: %dx%d rate=%d\n", h265_version,
 		0, hevc->frame_width, hevc->frame_height, hevc->frame_dur);
 
@@ -9383,7 +9383,7 @@ static s32 avbcd_init(struct vdec_s *vdec)
 			hevc->enable_ucode_swap = false;
 	}
 
-	pr_debug("ucode version %d.%d, swap enable %d\n",
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,"ucode version %d.%d, swap enable %d\n",
 		get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 		hevc->enable_ucode_swap);
 
@@ -10507,7 +10507,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		hevc->first_sc_checked =1;
-		hevc_print(hevc, 0,
+		hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 			"AVBCD cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hevc->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - hevc->sc_start_time) * (1000/HZ));
@@ -11424,7 +11424,7 @@ static int ammvdec_avbcd_probe(struct platform_device *pdev)
 			&config_val) == 0) {
 			hevc->discard_dv_data = config_val;
 			if (hevc->discard_dv_data)
-			    hevc_print(hevc, 0, "discard dv data\n");
+			    hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "discard dv data\n");
 		}
 
 		if (get_config_int(pdata->config, "parm_metadata_config_flag",
@@ -11644,10 +11644,10 @@ static int ammvdec_avbcd_probe(struct platform_device *pdev)
 			   hevc->buf_start, hevc->buf_size);
 	}
 
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"dynamic_buf_num_margin=%d\n",
 		hevc->dynamic_buf_num_margin);
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"double_write_mode=%d triple_write_mode= %d endian 0x%x\n",
 		hevc->double_write_mode, hevc->triple_write_mode, hevc->endian);
 

@@ -2108,7 +2108,7 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 		if (!v4l_res_change(hw)) {
 			if (ctx->param_sets_from_ucode && !hw->v4l_params_parsed) {
 				struct aml_vdec_ps_infos ps;
-				pr_info("set ucode parse\n");
+				vc1_print(0, VC1_DEBUG_DETAIL, "set ucode parse\n");
 				vvc1_get_ps_info(hw, &ps);
 				vdec_v4l_set_ps_infos(ctx, &ps);
 				hw->last_width = hw->frame_width;

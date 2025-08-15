@@ -796,7 +796,7 @@ static void set_frame_info(struct vdec_mpeg12_hw_s *hw, struct vframe_s *vf)
 	}
 
 	if (hw->last_dur != hw->frame_dur) {
-		debug_print(DECODE_ID(hw), 0,
+		debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", hw->last_dur, hw->frame_dur);
 		hw->last_dur = hw->frame_dur;
 		v4l_mpeg12_collect_stream_info(hw_to_vdec(hw), hw);

@@ -9005,12 +9005,12 @@ static int vh266_local_init(struct hevc_state_s *hevc)
 	hevc->res_change = false;
 	if (vdec->sys_info)
 		pts_unstable = ((unsigned long)vdec->sys_info->param & 0x40) >> 6;
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"h266:pts_unstable=%d\n", pts_unstable);
 /*
  *TODO:FOR VERSION
  */
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"h266: ver (%d,%d) decinfo: %dx%d rate=%d\n", h266_version,
 		0, hevc->frame_width, hevc->frame_height, hevc->frame_dur);
 
@@ -9074,7 +9074,7 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 			hevc->enable_ucode_swap = false;
 	}
 
-	pr_debug("ucode version %d.%d, swap enable %d\n",
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "ucode version %d.%d, swap enable %d\n",
 		get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 		hevc->enable_ucode_swap);
 
@@ -10242,7 +10242,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		hevc->first_sc_checked =1;
-		hevc_print(hevc, 0,
+		hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 			"vh266 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hevc->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - hevc->sc_start_time) * (1000/HZ));
@@ -11187,7 +11187,7 @@ static int ammvdec_h266_probe(struct platform_device *pdev)
 			&config_val) == 0) {
 			hevc->discard_dv_data = config_val;
 			if (hevc->discard_dv_data)
-			    hevc_print(hevc, 0, "discard dv data\n");
+			    hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "discard dv data\n");
 		}
 
 		if (get_config_int(pdata->config, "dv_duallayer",
@@ -11206,7 +11206,7 @@ static int ammvdec_h266_probe(struct platform_device *pdev)
 		if (get_config_int(pdata->config,
 			"dv_profile", &config_val) == 0) {
 			hevc->dv_profile = config_val;
-			hevc_print(hevc, 0, "dv_profile: %d\n", config_val);
+			hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "dv_profile: %d\n", config_val);
 		}
 
 		if (get_config_int(pdata->config,
@@ -11231,7 +11231,7 @@ static int ammvdec_h266_probe(struct platform_device *pdev)
 			hevc->discard_dv_data = hevc->metadata_config_flag & VDEC_CFG_FLAG_DV_NEGATIVE;
 			hevc->dv_duallayer = hevc->metadata_config_flag & VDEC_CFG_FLAG_DV_TWOLAYER;
 			if (hevc->discard_dv_data)
-				hevc_print(hevc, 0, "discard dv data\n");
+				hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "discard dv data\n");
 			if (hevc->dv_duallayer)
 				hevc_print(hevc, 0, "dv_duallayer\n");
 		}
@@ -11384,10 +11384,10 @@ static int ammvdec_h266_probe(struct platform_device *pdev)
 			   hevc->buf_start, hevc->buf_size);
 	}
 
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"dynamic_buf_num_margin=%d\n",
 		hevc->dynamic_buf_num_margin);
-	hevc_print(hevc, 0,
+	hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 		"double_write_mode=%d\n",
 		hevc->double_write_mode);
 

@@ -10054,7 +10054,7 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 				struct aml_vdec_ps_infos ps;
 				struct vdec_comp_buf_info comp;
 
-				pr_debug("set ucode parse\n");
+				vp9_print(pbi, PRINT_FLAG_VDEC_DETAIL, "set ucode parse\n");
 				if (get_valid_double_write_mode(pbi) != 16) {
 					vvp9_get_comp_buf_info(pbi, &comp);
 					vdec_v4l_set_comp_buf_info(ctx, &comp);
@@ -10712,7 +10712,7 @@ static int vvp9_local_init(struct VP9Decoder_s *pbi)
 /*
  *TODO:FOR VERSION
  */
-	pr_info("vp9: ver (%d,%d) decinfo: %dx%d rate=%d\n", vp9_version,
+	vp9_print(pbi, PRINT_FLAG_VDEC_DETAIL, "vp9: ver (%d,%d) decinfo: %dx%d rate=%d\n", vp9_version,
 		   0, width, height, pbi->frame_dur);
 
 	if (pbi->frame_dur == 0)
@@ -11665,7 +11665,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		pbi->first_sc_checked = 1;
-		vp9_print(pbi, 0, "vp9 cached=%d  need_size=%d speed= %lld ms\n",
+		vp9_print(pbi, PRINT_FLAG_VDEC_DETAIL, "vp9 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (pbi->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - pbi->sc_start_time) * (1000/HZ));
 	}

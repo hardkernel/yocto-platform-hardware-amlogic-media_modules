@@ -839,7 +839,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 		pb_skip = 1;
 
 	if (hw->last_dur != pic->duration) {
-		mmpeg4_debug_print(DECODE_ID(hw), 0,
+		mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", hw->last_dur, pic->duration);
 		hw->last_dur = pic->duration;
 		v4l_vmpeg4_collect_stream_info(hw_to_vdec(hw), hw);

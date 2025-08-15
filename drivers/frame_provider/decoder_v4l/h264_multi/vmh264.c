@@ -5964,7 +5964,7 @@ static void set_frame_info(struct vdec_h264_hw_s *hw, struct vframe_s *vf,
 	}
 
 	if (hw->last_dur != hw->frame_dur) {
-		dpb_print(DECODE_ID(hw), 0,
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", hw->last_dur, hw->frame_dur);
 		hw->last_dur = hw->frame_dur;
 		v4l_vmh264_collect_stream_info(hw_to_vdec(hw), hw);
@@ -12909,7 +12909,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 	if (!hw->first_sc_checked && hw->mmu_enable) {
 		int size = decoder_mmu_box_sc_check(ctx->bm.mmu, tvp);
 		hw->first_sc_checked =1;
-		dpb_print(DECODE_ID(hw), 0,
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
 			"vmh264 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (ctx->comp_info.max_size >> PAGE_SHIFT),
 			(get_jiffies_64() - hw->sc_start_time) * (1000/HZ));

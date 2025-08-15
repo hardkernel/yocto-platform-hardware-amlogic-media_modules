@@ -280,7 +280,7 @@ static void dos_local_config(bool is_on, int id)
 		}
 	}
 
-	pr_info("%s end, id %d, is_on %d\n", __func__, id, is_on);
+	pr_debug("%s end, id %d, is_on %d\n", __func__, id, is_on);
 }
 
 static void pm_vdec_power_domain_power_on(struct device *dev, int id)

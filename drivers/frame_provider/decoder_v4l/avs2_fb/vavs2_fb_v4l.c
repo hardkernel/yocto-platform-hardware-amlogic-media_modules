@@ -4887,7 +4887,7 @@ static void set_frame_info(struct AVS2Decoder_s *dec, struct vframe_s *vf)
 	vf->flag = 0;
 
 	if (dec->last_dur != dec->frame_dur) {
-		avs2_print(dec, 0,
+		avs2_print(dec, PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", dec->last_dur, dec->frame_dur);
 		dec->last_dur = dec->frame_dur;
 		v4l_avs2_collect_stream_info(hw_to_vdec(dec), dec);
@@ -7471,7 +7471,7 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 				struct vdec_comp_buf_info comp;
 				struct vdec_s *vdec = hw_to_vdec(dec);
 
-				pr_debug("set ucode parse\n");
+				avs2_print(dec, PRINT_FLAG_VDEC_DETAIL, "set ucode parse\n");
 				if (get_double_write_mode(dec) != 16) {
 					vavs2_get_comp_buf_info(dec, &comp);
 					vdec_v4l_set_comp_buf_info(ctx, &comp);
@@ -9575,7 +9575,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		}
 #endif
 		dec->first_sc_checked = 1;
-		avs2_print(dec, 0, "vavs2 cached=%d  need_size=%d speed= %lld ms\n",
+		avs2_print(dec, PRINT_FLAG_VDEC_DETAIL, "vavs2 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (dec->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - dec->sc_start_time) * (1000/HZ));
 	}

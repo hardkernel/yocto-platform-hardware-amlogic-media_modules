@@ -12133,7 +12133,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 	if (!hw->first_sc_checked && hw->mmu_enable) {
 		int size = decoder_mmu_box_sc_check(hw->mmu_box, tvp);
 		hw->first_sc_checked =1;
-		dpb_print(DECODE_ID(hw), 0,
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
 			"vmh264 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hw->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - hw->sc_start_time) * (1000/HZ));
@@ -13145,7 +13145,7 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 			&config_val) == 0) {
 			hw->discard_dv_data = config_val;
 			if (hw->discard_dv_data)
-			    dpb_print(DECODE_ID(hw), 0, "discard dv data\n");
+			    dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL, "discard dv data\n");
 		}
 
 		if (get_config_int(pdata->config,

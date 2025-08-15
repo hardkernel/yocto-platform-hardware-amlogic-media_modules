@@ -10263,7 +10263,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 				struct aml_vdec_ps_infos ps;
 				struct vdec_comp_buf_info comp;
 
-				pr_info("set ucode parse\n");
+				av1_print(hw, PRINT_FLAG_VDEC_DETAIL, "set ucode parse\n");
 				if (get_valid_double_write_mode(hw) != 16) {
 					vav1_get_comp_buf_info(hw, &comp);
 					vdec_v4l_set_comp_buf_info(ctx, &comp);
@@ -10983,7 +10983,7 @@ static int vav1_local_init(struct AV1HW_s *hw)
 /*
  *TODO:FOR VERSION
  */
-	pr_info("av1: ver (%d,%d) decinfo: %dx%d rate=%d\n", av1_version,
+	av1_print(hw, PRINT_FLAG_VDEC_DETAIL, "av1: ver (%d,%d) decinfo: %dx%d rate=%d\n", av1_version,
 			0, width, height, hw->frame_dur);
 
 	if (hw->frame_dur == 0)
@@ -11225,7 +11225,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 				else
 						hw->enable_ucode_swap = false;
 		}
-		av1_print(hw, 0, "%s ucode version %d.%d, swap enable %d\n", __func__,
+		av1_print(hw, PRINT_FLAG_VDEC_DETAIL, "%s ucode version %d.%d, swap enable %d\n", __func__,
 				get_decoder_firmware_version(), get_decoder_firmware_submit_count(),
 				hw->enable_ucode_swap);
 	}
@@ -12289,7 +12289,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		hw->first_sc_checked = 1;
-		av1_print(hw, 0, "av1 cached=%d  need_size=%d speed= %lld ms\n",
+		av1_print(hw, PRINT_FLAG_VDEC_DETAIL, "av1 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hw->need_cache_size >> PAGE_SHIFT),
 			(get_jiffies_64() - hw->sc_start_time) * (1000/HZ));
 #ifdef AOM_AV1_MMU_DW
