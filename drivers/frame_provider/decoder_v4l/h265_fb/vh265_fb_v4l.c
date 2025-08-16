@@ -1768,17 +1768,6 @@ struct debug_log_s {
 	uint8_t data; /*will alloc more size*/
 };
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
-struct mh265_fence_vf_t {
-	u32 used_size;
-	struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 #ifdef NEW_FRONT_BACK_CODE
 typedef struct {
 	uint32_t mmu0_ptr;
@@ -2146,7 +2135,7 @@ struct hevc_state_s {
 	u32 endian;
 	struct aml_buf *aml_buf;
 	int send_frame_flag;
-	struct mh265_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	bool resolution_change;
 	dma_addr_t rdma_phy_adr;
@@ -12395,6 +12384,15 @@ static void hevc_interlace_check(struct hevc_state_s *hevc,
 	}
 }
 
+static void h265_recycle_fence_vf(struct hevc_state_s *hevc)
+{
+	if (hevc->enable_fence) {
+		mutex_lock(&hevc->fence_mutex);
+		vdec_recycle_fence_vf(&hevc->fence_vf_s);
+		mutex_unlock(&hevc->fence_mutex);
+	}
+}
+
 static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -12452,6 +12450,8 @@ static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hevc));
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
+
+			h265_recycle_fence_vf(hevc); /*in buffer manager, recycle fence vf when res change*/
 
 			ret = 1;
 		}

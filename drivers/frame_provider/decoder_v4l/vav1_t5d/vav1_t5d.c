@@ -618,17 +618,6 @@ struct afbc_buf {
 	int   used;
 };
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
-struct av1_fence_vf_t {
-  u32 used_size;
-  struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 enum T5D_ROTATE_MODE {
 	T5D_DISABLE_ROTATE,
 	T5D_ROTATE_DW21,
@@ -895,7 +884,7 @@ struct AV1HW_s {
 	bool timeout;
 	bool enable_fence;
 	int fence_usage;
-	struct av1_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	/*
 	 * On t5d fg, each frame needs to be decoded twice by dw 0x21 and dw 3 respectively
@@ -8268,6 +8257,15 @@ static int check_fg_change(struct AV1HW_s *hw)
 	return ret;
 }
 
+static void av1_recycle_fence_vf(struct AV1HW_s *hw)
+{
+	if (hw->enable_fence) {
+		mutex_lock(&hw->fence_mutex);
+		vdec_recycle_fence_vf(&hw->fence_vf_s);
+		mutex_unlock(&hw->fence_mutex);
+	}
+}
+
 static int v4l_res_change(struct AV1HW_s *hw)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -8339,6 +8337,8 @@ static int v4l_res_change(struct AV1HW_s *hw)
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 
 			mutex_unlock(&hw->assist_task.assist_mutex);
+
+			av1_recycle_fence_vf(hw); /*in buffer manager, recycle fence vf when res change*/
 			ret = 1;
 		}
 	}

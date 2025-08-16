@@ -723,17 +723,6 @@ struct loopfilter;
 struct segmentation_lf;
 #endif
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
-struct av1_fence_vf_t {
-  u32 used_size;
-  struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 struct AV1HW_s {
 	AV1Decoder *pbi;
 	union param_u aom_param;
@@ -1047,7 +1036,7 @@ struct AV1HW_s {
 	struct mutex slice_header_lock;
 	bool enable_fence;
 	int fence_usage;
-	struct av1_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	u32 mv_buf_size;
 	bool enable_ucode_swap;

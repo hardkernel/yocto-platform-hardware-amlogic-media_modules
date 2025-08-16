@@ -1633,17 +1633,6 @@ struct h265_userdata_info_t {
 };
 #endif
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
-struct mh265_fence_vf_t {
-	u32 used_size;
-	struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 struct mh265_csd_main_info_t {
 	u32 frame_width;
 	u32 frame_height;
@@ -1977,7 +1966,7 @@ struct hevc_state_s {
 	u32 endian;
 	ulong fb_token;
 	int dec_again_cnt;
-	struct mh265_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	dma_addr_t rdma_phy_adr;
 	unsigned *rdma_adr;

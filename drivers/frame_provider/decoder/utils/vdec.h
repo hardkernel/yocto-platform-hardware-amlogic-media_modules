@@ -373,6 +373,8 @@ enum vformat_t;
 #define ALLOC_USER_BUF        0x2
 #define ALLOC_HDR10P_BUF      0x4
 
+#define FENCE_VF_POOL_SIZE    64
+
 struct vdec_data_buf_s {
 	int alloc_policy; /*bit0:aux buf, bit1:user buf, bit2:hdr10p buf */
 	u32 aux_buf_size;
@@ -708,6 +710,17 @@ typedef struct {
 	int used[MAX_USERDATA_CHANNEL_NUM];
 	u32 id[MAX_USERDATA_CHANNEL_NUM];
 } st_userdata;
+
+enum FenceModeBufStatus {
+	FENCE_MODE_BUF_IDLE = 0,
+	FENCE_MODE_BUF_POSTED = 1,
+	FENCE_MODE_BUF_SIGNALED = 2
+};
+
+struct vdec_fence_vf_t {
+	u32 used_size;
+	struct vframe_s *fence_vf[FENCE_VF_POOL_SIZE];
+};
 
 /* common decoder vframe provider name to use default vfm path */
 #define VFM_DEC_PROVIDER_NAME "decoder"
@@ -1062,5 +1075,7 @@ struct device *get_vdec_dev(void);
 void arb_ctrl_wait_idle(int enable);
 
 int vdec_set_medaisync_vfm_dev_id(struct vdec_s *vdec, int medaisync_vfm_dev_id);
+
+void vdec_recycle_fence_vf(struct vdec_fence_vf_t *fence_vf_s);
 
 #endif /* VDEC_H */

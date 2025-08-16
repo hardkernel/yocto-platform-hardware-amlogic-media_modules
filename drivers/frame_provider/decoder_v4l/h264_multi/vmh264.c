@@ -684,17 +684,6 @@ struct mh264_userdata_info_t {
 };
 #endif
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
-struct mh264_fence_vf_t {
-	u32 used_size;
-	struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 struct afbc_buf {
 	ulong fb;
 	int   used;
@@ -1005,7 +994,7 @@ struct vdec_h264_hw_s {
 	u32 error_frame_width;
 	u32 error_frame_height;
 	struct aml_buf *aml_buf;
-	struct mh264_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	u32 no_decoder_buffer_flag;
 	u32 video_signal_type;
@@ -12093,6 +12082,15 @@ static void h264_set_comp_info(struct aml_vcodec_ctx *ctx, struct aml_vdec_ps_in
 	return;
 }
 
+static void h264_recycle_fence_vf(struct vdec_h264_hw_s *hw)
+{
+	if (hw->enable_fence) {
+		mutex_lock(&hw->fence_mutex);
+		vdec_recycle_fence_vf(&hw->fence_vf_s);
+		mutex_unlock(&hw->fence_mutex);
+	}
+}
+
 static void update_comp_info(struct aml_vcodec_ctx *ctx, void *hw)
 {
 	struct vdec_comp_buf_info info = { 0 };
@@ -12162,6 +12160,9 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hw));
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
+
+			h264_recycle_fence_vf(hw); /*in buffer manager, recycle fence vf when res change*/
+
 			ret = 1;
 		}
 	}

@@ -9056,6 +9056,29 @@ struct firmware_s *fw_firmware_s_creat(int fw_size)
 }
 EXPORT_SYMBOL(fw_firmware_s_creat);
 
+void vdec_recycle_fence_vf(struct vdec_fence_vf_t *fence_vf_s)
+{
+	int i, j, used_size;
+	used_size = fence_vf_s->used_size;
+	if (used_size) {
+		for (i = 0, j = 0; i < FENCE_VF_POOL_SIZE && j < used_size; i++) {
+			if (fence_vf_s->fence_vf[i] != NULL) {
+
+				if (vdec_get_debug() & VDEC_DBG_ENABLE_FENCE)
+					pr_info("%s enable_fence, recycle fence_vf[%d]:%p, used_size:%d\n",
+						__func__, i, fence_vf_s->fence_vf[i], used_size);
+
+				fence_vf_s->fence_vf[i] = NULL;
+				fence_vf_s->used_size--;
+			}
+			j++;
+		}
+	}
+	return;
+}
+EXPORT_SYMBOL(vdec_recycle_fence_vf);
+
+
 RESERVEDMEM_OF_DECLARE(vdec, "amlogic, vdec-memory", vdec_mem_setup);
 /*
 uint force_hevc_clock_cntl;

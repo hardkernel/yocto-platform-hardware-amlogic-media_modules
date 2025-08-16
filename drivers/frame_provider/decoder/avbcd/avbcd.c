@@ -1563,12 +1563,6 @@ struct debug_log_s {
 	uint8_t data; /*will alloc more size*/
 };
 
-enum FenceModeBufStatus {
-	FENCE_MODE_BUF_IDLE = 0,
-	FENCE_MODE_BUF_POSTED = 1,
-	FENCE_MODE_BUF_SIGNALED = 2
-};
-
 struct avbcd_csd_main_info_t {
 	u32 frame_width;
 	u32 frame_height;

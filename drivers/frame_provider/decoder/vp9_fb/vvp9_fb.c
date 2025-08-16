@@ -1271,11 +1271,6 @@ u32 stage_buf_num;
 #endif
 #endif
 
-struct vp9_fence_vf_t {
-	u32 used_size;
-	struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 #ifdef NEW_FRONT_BACK_CODE
 typedef struct {
 	uint32_t mmu0_ptr;
@@ -1524,7 +1519,7 @@ struct VP9Decoder_s {
 	u32 error_frame_height;
 	u32 endian;
 	ulong fb_token;
-	struct vp9_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	dma_addr_t rdma_phy_adr;
 	unsigned *rdma_adr;

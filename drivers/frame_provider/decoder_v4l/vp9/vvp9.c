@@ -1021,11 +1021,6 @@ struct afbc_buf {
 	int   used;
 };
 
-struct vp9_fence_vf_t {
-	u32 used_size;
-	struct vframe_s *fence_vf[VF_POOL_SIZE];
-};
-
 struct vp9_repeat_buf_t {
 	u32 used_size;
 	struct RefCntBuffer_s *frame_bufs[FRAME_BUFFERS];
@@ -1255,7 +1250,7 @@ struct VP9Decoder_s {
 	struct aml_buf *aml_buf;
 	bool wait_more_buf;
 	spinlock_t wait_buf_lock;
-	struct vp9_fence_vf_t fence_vf_s;
+	struct vdec_fence_vf_t fence_vf_s;
 	struct mutex fence_mutex;
 	dma_addr_t rdma_phy_adr;
 	unsigned *rdma_adr;
@@ -9300,6 +9295,15 @@ static inline void vp9_prealloc_mv_buf(struct VP9Decoder_s *hw, int count, int s
 			size, count);
 }
 
+static void vp9_recycle_fence_vf(struct VP9Decoder_s *pbi)
+{
+	if (pbi->enable_fence) {
+		mutex_lock(&pbi->fence_mutex);
+		vdec_recycle_fence_vf(&pbi->fence_vf_s);
+		mutex_unlock(&pbi->fence_mutex);
+	}
+}
+
 static int v4l_res_change(struct VP9Decoder_s *pbi)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -9365,6 +9369,7 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 			notify_v4l_eos(hw_to_vdec(pbi));
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 
+			vp9_recycle_fence_vf(pbi); /*in buffer manager, recycle fence vf when res change*/
 			ret = 1;
 		}
 	}
