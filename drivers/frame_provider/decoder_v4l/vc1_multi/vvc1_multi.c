@@ -368,6 +368,9 @@ struct vdec_vc1_hw_s {
 	u32 buf_offset;
 	u32 vvc1_ratio;
 	u32 unstable_pts;
+
+	u32 report_width;
+	u32 report_height;
 };
 
 static struct task_ops_s task_dec_ops;
@@ -444,7 +447,6 @@ static void vvc1_save_regs(struct vdec_vc1_hw_s *hw)
 	hw->reg_power_ctl_vld = READ_VREG(POWER_CTL_VLD);
 	hw->reg_mc_ctrl1 = READ_VREG(MC_CTRL1);
 	hw->reg_mdec_pic_dc_ctrl = READ_VREG(MDEC_PIC_DC_CTRL);
-	hw->reg_scratch_4 = READ_VREG(AV_SCRATCH_4);
 
 	vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
 			"%s AV_SCRATCH_J = 0x%x, MDEC_PIC_DC_CTRL = 0x%x, AV_SCRATCH_4 = 0x%x, POWER_CTL_VLD = 0x%x, MC_CTRL1 0x%x\n",
@@ -527,7 +529,6 @@ static void vvc1_restore_regs(struct vdec_vc1_hw_s *hw)
 	WRITE_VREG(POWER_CTL_VLD, hw->reg_power_ctl_vld);
 	WRITE_VREG(MC_CTRL1, hw->reg_mc_ctrl1);
 	WRITE_VREG(MDEC_PIC_DC_CTRL, hw->reg_mdec_pic_dc_ctrl);
-	WRITE_VREG(AV_SCRATCH_4, hw->reg_scratch_4);
 
 	vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
 			"%s AV_SCRATCH_J = 0x%x, MDEC_PIC_DC_CTRL = 0x%x, AV_SCRATCH_4 = 0x%x, POWER_CTL_VLD = 0x%x, MC_CTRL1 0x%x\n",
@@ -1212,9 +1213,12 @@ static int v4l_res_change(struct vdec_vc1_hw_s *hw)
 			vdec_v4l_res_ch_event(ctx);
 			ctx->decoder_status_info.frame_height = ps.visible_height;
 			ctx->decoder_status_info.frame_width = ps.visible_width;
+			hw->report_width = hw->frame_width;
+			hw->report_height = hw->frame_height;
 
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
+			ctx->v4l_reqbuff_flag = false;
 			flush_output(hw);
 			notify_v4l_eos(vdec);
 			ctx->vdec_configure_update(ctx);
@@ -2086,6 +2090,53 @@ static int cal_frame_dur(void)
 	return frame_dur;
 }
 
+static bool v4l_resolution_double_check(struct vdec_vc1_hw_s *hw)
+{
+	bool ret = false;
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	int temp_last_width = hw->last_width;
+	int temp_last_height = hw->last_height;
+
+	if (!ctx->v4l_reqbuff_flag) {
+		hw->res_ch_flag = 0;
+	} else if (ctx->v4l_reqbuff_flag &&
+		hw->report_height != 0 &&
+		hw->report_width != 0 &&
+		((hw->report_height != hw->frame_height) ||
+		(hw->report_width != hw->frame_width))) {
+		hw->res_ch_flag = 0;
+		hw->last_width = hw->report_width;
+		hw->last_height = hw->report_height;
+	} else {
+		ret = true;
+	}
+
+	vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
+		"%s %s! reqbuff:%d flag:%d report:(w:%d, h:%d), frame:(w:%d, h:%d) last:(w:%d, h:%d)\n",
+		__func__, ret ? "pass" : "fail", ctx->v4l_reqbuff_flag, hw->res_ch_flag,
+		hw->report_width, hw->report_height,
+		hw->frame_width, hw->frame_height,
+		temp_last_width, temp_last_height);
+
+	if (ret == false) {
+		struct aml_vdec_ps_infos ps;
+
+		hw->frame_width = hw->last_width;
+		hw->frame_height = hw->last_height;
+
+		vvc1_get_ps_info(hw, &ps);
+		/*notice the v4l2 codec.*/
+		vdec_v4l_set_ps_infos(ctx, &ps);
+		vdec_v4l_res_ch_event(ctx);
+		aml_buf_update_planes(&ctx->bm);
+		//if (!ctx->v4l_reqbuff_flag && ctx->resolution_event_done)
+		//	vdec_v4l_post_event(ctx, V4L2_EVENT_RES_CHANGE_CLEAR);
+	}
+	ctx->resolution_event_done = false;
+
+	return ret;
+}
+
 static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 {
 	struct vdec_vc1_hw_s *hw = (struct vdec_vc1_hw_s *)vdec->private;
@@ -2115,7 +2166,7 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 
 	status_reg = READ_VREG(DECODE_STATUS);
 
-	if (status_reg == DECODE_STATUS_SEQ_HEADER_DONE) {//seq heard done
+	if (status_reg == DECODE_STATUS_SEQ_HEADER_DONE) {
 		reg = READ_VREG(VC1_PIC_INFO);
 		hw->frame_width = READ_VREG(VC1_PIC_INFO) & 0x3fff;
 		hw->frame_height = (READ_VREG(VC1_PIC_INFO) >> 14) & 0x3fff;
@@ -2139,26 +2190,29 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 		if (!v4l_res_change(hw)) {
 			if (ctx->param_sets_from_ucode && !hw->v4l_params_parsed) {
 				struct aml_vdec_ps_infos ps;
-				vc1_print(0, VC1_DEBUG_DETAIL, "set ucode parse\n");
-				vvc1_get_ps_info(hw, &ps);
-				vdec_v4l_set_ps_infos(ctx, &ps);
-				hw->last_width = hw->frame_width;
-				hw->last_height = hw->frame_height;
-				hw->v4l_params_parsed = true;
-				ctx->decoder_status_info.frame_height = ps.visible_height;
-				ctx->decoder_status_info.frame_width = ps.visible_width;
 
-				if (hw->frame_width && hw->frame_width <= 4096
-					&& (hw->frame_width != hw->vvc1_amstream_dec_info.width)) {
-					vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "frame width changed %d to %d\n",
-						   hw->vvc1_amstream_dec_info.width, hw->frame_width);
-					hw->vvc1_amstream_dec_info.width = hw->frame_width;
-				}
-				if (hw->frame_height && hw->frame_height <= 4096
-					&& (hw->frame_height != hw->vvc1_amstream_dec_info.height)) {
-					vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "frame height changed %d to %d\n",
-						   hw->vvc1_amstream_dec_info.height, hw->frame_height);
-					hw->vvc1_amstream_dec_info.height = hw->frame_height;
+				if (v4l_resolution_double_check(hw)) {
+					vc1_print(0, VC1_DEBUG_DETAIL, "set ucode parse\n");
+					vvc1_get_ps_info(hw, &ps);
+					vdec_v4l_set_ps_infos(ctx, &ps);
+					hw->last_width = hw->frame_width;
+					hw->last_height = hw->frame_height;
+					hw->v4l_params_parsed = true;
+					ctx->decoder_status_info.frame_height = ps.visible_height;
+					ctx->decoder_status_info.frame_width = ps.visible_width;
+
+					if (hw->frame_width && hw->frame_width <= 4096
+						&& (hw->frame_width != hw->vvc1_amstream_dec_info.width)) {
+						vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "frame width changed %d to %d\n",
+							   hw->vvc1_amstream_dec_info.width, hw->frame_width);
+						hw->vvc1_amstream_dec_info.width = hw->frame_width;
+					}
+					if (hw->frame_height && hw->frame_height <= 4096
+						&& (hw->frame_height != hw->vvc1_amstream_dec_info.height)) {
+						vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "frame height changed %d to %d\n",
+							   hw->vvc1_amstream_dec_info.height, hw->frame_height);
+						hw->vvc1_amstream_dec_info.height = hw->frame_height;
+					}
 				}
 
 				hw->dec_result = DEC_RESULT_AGAIN;
@@ -2198,6 +2252,7 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 				((hw->new_type == P_PICTURE) ? "P" :
 					((hw->new_type == B_PICTURE) ? "B" : "BI")));
 		vvc1_config_ref_buf(hw);
+		vvc1_save_regs(hw);
 		vdec_profile(hw_to_vdec(hw), VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
 	}
 
@@ -2215,8 +2270,6 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 			vdec_v4l_post_error_frame_event(ctx);
 			vc1_buf_ref_process_for_exception(hw);
 
-			WRITE_VREG(DECODE_STATUS, 0);
-			WRITE_VREG(VC1_PIC_INFO, 0);
 			hw->dec_result = DEC_RESULT_DONE;
 			vdec_schedule_work(&hw->work);
 			return IRQ_HANDLED;
@@ -2230,7 +2283,6 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 		vdec_v4l_post_error_frame_event(ctx);
 		vc1_buf_ref_process_for_exception(hw);
 
-		WRITE_VREG(DECODE_STATUS, 0);
 		hw->dec_result = DEC_RESULT_DONE;
 		vdec_schedule_work(&hw->work);
 		return IRQ_HANDLED;
@@ -2692,6 +2744,15 @@ static int vvc1_prot_init(struct vdec_vc1_hw_s *hw)
 
 	WRITE_VREG(AV_SCRATCH_L, udebug_flag);
 
+	if (hw->vvc1_amstream_dec_info.format == VIDEO_DEC_FORMAT_WMV3) {
+		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "WMV3 dec format\n");
+		WRITE_VREG(AV_SCRATCH_4, 0);
+	} else if (hw->vvc1_amstream_dec_info.format == VIDEO_DEC_FORMAT_WVC1) {
+		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "WVC1 dec format\n");
+		WRITE_VREG(AV_SCRATCH_4, 1);
+	} else
+		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL, "not supported VC1 format\n");
+
 	return 0;
 }
 
@@ -3052,22 +3113,17 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 #endif
 
 	size = vdec_prepare_input(vdec, &hw->chunk);
-	if (size < 0) {
+	if ((size < 0) ||
+		(input_frame_based(vdec) && (hw->chunk == NULL))) {
 		hw->input_empty++;
 		hw->dec_result = DEC_RESULT_AGAIN;
 		vdec_schedule_work(&hw->work);
 		//hw->run_flag = 0;
 		return;
 	}
-	if (hw->chunk)
-		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
-		"%s: input chunk offset %d, size %d, pts %d/%lld/%llu\n", __func__,
-			hw->chunk->offset, hw->chunk->size,
-			hw->chunk->pts, hw->chunk->pts64, hw->chunk->timestamp);
 
 	hw->input_empty = 0;
-	if ((vdec_frame_based(vdec)) &&
-		(hw->chunk != NULL)) {
+	if (vdec_frame_based(vdec)) {
 		size = hw->chunk->size + (hw->chunk->offset & (VDEC_FIFO_ALIGN - 1));
 		WRITE_VREG(VIFF_BIT_CNT, size * 8);
 		hw->start_bit_cnt = size * 8;
@@ -3077,7 +3133,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			READ_VREG(VIFF_BIT_CNT), hw->start_bit_cnt, ctx->current_timestamp);
 	}
 
-	if (input_frame_based(vdec)) {
+	if (input_frame_based(vdec) && !(vdec_secure(vdec))) {
 		u8 *data = NULL;
 
 		if (!hw->chunk->block->is_mapped)
@@ -3172,6 +3228,7 @@ static int ammvdec_vc1_probe(struct platform_device *pdev)
 {
 	struct vdec_s *pdata = *(struct vdec_s **)pdev->dev.platform_data;
 	struct vdec_vc1_hw_s *hw = NULL;
+	struct aml_vcodec_ctx *ctx = NULL;
 	int config_val = 0;
 
 	pr_info("%s start WORKSPACE_SIZE 0x%x\n", __func__, WORKSPACE_SIZE);
@@ -3215,6 +3272,9 @@ static int ammvdec_vc1_probe(struct platform_device *pdev)
 
 	/* the ctx from v4l2 driver. */
 	hw->v4l2_ctx = pdata->private;
+	ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	ctx->v4l_reqbuff_flag = true;
+
 	pdata->private = hw;
 	if (pdata->config_len) {
 		if (get_config_int(pdata->config, "parm_v4l_buffer_margin",
