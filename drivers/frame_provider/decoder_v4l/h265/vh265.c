@@ -10609,6 +10609,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		vf->compHeight <<= hevc->interlace_flag;
 		vf->canvas0_config[0].height <<= hevc->interlace_flag;
 		vf->canvas0_config[1].height <<= hevc->interlace_flag;
+		vdec->vfc.interlace_flag = hevc->interlace_flag;
 
 #ifdef HEVC_PIC_STRUCT_SUPPORT
 		if ((pic->pic_struct == 3 || pic->pic_struct == 4) && hevc->interlace_flag) {
