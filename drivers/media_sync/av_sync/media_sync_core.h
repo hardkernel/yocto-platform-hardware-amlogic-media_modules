@@ -138,6 +138,7 @@ typedef enum {
 	SET_START_PLAY_THRESHOLD,
 	SET_IS_ABNORMAL_AUDIO,
 	SET_SHOW_FIRSTFRAME_NOSYNC,
+	SET_VIDEO_LATENCY
 } mediasync_control_cmd;
 
 typedef struct m_control {
@@ -293,6 +294,7 @@ typedef struct update_info{
 	mediasync_videoinfo mVideoInfo;
 	u32 isVideoFrameAdvance;
 	u32 mFreeRunType;
+	s32 video_latency;
 } mediasync_update_info;
 
 typedef struct frame_rec_s {
@@ -415,6 +417,7 @@ typedef struct instance{
 	mediasync_frameinfo mRcordPcr[RECORD_PCR_NUM];
 	u32 mRcordPcrCount;
 	int64_t mQueueVptsInterval;
+	s32 video_latency;
 	mediasync_inner_ctl_ext mMediasyncCtlExt;
 	int32_t audio_wait_video_threshold;
 	int32_t video_wait_audio_threshold;

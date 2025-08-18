@@ -835,6 +835,7 @@ static void mediasync_ins_reset_l(mediasync_ins* pInstance) {
 		pInstance->preplay_slow_sync.max_pvdiff_threshold = media_sync_preplay_slow_sync_maxpvdiff;
 		pInstance->preplay_slow_sync.expect_sync_time = media_sync_preplay_slow_sync_expect_sync_time;
 		pInstance->mIsAbnormalAudio = false;
+		pInstance->video_latency = 0;
 		pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 		if (media_sync_calculate_cache_enable) {
 			pTable = &pInstance->frame_table[PTS_TYPE_AUDIO];
@@ -910,6 +911,7 @@ long mediasync_ins_alloc(s32 sDemuxId,
 			pInstance->mStartPlayThreshold = media_sync_start_play_threshold;
 			pInstance->mIsAbnormalAudio = false;
 			pInstance->mQueueVptsInterval = -1;
+			pInstance->video_latency = 0;
 			pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 			pInstance->audio_wait_video_threshold = media_sync_audio_wait_video_threshold; //2s
 			pInstance->video_wait_audio_threshold = media_sync_video_wait_audio_threshold; //2s
@@ -1029,6 +1031,7 @@ long mediasync_static_ins_binder(s32 sSyncInsId,
 					pInstance->mSyncInfo.state = MEDIASYNC_INIT;
 					pInstance->mSourceClockState = CLOCK_PROVIDER_NORMAL;
 					pInstance->mute_flag = false;
+					pInstance->video_latency = 0;
 					pInstance->mSourceType = TS_DEMOD;
 					pInstance->mUpdateTimeThreshold = MIN_UPDATETIME_THRESHOLD_US;
 					pInstance->mRef++;
@@ -3964,6 +3967,7 @@ long mediasync_ins_get_update_info(mediasync_ins* pInstance, mediasync_update_in
 	mediasync_ins_get_video_cache_info_implementation(pInstance,&(info->mVideoInfo));
 	info->isVideoFrameAdvance = pInstance->isVideoFrameAdvance;
 	info->mFreeRunType = pInstance->mFreeRunType;
+	info->video_latency = pInstance->video_latency;
 	mediasync_ins_check_pcr_slope(pInstance,info);
 	info->mStcParmUpdateCount = pInstance->mStcParmUpdateCount;
 	return 0;
@@ -4063,6 +4067,7 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case SET_START_PLAY_THRESHOLD:
 		case SET_IS_ABNORMAL_AUDIO:
 		case SET_SHOW_FIRSTFRAME_NOSYNC:
+		case SET_VIDEO_LATENCY:
 		{
 			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			break;
@@ -4346,6 +4351,12 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		case GET_QUEUE_VIDEO_INTERVAL:
 		{
 			mediasyncControl->value = pInstance->mQueueVptsInterval;
+			ret = 0;
+			break;
+		}
+		case SET_VIDEO_LATENCY:
+		{
+			pInstance->video_latency = mediasyncControl->value;
 			ret = 0;
 			break;
 		}
