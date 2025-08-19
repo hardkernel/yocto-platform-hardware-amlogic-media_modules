@@ -50,7 +50,7 @@
 #define PAIR_DONE  (3)
 
 #define AVBC_BUFFER_NUM  (32)
-#define DAMBUF_POOL 32
+#define DAMBUF_POOL 64
 #define FIELD_NUM 3
 
 struct buf_core_mgr_s;
