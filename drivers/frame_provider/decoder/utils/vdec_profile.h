@@ -46,7 +46,7 @@ extern void vdec_profile_flush(struct vdec_s *vdec);
 extern int vdec_profile_set_high_bandwidth_mode(struct vdec_s *vdec, u32 w, u32 h,
 	u32 duration);
 
-int vdec_profile_init_debugfs(void);
-void vdec_profile_exit_debugfs(void);
+int vdec_profile_init(void);
+void vdec_profile_exit(void);
 
 #endif /* VDEC_PROFILE_H */

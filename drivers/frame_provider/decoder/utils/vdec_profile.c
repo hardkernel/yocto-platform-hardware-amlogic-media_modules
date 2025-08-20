@@ -24,14 +24,16 @@
 #include <linux/debugfs.h>
 #include <linux/moduleparam.h>
 #include <linux/sched/clock.h>
+#include <linux/proc_fs.h>
 #include <trace/events/meson_atrace.h>
 #include "vdec_profile.h"
 #include "vdec.h"
 
-#define ISA_TIMERE 0x2662
-#define ISA_TIMERE_HI 0x2663
-
 #define PROFILE_REC_SIZE 40
+
+#define VDEC_PROFILE_DIR "vdec_profile"
+#define EVENT_NODE       "event"
+#define TIME_STAT_NODE   "time_stat"
 
 static DEFINE_MUTEX(vdec_profile_mutex);
 static DEFINE_SPINLOCK(vdec_profile_spinlock);
@@ -43,7 +45,12 @@ extern uint dec_time_stat_reset;
 extern u32 fps60_high_bandwidth_ms;
 extern u32 fps30_high_bandwidth_ms;
 
-struct dentry *root, *event;
+struct vdec_profile_debug_s {
+	struct dentry *debugfs_dir;
+	struct proc_dir_entry *procfs_dir;
+};
+
+static struct vdec_profile_debug_s vdec_profile_debug;
 
 struct vdec_profile_time_stat_s {
 	int time_6ms_less_cnt;
@@ -115,26 +122,6 @@ static const char *event_name[VDEC_PROFILE_MAX_EVENT] = {
 	"decoder start",
 	"decoder end"
 };
-
-#if 0 /* get time from hardware. */
-static u64 get_us_time_hw(void)
-{
-	u32 lo, hi1, hi2;
-	int offset = 0;
-
-	/* txlx, g12a isa register base is 0x3c00 */
-	if (get_cpu_major_id() >= MESON_CPU_MAJOR_ID_TXLX)
-		offset = 0x1600;
-
-	do {
-		hi1 = READ_MPEG_REG(ISA_TIMERE_HI + offset);
-		lo = READ_MPEG_REG(ISA_TIMERE + offset);
-		hi2 = READ_MPEG_REG(ISA_TIMERE_HI + offset);
-	} while (hi1 != hi2);
-
-	return (((u64)hi1) << 32) | lo;
-}
-#endif
 
 static u64 get_us_time_system(void)
 {
@@ -689,7 +676,6 @@ static int time_stat_profile_dbg_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-
 static int vdec_profile_dbg_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, vdec_profile_dbg_show, NULL);
@@ -700,6 +686,38 @@ static int time_stat_profile_dbg_open(struct inode *inode, struct file *file)
 	return single_open(file, time_stat_profile_dbg_show, NULL);
 }
 
+static const struct proc_ops event_proc_fops = {
+	.proc_open = vdec_profile_dbg_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
+};
+
+static const struct proc_ops time_stat_proc_fops = {
+	.proc_open = time_stat_profile_dbg_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
+};
+
+static int vdec_profile_init_procfs(struct vdec_profile_debug_s *vdec_profile)
+{
+	struct proc_dir_entry *vdec_dir;
+
+	vdec_dir = proc_mkdir(VDEC_PROFILE_DIR, NULL);
+	if (!vdec_dir) {
+		pr_err("failed to create /proc/%s\n", VDEC_PROFILE_DIR);
+		return -1;
+	}
+
+	proc_create(EVENT_NODE, S_IRUSR, vdec_dir, &event_proc_fops);
+
+	proc_create(TIME_STAT_NODE, S_IRUSR, vdec_dir, &time_stat_proc_fops);
+
+	vdec_profile->procfs_dir = vdec_dir;
+
+	return 0;
+}
 
 static const struct file_operations event_dbg_fops = {
 	.open    = vdec_profile_dbg_open,
@@ -715,53 +733,25 @@ static const struct file_operations time_stat_dbg_fops = {
 	.release = single_release,
 };
 
-
-#if 0 /*DEBUG_TMP*/
-static int __init vdec_profile_init_debugfs(void)
-{
-	struct dentry *root, *event;
-
-	root = debugfs_create_dir("vdec_profile", NULL);
-	if (IS_ERR(root) || !root)
-		goto err;
-
-	event = debugfs_create_file("event", 0400, root, NULL,
-			&event_dbg_fops);
-	if (!event)
-		goto err_1;
-
-	mutex_init(&vdec_profile_mutex);
-
-	return 0;
-
-err_1:
-	debugfs_remove(root);
-err:
-	pr_err("Can not create debugfs for vdec_profile\n");
-	return 0;
-}
-
-#endif
-
-int vdec_profile_init_debugfs(void)
+static int vdec_profile_init_debugfs(struct vdec_profile_debug_s *vdec_profile)
 {
 	struct dentry *root, *event, *time_stat;
 
-	root = debugfs_create_dir("vdec_profile", NULL);
+	root = debugfs_create_dir(VDEC_PROFILE_DIR, NULL);
 	if (IS_ERR(root) || !root)
 		goto err;
 
-	event = debugfs_create_file("event", 0400, root, NULL,
+	event = debugfs_create_file(EVENT_NODE, S_IRUSR, root, NULL,
 			&event_dbg_fops);
 	if (!event)
 		goto err_1;
 
-	time_stat = debugfs_create_file("time_stat", 0400, root, NULL,
+	time_stat = debugfs_create_file(TIME_STAT_NODE, S_IRUSR, root, NULL,
 			&time_stat_dbg_fops);
 	if (!time_stat)
 		goto err_2;
 
-	mutex_init(&vdec_profile_mutex);
+	vdec_profile->debugfs_dir = root;
 
 	return 0;
 
@@ -773,14 +763,34 @@ err:
 	pr_err("Can not create debugfs for vdec_profile\n");
 	return 0;
 }
-EXPORT_SYMBOL(vdec_profile_init_debugfs);
 
-void vdec_profile_exit_debugfs(void)
+int vdec_profile_init(void)
 {
-	debugfs_remove(event);
-	debugfs_remove(root);
+	struct vdec_profile_debug_s *vdec_profile = &vdec_profile_debug;
+
+	memset(vdec_profile, 0, sizeof(*vdec_profile));
+
+	vdec_profile_init_debugfs(vdec_profile);
+
+	vdec_profile_init_procfs(vdec_profile);
+
+	mutex_init(&vdec_profile_mutex);
+
+	return 0;
 }
-EXPORT_SYMBOL(vdec_profile_exit_debugfs);
+EXPORT_SYMBOL(vdec_profile_init);
+
+void vdec_profile_exit(void)
+{
+	struct vdec_profile_debug_s *vdec_profile = &vdec_profile_debug;
+
+	if (vdec_profile->debugfs_dir)
+		debugfs_remove_recursive(vdec_profile->debugfs_dir);
+
+	if (vdec_profile->procfs_dir)
+		proc_remove(vdec_profile->procfs_dir);
+}
+EXPORT_SYMBOL(vdec_profile_exit);
 
 /*module_init(vdec_profile_init_debugfs);*/
 

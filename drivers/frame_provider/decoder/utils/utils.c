@@ -53,7 +53,7 @@ static int __init decoder_common_init(void)
 	decoder_mmu_box_init();/*exit?*/
 	decoder_bmmu_box_init();
 
-	vdec_profile_init_debugfs();
+	vdec_profile_init();
 
 	dma_buf_mgr_module_init();
 
@@ -73,7 +73,7 @@ static void __exit decoder_common_exit(void)
 	decoder_mmu_box_exit();
 	decoder_bmmu_box_exit();
 
-	vdec_profile_exit_debugfs();
+	vdec_profile_exit();
 
 	dma_buf_mgr_module_exit();
 }
