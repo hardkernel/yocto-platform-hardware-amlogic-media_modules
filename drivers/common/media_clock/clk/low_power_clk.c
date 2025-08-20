@@ -414,7 +414,7 @@ EXPORT_SYMBOL(low_power_clk_on_get);
 struct low_power_ctrl_t *dos_low_power_ctrl_init(void)
 {
 	int i;
-	struct low_power_ctrl_t *lpc;
+	struct low_power_ctrl_t *lpc = NULL;
 
 	if (is_vdec_hevc_combine() || is_vcpu_clk_set()) {
 		lpc = vzalloc(sizeof(struct low_power_ctrl_t));
