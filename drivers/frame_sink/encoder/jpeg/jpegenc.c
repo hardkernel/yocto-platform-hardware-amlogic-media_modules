@@ -3106,7 +3106,8 @@ static s32 set_jpeg_input_format(struct jpegenc_wq_s *wq,
                 (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
                 (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
                 (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-                (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+                (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+                (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
                 if ((cmd->input_fmt == JPEGENC_FMT_RGB565)
                     || (cmd->input_fmt >= JPEGENC_MAX_FRAME_FMT))
                     return -1;
@@ -3689,7 +3690,7 @@ s32 jpegenc_loadmc(const char *p)
         WRITE_HREG(HCODEC_IMEM_DMA_CTRL, (0x8000 | (0xf << 16))); // ucode test c is 0x8000 | (0xf << 16)
     else if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3) || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
         (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-        (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+        (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
         jenc_pr(LOG_INFO, "t3 HCODEC_IMEM_DMA_CTRL (0x8000 | (0xf << 16))\n");
         WRITE_HREG(HCODEC_IMEM_DMA_CTRL, (0x8000 | (0xf << 16))); // Endian : 4'b1000);
     } else if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2) {
@@ -5043,7 +5044,8 @@ static s32 jpegenc_probe(struct platform_device *pdev)
         (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
         (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
         (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-        (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+        (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+        (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
         jenc_pr(LOG_INFO, "jpegenc_probe: jpeg_in_full_hcodec\n");
         jpeg_in_full_hcodec = 1;
         mfdin_ambus_canv_conv = 1;

@@ -1657,7 +1657,8 @@ static s32 set_input_format(struct encode_wq_s *wq,
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 				/*
 				 * for t3, after scaling before goto MFDIN, need to config canvas with scaler buffer
 				 * */
@@ -1886,7 +1887,8 @@ static s32 set_input_format(struct encode_wq_s *wq,
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+				(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 				struct canvas_s cs0, cs1;//, cs2
 				u32 y_addr, uv_addr, canvas_w, picsize_y;
 				u8 iformat = MAX_FRAME_FMT;
@@ -3115,7 +3117,8 @@ static s32 avc_poweron(u32 clock)
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 			vdec_poweron(VDEC_HCODEC);
 			enc_pr(LOG_INFO, "vdec_poweron VDEC_HCODEC\n");
 		} else {
@@ -3151,7 +3154,8 @@ static s32 avc_poweron(u32 clock)
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 		WRITE_VREG_BITS(DOS_GCLK_EN0, 0x7fff, 12, 15);
 		/*
 		 * WRITE_VREG(DOS_GCLK_EN0, 0xffffffff);
@@ -3194,7 +3198,8 @@ static s32 avc_poweroff(void)
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 			vdec_poweroff(VDEC_HCODEC);
 			enc_pr(LOG_INFO, "vdec_poweroff VDEC_HCODEC\n");
 		} else {
@@ -3221,7 +3226,8 @@ static s32 avc_poweroff(void)
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5M) || \
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) || \
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7D) || \
-		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4)) {
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_GXLX4) || \
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X)) {
 		WRITE_VREG_BITS(DOS_GCLK_EN0, 0, 12, 15);
 	} else
 		hvdec_clock_disable();
