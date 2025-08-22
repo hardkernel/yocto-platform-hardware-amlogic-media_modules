@@ -596,7 +596,6 @@ struct aml_vdec_cfg_infos {
 	u32 low_latency_mode;
 	u32 uvm_hook_type;
 	/*
-	 * bit 24	: v4l report userdata flag.
 	 * bit 23	: avbcd mode flag.
 	 * bit 22	: disable mmu copy.
 	 * bit 21	: buffer alloc flag. 0: dma heap, 1: ion heap.

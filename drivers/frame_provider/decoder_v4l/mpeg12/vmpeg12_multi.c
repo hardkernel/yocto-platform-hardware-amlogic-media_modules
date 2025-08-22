@@ -392,7 +392,6 @@ struct vdec_mpeg12_hw_s {
 	u32 parse_user_data_size;
 	struct userdata_meta_info_t meta_info;
 	u32 vf_ucode_cc_last_wp;
-	bool v4l_report_ud_flag;
 	bool stream_multi_frame_flag;
 	u32 start_bit_cnt;
 	u32 actual_frame_width;
@@ -1708,42 +1707,40 @@ static void userdata_push_do_work(struct work_struct *work)
 		}
 	}
 
-	if (hw->v4l_report_ud_flag == true)
-			v4l_vmpeg2_fill_userdata(hw, psrc_data, data_length, &meta_info);
-	else {
-		pdata = hw->userdata_info.data_buf + hw->userdata_info.last_wp;
-		for (i = 0; i < data_length && hw->ccbuf_phyAddress_virt != NULL && psrc_data; i++) {
-			*pdata++ = *psrc_data++;
-			if (pdata >= hw->userdata_info.data_buf_end)
-				pdata = hw->userdata_info.data_buf;
-		}
+	v4l_vmpeg2_fill_userdata(hw, psrc_data, data_length, &meta_info);
 
-		pcur_ud_rec = hw->ud_record + hw->cur_ud_idx;
+	pdata = hw->userdata_info.data_buf + hw->userdata_info.last_wp;
+	for (i = 0; i < data_length && hw->ccbuf_phyAddress_virt != NULL && psrc_data; i++) {
+		*pdata++ = *psrc_data++;
+		if (pdata >= hw->userdata_info.data_buf_end)
+			pdata = hw->userdata_info.data_buf;
+	}
 
-		pcur_ud_rec->meta_info = meta_info;
-		hw->meta_info = meta_info;
-		pcur_ud_rec->rec_start = hw->userdata_info.last_wp;
-		pcur_ud_rec->rec_len = data_length;
+	pcur_ud_rec = hw->ud_record + hw->cur_ud_idx;
 
-		hw->userdata_info.last_wp += data_length;
-		if (hw->userdata_info.last_wp >= USER_DATA_SIZE)
-			hw->userdata_info.last_wp %= USER_DATA_SIZE;
+	pcur_ud_rec->meta_info = meta_info;
+	hw->meta_info = meta_info;
+	pcur_ud_rec->rec_start = hw->userdata_info.last_wp;
+	pcur_ud_rec->rec_len = data_length;
 
-		hw->wait_for_udr_send = 1;
+	hw->userdata_info.last_wp += data_length;
+	if (hw->userdata_info.last_wp >= USER_DATA_SIZE)
+		hw->userdata_info.last_wp %= USER_DATA_SIZE;
 
-		if (debug_enable & PRINT_FLAG_USERDATA_DETAIL)
-			pr_info("cur_wp:%d, rec_start:%d, rec_len:%d, poc %d\n",
-				cur_wp,
-				pcur_ud_rec->rec_start,
-				pcur_ud_rec->rec_len,
-				pcur_ud_rec->meta_info.poc_number);
+	hw->wait_for_udr_send = 1;
+
+	if (debug_enable & PRINT_FLAG_USERDATA_DETAIL)
+		pr_info("cur_wp:%d, rec_start:%d, rec_len:%d, poc %d\n",
+			cur_wp,
+			pcur_ud_rec->rec_start,
+			pcur_ud_rec->rec_len,
+			pcur_ud_rec->meta_info.poc_number);
 
 #ifdef DUMP_USER_DATA
-		hw->reference[hw->cur_ud_idx] = reference;
+	hw->reference[hw->cur_ud_idx] = reference;
 #endif
 
-		hw->cur_ud_idx++;
-	}
+	hw->cur_ud_idx++;
 
 	hw->ucode_cc_last_wp = cur_wp;
 	hw->vf_ucode_cc_last_wp = cur_wp;
@@ -4868,12 +4865,6 @@ static int ammvdec_mpeg12_probe(struct platform_device *pdev)
 			"parm_v4l_metadata_config_flag",
 			&config_val) == 0) {
 			hw->force_prog_only = (config_val & VDEC_CFG_FLAG_PROG_ONLY) ? 1 : 0;
-
-			if (config_val & VDEC_CFG_FLAG_V4L_REPORT_USERDATA) {
-				hw->v4l_report_ud_flag = true;
-				pr_debug("%s, v4l_report_ud_flag %d\n",
-						__func__, hw->v4l_report_ud_flag);
-			}
 		}
 
 		if ((debug_enable & IGNORE_PARAM_FROM_CONFIG) == 0 &&
