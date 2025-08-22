@@ -378,6 +378,7 @@ extern int dump_capture_frame;
 extern char dump_path[32];
 extern int bypass_vpp;
 extern int bypass_ge2d;
+extern int ge2d_mode;
 extern bool support_format_I420;
 extern bool support_mjpeg;
 extern int bypass_progressive;
@@ -565,6 +566,22 @@ static bool is_di_support(int width, int height)
 	return true;
 }
 
+bool is_ge2d_mode(struct aml_vcodec_ctx *ctx)
+{
+	if (!ctx->enable_di_post &&
+		ctx->picinfo.field != V4L2_FIELD_NONE &&
+		ctx->output_pix_fmt == V4L2_PIX_FMT_HEVC &&
+		is_not_support_di_front_mode())
+		return true;
+
+	if (ge2d_mode) {
+		ctx->enable_di_post = false;
+		return true;
+	}
+
+	return false;
+}
+
 /* Conditions:
  * Always connect VPP for mpeg2 and h264 when the stream size is under 2K.
  * Always connect VPP for hevc/av1/vp9 when color space is not SDR and
@@ -578,10 +595,13 @@ static bool vpp_needed(struct aml_vcodec_ctx *ctx, u32* mode)
 	int width = ctx->picinfo.coded_width;
 	int height = ctx->picinfo.coded_height;
 
-	if (bypass_vpp || ctx->enable_di_post || ctx->avbcd_work_mode)
+	if (bypass_vpp || ctx->enable_di_post || ctx->avbcd_work_mode )
 		return false;
 
 	if (ctx->vpp_cfg.bypass)
+		return false;
+
+	if (is_ge2d_mode(ctx))
 		return false;
 
 	if (!ctx->vpp_cfg.enable_nr &&
@@ -669,11 +689,11 @@ static bool ge2d_needed(struct aml_vcodec_ctx *ctx, u32* mode)
 			(ctx->output_pix_fmt != V4L2_PIX_FMT_AVS)) {
 			return false;
 		}
-	} else if (ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG) {
+	} else if (ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG && !is_ge2d_mode(ctx)) {
 			return false;
 	}
 
-	if (ctx->picinfo.field != V4L2_FIELD_NONE) {
+	if (ctx->picinfo.field != V4L2_FIELD_NONE && !is_ge2d_mode(ctx)) {
 		return false;
 	}
 

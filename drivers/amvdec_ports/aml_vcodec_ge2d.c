@@ -123,11 +123,11 @@ static int get_input_format(struct vframe_s *vf)
 			format = GE2D_FORMAT_S16_YUV422
 				| (GE2D_FORMAT_S16_YUV422B & (3 << 3));
 		else if (vf->type & VIDTYPE_VIU_NV21)
-			format = GE2D_FORMAT_M24_NV21
-				| (GE2D_FORMAT_M24_NV21B & (3 << 3));
+			format = GE2D_FORMAT_M24_NV21;
+				/*| (GE2D_FORMAT_M24_NV21B & (3 << 3));*/
 		else if (vf->type & VIDTYPE_VIU_NV12)
-			format = GE2D_FORMAT_M24_NV12
-				| (GE2D_FORMAT_M24_NV12B & (3 << 3));
+			format = GE2D_FORMAT_M24_NV12;
+				/*| (GE2D_FORMAT_M24_NV12B & (3 << 3));*/
 		else if (vf->type & VIDTYPE_VIU_444)
 			format = GE2D_FORMAT_S24_YUV444
 				| (GE2D_FORMAT_S24_YUV444B & (3 << 3));
@@ -140,11 +140,11 @@ static int get_input_format(struct vframe_s *vf)
 			format = GE2D_FORMAT_S16_YUV422
 				| (GE2D_FORMAT_S16_YUV422T & (3 << 3));
 		else if (vf->type & VIDTYPE_VIU_NV21)
-			format = GE2D_FORMAT_M24_NV21
-				| (GE2D_FORMAT_M24_NV21T & (3 << 3));
+			format = GE2D_FORMAT_M24_NV21;
+				/*| (GE2D_FORMAT_M24_NV21T & (3 << 3));*/
 		else if (vf->type & VIDTYPE_VIU_NV12)
-			format = GE2D_FORMAT_M24_NV12
-				| (GE2D_FORMAT_M24_NV12T & (3 << 3));
+			format = GE2D_FORMAT_M24_NV12;
+				/*| (GE2D_FORMAT_M24_NV12T & (3 << 3));*/
 		else if (vf->type & VIDTYPE_VIU_444)
 			format = GE2D_FORMAT_S24_YUV444
 				| (GE2D_FORMAT_S24_YUV444T & (3 << 3));
@@ -660,15 +660,9 @@ retry:
 		}
 
 		if (!(in_buf->flag & GE2D_FLAG_EOS)) {
-			if (in_buf->vf->type & VIDTYPE_INTERLACE) {
-				stretchblt_noalpha(ge2d->ge2d_context,
-					0, 0, in_buf->vf->width, in_buf->vf->height / 2,
-					0, 0, in_buf->vf->width, in_buf->vf->height);
-			} else {
-				stretchblt_noalpha(ge2d->ge2d_context,
-					0, 0, in_buf->vf->width, in_buf->vf->height,
-					0, 0, in_buf->vf->width, in_buf->vf->height);
-			}
+			stretchblt_noalpha(ge2d->ge2d_context,
+				0, 0, in_buf->vf->width, in_buf->vf->height,
+				0, 0, in_buf->vf->width, in_buf->vf->height);
 		}
 		mutex_unlock(&ctx->dev->cache.lock);
 

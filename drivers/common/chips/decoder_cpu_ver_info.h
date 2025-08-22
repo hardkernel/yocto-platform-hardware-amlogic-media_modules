@@ -235,6 +235,8 @@ inline bool is_core_hevc_fmt(int format);
 
 inline bool is_hevc_align32(int blkmod);
 
+inline bool is_not_support_di_front_mode(void);
+
 u32 vdec_width_align_force(u32 width, int blkmod);
 
 /* clk get */

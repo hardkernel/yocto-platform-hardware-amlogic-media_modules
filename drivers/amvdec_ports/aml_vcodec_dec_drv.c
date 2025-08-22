@@ -875,6 +875,10 @@ int bypass_ge2d;
 EXPORT_SYMBOL(bypass_ge2d);
 MEDIA_PARAM(bypass_ge2d, int, 0644);
 
+int ge2d_mode;
+EXPORT_SYMBOL(ge2d_mode);
+MEDIA_PARAM(ge2d_mode, int, 0644);
+
 int max_di_instance = 2;
 EXPORT_SYMBOL(max_di_instance);
 MEDIA_PARAM(max_di_instance, int, 0644);
@@ -963,6 +967,7 @@ static struct param_entry amvdec_ports_params[] = {
 	PARAM_BOOL(enable_drm_mode),
 	PARAM_INT(bypass_vpp),
 	PARAM_INT(bypass_ge2d),
+	PARAM_INT(ge2d_mode),
 	PARAM_INT(max_di_instance),
 	PARAM_INT(bypass_progressive),
 	PARAM_INT(force_di_permission),

@@ -6445,7 +6445,7 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 		aml_buf->state = FB_ST_DECODER;
 		if (!v4l->avbcd_work_mode) {
 			aml_buf_get_ref(&v4l->bm, aml_buf);
-			if (v4l->vpp_is_need || v4l->enable_di_post) {
+			if (v4l->vpp_is_need || v4l->ge2d_is_need || v4l->enable_di_post) {
 				if (new_pic->pic_struct == 3 || new_pic->pic_struct == 4)
 					aml_buf_get_ref(&v4l->bm, aml_buf);
 				if (new_pic->pic_struct == 5 || new_pic->pic_struct == 6) {
@@ -10614,7 +10614,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		}
 
 		if (vdec->prog_only ||
-			!(v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post))
+			!(v4l2_ctx->vpp_is_need || v4l2_ctx->ge2d_is_need || v4l2_ctx->enable_di_post))
 			pic->pic_struct = 0;
 
 		vf->height <<= hevc->interlace_flag;
@@ -10867,6 +10867,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		pic->vf_ref = 1;
 		put_vf_to_display_q(hevc, vf);
 #endif
+
 		ATRACE_COUNTER(hevc->trace.new_q_name, kfifo_len(&hevc->newframe_q));
 		ATRACE_COUNTER(hevc->trace.disp_q_name, kfifo_len(&hevc->display_q));
 		/*count info*/
@@ -14585,7 +14586,7 @@ static int h265_recycle_frame_buffer(struct hevc_state_s *hevc)
 		if (pic->referenced == 0 && (pic->vf_ref || pic->drop_mark) &&
 			hevc->m_BUF[pic->index].v4l_ref_buf_addr) {
 
-			if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+			if ((ctx->vpp_is_need || ctx->ge2d_is_need || ctx->enable_di_post) &&
 				!(pic->drop_mark)) {
 				if (pic->pic_struct == 3 || pic->pic_struct == 4 ||
 					pic->pic_struct == 9 || pic->pic_struct == 10 ||
@@ -14607,7 +14608,7 @@ static int h265_recycle_frame_buffer(struct hevc_state_s *hevc)
 			aml_buf_put_ref(&ctx->bm, aml_buf);
 			if (pic->drop_mark && !pic->vf_ref) {
 				aml_buf_put_ref(&ctx->bm, aml_buf);
-				if (ctx->vpp_is_need || ctx->enable_di_post) {
+				if (ctx->vpp_is_need || ctx->ge2d_is_need || ctx->enable_di_post) {
 					if (pic->pic_struct == 3 || pic->pic_struct == 4)
 						aml_buf_put_ref(&ctx->bm, aml_buf);
 					if (pic->pic_struct == 5 || pic->pic_struct == 6) {
@@ -14772,11 +14773,11 @@ static bool is_available_buffer(struct hevc_state_s *hevc)
 	}
 
 	if ((hevc->interlace_flag &&
-		atomic_read(&ctx->vpp_cache_num) > 1) ||
+		(atomic_read(&ctx->vpp_cache_num) > 1 || atomic_read(&ctx->ge2d_cache_num) > 1)) ||
 		atomic_read(&ctx->vpp_cache_num) >= MAX_VPP_BUFFER_CACHE_NUM) {
 		hevc_print(hevc, H265_DEBUG_DETAIL,
-			"%s vpp cache: %d full!\n",
-			__func__, atomic_read(&ctx->vpp_cache_num));
+			"%s vpp/ge2d cache: %d/%d full!\n",
+			__func__, atomic_read(&ctx->vpp_cache_num), atomic_read(&ctx->ge2d_cache_num));
 
 		return false;
 	}

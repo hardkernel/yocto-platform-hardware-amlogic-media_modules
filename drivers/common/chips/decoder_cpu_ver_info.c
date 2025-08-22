@@ -1191,6 +1191,21 @@ inline bool is_hevc_align32(int blkmod)
 }
 EXPORT_SYMBOL(is_hevc_align32);
 
+inline bool is_not_support_di_front_mode(void)
+{
+	enum AM_MESON_CPU_MAJOR_ID cpu_major_id = get_cpu_major_id();
+
+	if ((cpu_major_id == AM_MESON_CPU_MAJOR_ID_T5D) ||
+		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_T6D) ||
+		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_T6W) ||
+		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_TXHD2) ||
+		(cpu_major_id == AM_MESON_CPU_MAJOR_ID_GXLX4))
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(is_not_support_di_front_mode);
+
 /* txhd2, s1a, g12a gxlx3? force align32. */
 u32 vdec_width_align_force(u32 width, int blkmod)
 {
