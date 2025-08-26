@@ -3642,7 +3642,7 @@ static int cal_avbcd_buf_size(struct hevc_state_s *hevc)
 	u32 align_h = vdec->avbc_info.align_h;
 	u32 coded_width = ALIGN(pic_width, align_w);
 	u32 coded_height = ALIGN(pic_height, align_h);
-	u32 bitdepth = vdec->avbc_info.bitdepth;
+	u32 bitdepth = vdec->avbc_info.bitdepth_dst;
 
 	hevc->stride = bitdepth == 10 ? coded_width * 2 : coded_width;
 	buf_size = hevc->stride * coded_height * 3 / 2;
@@ -10622,7 +10622,7 @@ static void avbcd_hardware_decompress(struct vdec_s *vdec)
 	u32 align_h = vdec->avbc_info.align_h;
 	u32 coded_width = ALIGN(vdec->avbc_info.avbc_width, align_w);
 	u32 coded_height = ALIGN(vdec->avbc_info.avbc_height, align_h);
-	u32 bitdepth = vdec->avbc_info.bitdepth;
+	u32 bitdepth = vdec->avbc_info.bitdepth_dst;
 
 	hevc->pic_h = vdec->avbc_info.avbc_height;
 	hevc->pic_w = vdec->avbc_info.avbc_width;
@@ -10876,15 +10876,19 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		u32 bit_depth = READ_VREG(HEVCD_IPP_BITDEPTH_CONFIG);
 		WRITE_VREG(HEVC_PARSER_PICTURE_SIZE, pic_size);
 
-		if (vdec->avbc_info.bitdepth == 10) {
+		if (vdec->avbc_info.bitdepth_src == 10 && vdec->avbc_info.bitdepth_dst == 8) {
 			bit_depth |= 0x1A;
-			hevc->double_write_mode |= (1 << 16);
-			hevc->endian = HEVC_CONFIG_P010_LE;
-		} else {
+			hevc->double_write_mode &= ~(1 << 16);
+			hevc->endian = HEVC_CONFIG_LITTLE_ENDIAN;
+		} else if (vdec->avbc_info.bitdepth_src == 8 && vdec->avbc_info.bitdepth_dst == 8) {
 			bit_depth &= 0xFFFFFFF0;
 			bit_depth |= 0x10;
 			hevc->double_write_mode &= ~(1 << 16);
 			hevc->endian = HEVC_CONFIG_LITTLE_ENDIAN;
+		} else if (vdec->avbc_info.bitdepth_src == 10 && vdec->avbc_info.bitdepth_dst == 10) {
+			bit_depth |= 0x1A;
+			hevc->double_write_mode |= (1 << 16);
+			hevc->endian = HEVC_CONFIG_P010_LE;
 		}
 		WRITE_VREG(HEVCD_IPP_BITDEPTH_CONFIG, bit_depth);
 		hevc_print(hevc, AVBCD_DEBUG_BUFMGR, "%s:HEVC_PARSER_PICTURE_SIZE(0x%x), pic_size(0x%x), bit_depth (0x%x), pic0_done(%d), wxh(%d x %d)\n",
@@ -10895,8 +10899,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 				vdec->pic0_done,
 				vdec->avbc_info.avbc_width,
 				vdec->avbc_info.avbc_height);
-	}else if (vdec->avbc_mode & 0x8) {
-		if (vdec->avbc_info.bitdepth == 10) {
+	} else if (vdec->avbc_mode & 0x8) {
+		if (vdec->avbc_info.bitdepth_dst == 10) {
 			hevc->double_write_mode |= (1 << 16);
 			hevc->endian = HEVC_CONFIG_P010_LE;
 		}

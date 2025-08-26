@@ -213,7 +213,7 @@ static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *ou
 	struct vdec_ge2d_info ge2d_info = { 0 };
 
 	src_w_stride = ALIGN(wrapper->vdec->avbc_info.avbc_width, 64);
-	if (wrapper->vdec->avbc_info.bitdepth == 10)
+	if (wrapper->vdec->avbc_info.bitdepth_dst == 10)
 		src_w_stride = src_w_stride * 2;
 	src_h_stride = ALIGN(wrapper->vdec->avbc_info.avbc_height, 64);
 
@@ -290,7 +290,7 @@ static void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out
 	int i;
 
 	src_w_stride = ALIGN(wrapper->vdec->avbc_info.avbc_width, 64);
-	if (wrapper->vdec->avbc_info.bitdepth == 10)
+	if (wrapper->vdec->avbc_info.bitdepth_dst == 10)
 		src_w_stride = src_w_stride * 2;
 	src_h_stride = ALIGN(wrapper->vdec->avbc_info.avbc_height, 64);
 
@@ -902,7 +902,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			}
 			if (wrapper->flag & AVBC_FLAG_IO_BLOCKING) {
 				u32 size = ALIGN(vdec->avbc_info.avbc_width, 64) * ALIGN(vdec->avbc_info.avbc_height, 64) * 3 /2;
-				if (vdec->avbc_info.bitdepth == 10)
+				if (vdec->avbc_info.bitdepth_dst == 10)
 					size = size * 2;
 				wrapper->hw_buf.size = size;
 				wrapper->hw_buf.virt_addr = codec_mm_dma_alloc_coherent(&wrapper->hw_buf.mem_handle, &wrapper->hw_buf.phy_addr, wrapper->hw_buf.size, "AVBCD_BUF");
@@ -911,7 +911,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			if (dec_i_frame_once && wrapper->frame_count) {
 				vdec->avbc_info.avbc_width = wrapper->in.img.rect.width;
 				vdec->avbc_info.avbc_height = wrapper->in.img.rect.height;
-				vdec->avbc_info.bitdepth = wrapper->in.img.bitdep;
+				vdec->avbc_info.bitdepth_src = wrapper->in.img.bitdep;
 				vdec->avbc_info.align_w = 64;
 				vdec->avbc_info.align_h = 64;
 				vdec->avbc_info.avbc_header_addr = (ulong)wrapper->in.img.data;
@@ -929,19 +929,22 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		} else {
 			vdec->avbc_info.avbc_width = wrapper->in.img.rect.width;
 			vdec->avbc_info.avbc_height = wrapper->in.img.rect.height;
-			vdec->avbc_info.bitdepth = wrapper->in.img.bitdep;
+			vdec->avbc_info.bitdepth_src = wrapper->in.img.bitdep;
 			vdec->avbc_info.align_w = 64;
 			vdec->avbc_info.align_h = 64;
 			vdec->avbc_info.avbc_header_addr = (ulong)wrapper->in.img.data;
+			if (kfifo_peek(&wrapper->out, &out))
+				vdec->avbc_info.bitdepth_dst = out->img.bitdep;
 
 			if ((wrapper->vdec->avbc_mode & 0x8) &&
 				kfifo_peek(&wrapper->out, &out)) {
 				vdec->avbc_info.avbc_y_addr = (ulong)out->img.data;
 				vdec->avbc_info.format = out->img.format != AML_PIX_FMT_NV21 ?
 								AML_PIX_FMT_NV12 : AML_PIX_FMT_NV21;
+				vdec->avbc_info.bitdepth_dst = out->img.bitdep;
 				if (wrapper->flag & AVBC_FLAG_IO_BLOCKING) {
 					u32 size = ALIGN(vdec->avbc_info.avbc_width, 64) * ALIGN(vdec->avbc_info.avbc_height, 64) * 3 /2;
-					if (vdec->avbc_info.bitdepth == 10)
+					if (vdec->avbc_info.bitdepth_dst == 10)
 						size = size * 2;
 					wrapper->hw_buf.size = size;
 					wrapper->hw_buf.virt_addr = codec_mm_dma_alloc_coherent(&wrapper->hw_buf.mem_handle, &wrapper->hw_buf.phy_addr, wrapper->hw_buf.size, "AVBCD_BUF");
@@ -1201,12 +1204,12 @@ static irqreturn_t avbc_isr_thread_fn(int irq, void *data)
 						ALIGN(vdec->avbc_info.avbc_height, vdec->avbc_info.align_h) * 3 / 2;
 					void *y_vaddr;
 
-					if (vdec->avbc_info.bitdepth == 10)
+					if (vdec->avbc_info.bitdepth_dst == 10)
 						length = length * 2;
 					y_vaddr = codec_mm_vmap(vdec->avbc_info.avbc_y_addr, length);
 
 					aml_avbcd_wrapper_yuv_dump(fp, (u8 *)y_vaddr,
-						vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height, 64, vdec->avbc_info.bitdepth);
+						vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height, 64, vdec->avbc_info.bitdepth_dst);
 					codec_mm_unmap_phyaddr(y_vaddr);
 
 					pr_info("dump idx: %d %dx%d\n", dump_avbcd_frame, vdec->avbc_info.avbc_width, vdec->avbc_info.avbc_height);
@@ -1496,13 +1499,21 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 	kfifo_put(&wrapper->out, out);
 
 	wrapper->flag = flag;
-	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s:  header_addr 0x%lx, header_size %u, width %u, height %u, bitdepth %u flag %d\n",
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s in:  header_addr 0x%lx, header_size %u, width %u, height %u, bitdepth %u flag %d\n",
 		__func__,
 		(ulong)in->img.data,
 		in->img.size,
 		in->img.rect.width,
 		in->img.rect.height,
 		in->img.bitdep,
+		flag);
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s out:  header_addr 0x%lx, header_size %u, width %u, height %u, bitdepth %u flag %d\n",
+		__func__,
+		(ulong)out->img.data,
+		out->img.size,
+		out->img.rect.width,
+		out->img.rect.height,
+		out->img.bitdep,
 		flag);
 
 	ret = vdec_write_vframe(wrapper->vdec, (const char *)in, P_FRAME_SIZE, NULL, NULL, NULL);

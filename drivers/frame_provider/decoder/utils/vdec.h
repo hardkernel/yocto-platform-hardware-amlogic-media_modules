@@ -449,7 +449,8 @@ struct aml_avbc_info {
 	u32 avbc_height;
 	u32 align_w;
 	u32 align_h;
-	u32 bitdepth;
+	u32 bitdepth_src;
+	u32 bitdepth_dst;
 	u32 format;
 };
 
