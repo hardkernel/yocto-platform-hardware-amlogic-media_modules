@@ -246,7 +246,6 @@ static int vavs_event_cb(int type, void *data, void *private_data);
 static const char vavs_dec_id[] = "vavs-dev";
 
 #define PROVIDER_NAME   "decoder.avs"
-static DEFINE_SPINLOCK(lock);
 static DEFINE_MUTEX(vavs_mutex);
 
 static const struct vframe_operations_s vavs_vf_provider = {
@@ -557,6 +556,8 @@ struct vdec_avs_hw_s {
 	bool need_recycle_buf;
 	int tvp_flag;
 	u32 last_dur;
+	bool need_error_handler;
+	struct mutex vf_mutex;
 };
 
 static void reset_process_time(struct vdec_avs_hw_s *hw);
@@ -564,6 +565,7 @@ static void start_process_time(struct vdec_avs_hw_s *hw);
 static void vavs_save_regs(struct vdec_avs_hw_s *hw);
 static int avs_recycle_frame_buffer(struct vdec_avs_hw_s *hw);
 void avs_buf_ref_process_for_exception(struct vdec_avs_hw_s *hw);
+static void handle_decoding_error(struct vdec_avs_hw_s *hw);
 
 
 struct vdec_avs_hw_s *ghw;
@@ -1461,7 +1463,6 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 	struct vdec_s *vdec = op_arg;
 	struct vdec_avs_hw_s *hw =
 	(struct vdec_avs_hw_s *)vdec->private;
-	unsigned long flags;
 
 	if (hw->recover_flag)
 		return NULL;
@@ -1471,7 +1472,7 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 	else if (step == 1)
 		step = 2;
 
-	spin_lock_irqsave(&lock, flags);
+	mutex_lock(&hw->vf_mutex);
 	if (kfifo_get(&hw->display_q, &vf)) {
 		if (vf) {
 			vf->index_disp = atomic_read(&hw->get_num);
@@ -1497,13 +1498,12 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 		}
 
 		kfifo_put(&hw->recycle_q, (const struct vframe_s *)vf);
-		spin_unlock_irqrestore(&lock, flags);
+		mutex_unlock(&hw->vf_mutex);
 		return vf;
 	}
-	spin_unlock_irqrestore(&lock, flags);
+	mutex_unlock(&hw->vf_mutex);
 
 	return NULL;
-
 }
 
 static void vavs_vf_put(struct vframe_s *vf, void *op_arg)
@@ -2234,19 +2234,16 @@ static void vavs_local_init(struct vdec_avs_hw_s *hw)
 
 static int vavs_vf_states(struct vframe_states *states, void *op_arg)
 {
-	unsigned long flags;
-	struct vdec_avs_hw_s *hw =
-	(struct vdec_avs_hw_s *)op_arg;
+	struct vdec_avs_hw_s *hw = (struct vdec_avs_hw_s *)op_arg;
 
-
-	spin_lock_irqsave(&lock, flags);
+	mutex_lock(&hw->vf_mutex);
 	states->vf_pool_size = VF_POOL_SIZE;
 	states->buf_free_num = kfifo_len(&hw->newframe_q);
 	states->buf_avail_num = kfifo_len(&hw->display_q);
 	states->buf_recycle_num = kfifo_len(&hw->recycle_q);
 	if (step == 2)
 		states->buf_avail_num = 0;
-	spin_unlock_irqrestore(&lock, flags);
+	mutex_unlock(&hw->vf_mutex);
 	return 0;
 }
 
@@ -2908,6 +2905,10 @@ static void vavs_work(struct work_struct *work)
 #ifdef DEBUG_MULTI_FRAME_INS
 			msleep(delay);
 #endif
+		if (hw->need_error_handler) {
+			handle_decoding_error(hw);
+			hw->need_error_handler = false;
+		}
 		if (hw->reset_decode_flag) {
 			avs_buf_ref_process_for_exception(hw);
 			vdec_v4l_post_error_frame_event(ctx);
@@ -3033,7 +3034,6 @@ static void start_process_time(struct vdec_avs_hw_s *hw)
 static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 {
 	int i;
-	unsigned long flags;
 	struct vframe_s *vf;
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
@@ -3043,7 +3043,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 	ctx->decoder_status_info.decoder_error_count++;
 	vdec_v4l_post_error_event(ctx, DECODER_WARNING_DATA_ERROR);
 
-	spin_lock_irqsave(&lock, flags);
+	mutex_lock(&hw->vf_mutex);
 	for (i = 0; i < VF_POOL_SIZE; i++) {
 		vf = &hw->vfpool[i].vf;
 		if (vf->index < hw->vf_buf_num_used) {
@@ -3114,7 +3114,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 	hw->pre_parser_wr_ptr = 0;
 	hw->buf_status = 0;
 	hw->throw_pb_flag = 1;
-	spin_unlock_irqrestore(&lock, flags);
+	mutex_unlock(&hw->vf_mutex);
 }
 
 static void timeout_process(struct vdec_avs_hw_s *hw)
@@ -3134,7 +3134,7 @@ static void timeout_process(struct vdec_avs_hw_s *hw)
 
 	amvdec_stop();
 	if (error_handle_policy & 0x1) {
-		handle_decoding_error(hw);
+		hw->need_error_handler = true;
 	} else {
 		vavs_save_regs(hw);
 
@@ -3152,40 +3152,6 @@ static void timeout_process(struct vdec_avs_hw_s *hw)
 		__func__, vdec->status, READ_VREG(VLD_MEM_VIFIFO_LEVEL), READ_VREG(VIFF_BIT_CNT));
 		reset_process_time(hw);
 	vdec_schedule_work(&hw->work);
-}
-
-
-static void recycle_frame_bufferin(struct vdec_avs_hw_s *hw)
-{
-	if (!kfifo_is_empty(&hw->recycle_q) && (READ_VREG(AVS_BUFFERIN) == 0)) {
-		struct vframe_s *vf;
-
-		if (kfifo_get(&hw->recycle_q, &vf)) {
-			if (buf_of_vf(vf)->detached) {
-				debug_print(hw, 0,
-					"%s recycle detached vf, index=%d detched %d used %d\n",
-					__func__, vf->index,
-					buf_of_vf(vf)->detached,
-					hw->vfbuf_use[vf->index]);
-			}
-			if ((vf->index < hw->vf_buf_num_used) &&
-				(buf_of_vf(vf)->detached == 0) &&
-			 (--hw->vfbuf_use[vf->index] == 0)) {
-				hw->buf_recycle_status |= (1 << vf->index);
-				WRITE_VREG(AVS_BUFFERIN, ~(1 << vf->index));
-				debug_print(hw, PRINT_FLAG_DECODING,
-					"%s WRITE_VREG(AVS_BUFFERIN, 0x%x) for vf index of %d => buf_recycle_status 0x%x\n",
-					__func__,
-					READ_VREG(AVS_BUFFERIN), vf->index,
-					hw->buf_recycle_status);
-			}
-			vf->index = hw->vf_buf_num_used;
-			buf_of_vf(vf)->detached = 0;
-			kfifo_put(&hw->newframe_q, (const struct vframe_s *)vf);
-		}
-
-	}
-
 }
 
 static void recycle_frames(struct vdec_avs_hw_s *hw)
@@ -3229,14 +3195,6 @@ static void check_timer_func(struct timer_list *timer)
 		struct vdec_avs_hw_s, check_timer);
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	unsigned int timeout_val = decode_timeout_val;
-	unsigned long flags;
-
-	/*recycle*/
-	if (!hw->m_ins_flag) {
-		spin_lock_irqsave(&lock, flags);
-		recycle_frame_bufferin(hw);
-		spin_unlock_irqrestore(&lock, flags);
-	}
 
 	if (hw->m_ins_flag) {
 		if ((READ_VREG(AV_SCRATCH_5) & 0xf) != 0 &&
@@ -3299,7 +3257,7 @@ static void check_timer_func(struct timer_list *timer)
 		if (!error_recovery_mode) {
 			amvdec_stop();
 			if (error_handle_policy & 0x1) {
-				handle_decoding_error(hw);
+				hw->need_error_handler = true;
 			} else {
 				vavs_save_regs(hw);
 
@@ -3593,7 +3551,6 @@ static void reset(struct vdec_s *vdec)
 		(struct vdec_avs_hw_s *)vdec->private;
 	int i;
 	struct vframe_s *vf = NULL;
-	unsigned long flags;
 
 	cancel_work_sync(&hw->work);
 
@@ -3609,10 +3566,10 @@ static void reset(struct vdec_s *vdec)
 
 	reset_process_time(hw);
 
-	spin_lock_irqsave(&lock, flags);
+	mutex_lock(&hw->vf_mutex);
 	INIT_KFIFO(hw->display_q);
 	INIT_KFIFO(hw->newframe_q);
-	spin_unlock_irqrestore(&lock, flags);
+	mutex_unlock(&hw->vf_mutex);
 
 	for (i = 0; i < VF_POOL_SIZE; i++) {
 		vf = &hw->vfpool[i].vf;
@@ -3652,6 +3609,7 @@ static void reset(struct vdec_s *vdec)
 	hw->buf_status = 0;
 	hw->eos 		= 0;
 	hw->aml_buf		= NULL;
+	hw->need_error_handler = false;
 
 	atomic_set(&hw->get_num, 0);
 	atomic_set(&hw->put_num, 0);
@@ -5006,6 +4964,8 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 	}
 
 	hw->m_ins_flag = 1;
+	hw->need_error_handler = false;
+	mutex_init(&hw->vf_mutex);
 
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_GXM || disable_longcabac_trans)
 		firmware_sel = 1;
