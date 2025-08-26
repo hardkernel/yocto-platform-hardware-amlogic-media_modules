@@ -352,6 +352,12 @@ static unsigned int mb_count_threshold = 5; /*percentage*/
 
 static unsigned int enable_hw_timer = 1;
 
+#ifdef SEND_PARAM_WITH_REG
+static unsigned int disable_multi_slice_irq = 1;
+#else
+static unsigned int disable_multi_slice_irq = 0;
+#endif
+
 #define MH264_USERDATA_ENABLE
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
@@ -635,7 +641,11 @@ static const struct vframe_operations_s vf_provider_ops = {
 #define DEBUG_REG1          AV_SCRATCH_M
 #define DEBUG_REG2          AV_SCRATCH_N
 #define FRAME_COUNTER_REG       AV_SCRATCH_I
+#ifdef SEND_PARAM_WITH_REG
 #define RPM_CMD_REG          AV_SCRATCH_A
+#else
+#define SLICE_COUNT          AV_SCRATCH_A
+#endif
 #define H264_DECODE_SIZE	AV_SCRATCH_E
 #define H264_DECODE_MODE    AV_SCRATCH_4
 #define H264_DECODE_SEQINFO	AV_SCRATCH_5
@@ -645,6 +655,8 @@ static const struct vframe_operations_s vf_provider_ops = {
 #define H264_DECODE_INFO          M4_CONTROL_REG /* 0xc29 */
 #define DPB_STATUS_REG       AV_SCRATCH_J
 #define ERROR_STATUS_REG	AV_SCRATCH_9
+
+#define DISABLE_MULTI_SLIEC_IRQ (1 << 17)
 	/*
 	NAL_SEARCH_CTL: bit 0, enable itu_t35
 	NAL_SEARCH_CTL: bit 1, enable mmu
@@ -652,6 +664,8 @@ static const struct vframe_operations_s vf_provider_ops = {
 	NAL_SEARCH_CTL: bit 3, recover the correct sps pps
 	NAL_SEARCH_CTL: bit 7-14,level_idc
 	NAL_SEARCH_CTL: bit 15,bitstream_restriction_flag
+	NAL_SEARCH_CTL: bit 16,enable hw timer
+	NAL_SEARCH_CTL: bit 17,disable multi slice irq
 	*/
 #define NAL_SEARCH_CTL		AV_SCRATCH_9
 #define MBY_MBX                 MB_MOTION_MODE /*0xc07*/
@@ -8411,6 +8425,11 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 	else if (dec_dpb_status == H264_AUX_DATA_READY)
 		ATRACE_COUNTER(hw->trace.decode_time_name, DECODER_ISR_THREAD_AUX_START);
 
+#ifndef SEND_PARAM_WITH_REG
+	if (!disable_multi_slice_irq)
+		hw->cur_picture_slice_count = READ_VREG(SLICE_COUNT);
+#endif
+
 	if (is_vdec_hevc_combine()) {
 		int reset_bit = 0;
 		if ((dec_dpb_status & 0xff) == H264_DECODE_ERROR_RESET) {
@@ -8613,7 +8632,8 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			first_mb_in_slice = p[FIRST_MB_IN_SLICE + 3];
 
 #ifdef DETECT_WRONG_MULTI_SLICE
-		hw->cur_picture_slice_count++;
+		if (disable_multi_slice_irq)
+			hw->cur_picture_slice_count++;
 
 		if ((hw->error_proc_policy & 0x10000) &&
 			(hw->cur_picture_slice_count > 1) &&
@@ -12611,6 +12631,9 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	else
 		WRITE_VREG(NAL_SEARCH_CTL, 0);
 
+	if (disable_multi_slice_irq)
+		WRITE_VREG(NAL_SEARCH_CTL, READ_VREG(NAL_SEARCH_CTL) | DISABLE_MULTI_SLIEC_IRQ);
+
 	WRITE_VREG(MDEC_EXTIF_CFG2, READ_VREG(MDEC_EXTIF_CFG2) | 0x20);
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS, "set MDEC_EXTIF_CFG2 bit 5\n");
 
@@ -13719,6 +13742,7 @@ static struct param_entry amvdec_h264_params[] = {
 	PARAM_UINT(save_buffer),
 	PARAM_UINT(save_buffer_in_res_change),
 	PARAM_UINT(enable_hw_timer),
+	PARAM_UINT(disable_multi_slice_irq),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_h264_params, 0644);
@@ -13941,6 +13965,9 @@ MODULE_PARM_DESC(save_buffer_in_res_change, "\n save_buffer_in_res_change\n");
 
 module_param(enable_hw_timer, uint, 0664);
 MODULE_PARM_DESC(enable_hw_timer, "\n enable_hw_timer\n");
+
+module_param(disable_multi_slice_irq, uint, 0664);
+MODULE_PARM_DESC(disable_multi_slice_irq, "\n disable_multi_slice_irq\n");
 
 module_init(ammvdec_h264_driver_init_module);
 module_exit(ammvdec_h264_driver_remove_module);
