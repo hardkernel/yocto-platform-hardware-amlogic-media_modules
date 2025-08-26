@@ -137,6 +137,7 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 	s64 StartMediaTime = -1;
 	s32 PlayerInstanceId = -1;
 	mediasync_audio_switch AudioSwitch = {0};
+	mediasync_default_threshold defaultThreshold = {0};
 
 	switch (cmd) {
 		case MEDIASYNC_IOC_INSTANCE_ALLOC:
@@ -1494,6 +1495,31 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 					return -EFAULT;
 			}
 		break;
+		case MEDIASYNC_IOC_SET_DEFAULT_THRESHOLD:
+			if (copy_from_user((void *)&defaultThreshold,
+						(void *)arg,
+						sizeof(defaultThreshold)))
+				return -EFAULT;
+
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_set_default_threshold(priv->mSyncIns,
+							defaultThreshold);
+		break;
+		case MEDIASYNC_IOC_GET_DEFAULT_THRESHOLD:
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_get_default_threshold(priv->mSyncIns,
+							&defaultThreshold);
+			if (ret == 0) {
+				if (copy_to_user((void *)arg,
+						&defaultThreshold,
+						sizeof(defaultThreshold)))
+					return -EFAULT;
+			}
+		break;
 
 		default:
 			pr_info("invalid cmd:%d\n", cmd);
@@ -1610,6 +1636,8 @@ static long mediasync_compat_ioctl(struct file *file, unsigned int cmd, ulong ar
 		case MEDIASYNC_IOC_SET_PCR_AND_DMX_ID:
 		case MEDIASYNC_IOC_SET_AUDIO_SWITCH:
 		case MEDIASYNC_IOC_GET_AUDIO_SWITCH:
+		case MEDIASYNC_IOC_SET_DEFAULT_THRESHOLD:
+		case MEDIASYNC_IOC_GET_DEFAULT_THRESHOLD:
 			return mediasync_ioctl_inner(file, cmd,(ulong)compat_ptr(arg),1);
 		default:
 			return -EINVAL;

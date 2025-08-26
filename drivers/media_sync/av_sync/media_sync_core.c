@@ -63,6 +63,11 @@ static u32 media_sync_start_play_threshold = 300;
 
 static u32 media_sync_show_firstframe_nosync = 1;
 
+static s32 media_sync_audio_wait_video_threshold = 2000000; //2s
+static s32 media_sync_video_wait_audio_threshold = 2000000; //2s
+static s32 media_sync_audio_wait_binder_threshold = 300000; //300ms
+static s32 media_sync_video_wait_binder_threshold = 300000; //300ms
+
 #define mediasync_pr_info(dbg_level,sync_index,fmt,args...) if (dbg_level <= media_sync_debug_level) {pr_info("[MS_Core:%d] " fmt,sync_index,##args);}
 #define mediasync_pr_error(fmt,args...) {pr_info("[%s:%d] err " fmt,__func__,__LINE__,##args);}
 #define valid_pts(pts) ((pts) > 0)
@@ -896,6 +901,10 @@ long mediasync_ins_alloc(s32 sDemuxId,
 			pInstance->mIsAbnormalAudio = false;
 			pInstance->mQueueVptsInterval = -1;
 			pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
+			pInstance->audio_wait_video_threshold = media_sync_audio_wait_video_threshold; //2s
+			pInstance->video_wait_audio_threshold = media_sync_video_wait_audio_threshold; //2s
+			pInstance->audio_wait_bind_threshold = media_sync_audio_wait_binder_threshold; //300ms
+			pInstance->video_wait_bind_threshold = media_sync_video_wait_binder_threshold; //300ms
 			snprintf(pInstance->atrace_video,
 				sizeof(pInstance->atrace_video), "msync_v_%d", *sSyncInsId);
 			snprintf(pInstance->atrace_audio,
@@ -4658,6 +4667,72 @@ long mediasync_ins_get_audio_switch(MediaSyncManager* pSyncManage, mediasync_aud
 	return 0;
 }
 
+long mediasync_ins_set_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold threshold) {
+
+	mediasync_ins *p_instance = NULL;
+	unsigned long flags = 0;
+	s32 sync_index = 0;
+	if (p_sync_manage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(p_sync_manage->m_lock),flags);
+	p_instance = p_sync_manage->pInstance;
+	if (p_instance == NULL) {
+		spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+		return -1;
+	}
+
+	if (threshold.audio_wait_video_threshold >= 0) {
+		p_instance->audio_wait_video_threshold = threshold.audio_wait_video_threshold;
+	}
+
+	if (threshold.video_wait_audio_threshold >= 0) {
+		p_instance->video_wait_audio_threshold = threshold.video_wait_audio_threshold;
+	}
+
+	if (threshold.audio_wait_bind_threshold >= 0) {
+		p_instance->audio_wait_bind_threshold = threshold.audio_wait_bind_threshold;
+	}
+
+	if (threshold.video_wait_bind_threshold >= 0) {
+		p_instance->video_wait_bind_threshold = threshold.video_wait_bind_threshold;
+	}
+
+	p_instance->mStcParmUpdateCount++;
+	sync_index = p_instance->mSyncIndex;
+
+	spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+	mediasync_pr_info(1, sync_index, "set default threshold:awv:%d,vwa:%d,awb:%d,vwb:%d\n",\
+		p_instance->audio_wait_video_threshold, p_instance->video_wait_audio_threshold,
+		p_instance->audio_wait_bind_threshold, p_instance->video_wait_bind_threshold);
+
+	return 0;
+}
+
+long mediasync_ins_get_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold *threshold) {
+
+	mediasync_ins *p_instance = NULL;
+	unsigned long flags = 0;
+	if (p_sync_manage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(p_sync_manage->m_lock),flags);
+	p_instance = p_sync_manage->pInstance;
+	if (p_instance == NULL) {
+		spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+		return -1;
+	}
+	threshold->audio_wait_video_threshold = p_instance->audio_wait_video_threshold;
+	threshold->video_wait_audio_threshold = p_instance->video_wait_audio_threshold;
+	threshold->audio_wait_bind_threshold = p_instance->audio_wait_bind_threshold;
+	threshold->video_wait_bind_threshold = p_instance->video_wait_bind_threshold;
+	spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+
+	return 0;
+}
+
 int register_mediasync_video_hold_set_cb(void* pfunc) {
 	if (pfunc == NULL) {
 		return -1;
@@ -4675,6 +4750,10 @@ static struct param_entry mediasync_params[] = {
 	PARAM_INT(media_sync_start_slow_sync_enable),
 	PARAM_INT(media_sync_start_play_threshold),
 	PARAM_INT(media_sync_show_firstframe_nosync),
+	PARAM_INT(media_sync_audio_wait_video_threshold),
+	PARAM_INT(media_sync_video_wait_audio_threshold),
+	PARAM_INT(media_sync_audio_wait_binder_threshold),
+	PARAM_INT(media_sync_video_wait_binder_threshold),
 	{ /* sentinel */ }
 };
 
@@ -4699,4 +4778,16 @@ MODULE_PARM_DESC(media_sync_start_play_threshold, "\n mediasync start play thres
 
 module_param(media_sync_show_firstframe_nosync, uint, 0664);
 MODULE_PARM_DESC(media_sync_show_firstframe_nosync, "\n media sync show first frame no sync\n");
+
+module_param(media_sync_audio_wait_video_threshold, uint, 0664);
+MODULE_PARM_DESC(media_sync_audio_wait_video_threshold, "\n mediasync audio wait video threshold \n");
+
+module_param(media_sync_video_wait_audio_threshold, uint, 0664);
+MODULE_PARM_DESC(media_sync_video_wait_audio_threshold, "\n mediasync video wait audio threshold\n");
+
+module_param(media_sync_audio_wait_binder_threshold, uint, 0664);
+MODULE_PARM_DESC(media_sync_audio_wait_binder_threshold, "\n mediasync audio wait bind threshold\n");
+
+module_param(media_sync_video_wait_binder_threshold, uint, 0664);
+MODULE_PARM_DESC(media_sync_video_wait_binder_threshold, "\n mediasync video wait bind threshold\n");
 #endif

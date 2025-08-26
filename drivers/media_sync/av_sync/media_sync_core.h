@@ -325,12 +325,20 @@ typedef struct holdvideoinfo {
 }mediasync_holdvideoinfo;
 
 typedef struct audio_switch {
-    int32_t mOn; //audio switch on=1/off=0
-    int32_t mSetByUser; //check if user set audio switch,1=set by user/ 0=inner using
-    int64_t mPts; //after audio switch,audio sync pts
-    int64_t mSystemTimeUs;
-    int32_t mReserved[2];
+	int32_t mOn; //audio switch on=1/off=0
+	int32_t mSetByUser; //check if user set audio switch,1=set by user/ 0=inner using
+	int64_t mPts; //after audio switch,audio sync pts
+	int64_t mSystemTimeUs;
+	int32_t mReserved[2];
 } mediasync_audio_switch;
+
+typedef struct default_threshold {
+	int32_t audio_wait_video_threshold;
+	int32_t video_wait_audio_threshold;
+	int32_t audio_wait_bind_threshold;
+	int32_t video_wait_bind_threshold;
+	int32_t mReserved[4];
+} mediasync_default_threshold;
 
 typedef struct instance{
 	s32 mSyncIndex;
@@ -400,6 +408,10 @@ typedef struct instance{
 	u32 mRcordPcrCount;
 	int64_t mQueueVptsInterval;
 	mediasync_inner_ctl_ext mMediasyncCtlExt;
+	int32_t audio_wait_video_threshold;
+	int32_t video_wait_audio_threshold;
+	int32_t audio_wait_bind_threshold;
+	int32_t video_wait_bind_threshold;
 }mediasync_ins;
 
 typedef struct Media_Sync_Manage {
@@ -531,4 +543,6 @@ long mediasync_ins_get_audio_switch(MediaSyncManager* pSyncManage, mediasync_aud
 long mediasync_ins_update_speed_mediatime(MediaSyncManager* pSyncManage,
 				mediasync_updatespeedtime_para *para);
 long mediasync_ins_get_tunnel_combined_para(mediasync_ins* pInstance, mediasync_tunnel_combined_para* info);
+long mediasync_ins_set_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold threshold);
+long mediasync_ins_get_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold *threshold);
 #endif
