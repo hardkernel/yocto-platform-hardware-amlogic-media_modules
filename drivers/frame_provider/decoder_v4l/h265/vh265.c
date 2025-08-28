@@ -3616,6 +3616,14 @@ static void hevc_get_video_frame(void *vdec_ctx, struct vframe_s *vf)
 static struct aml_buf *index_to_afbc_aml_buf(struct hevc_state_s *hevc, int index)
 {
 	int i;
+
+	if (index == -1) {
+		hevc_print(hevc, H265_DEBUG_BUFMGR,
+			"%s index %d\n",
+			__func__, index);
+		return NULL;
+	}
+
 	for (i = 0; i < BUF_FBC_NUM_MAX; i++) {
 		if (hevc->m_BUF[index].v4l_ref_buf_addr
 			== hevc->afbc_buf_table[i].fb) {
@@ -15968,6 +15976,10 @@ done_end:
 
 		struct aml_buf *aml_buf = index_to_afbc_aml_buf(hevc,
 			hevc->cur_pic->BUF_index);
+
+		hevc_print(hevc, H265_DEBUG_BUFMGR_MORE,
+			"%s hevc->cur_pic->BUF_index %d\n",
+			__func__, hevc->cur_pic->BUF_index);
 
 		if (aml_buf) {
 			struct mmu_copy *mmu_copy = &hevc->mmu_copy_array[aml_buf->fbc->index];

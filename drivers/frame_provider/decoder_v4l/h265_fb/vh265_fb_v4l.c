@@ -4199,6 +4199,14 @@ static void hevc_get_video_frame(void *vdec_ctx, struct vframe_s *vf)
 static struct aml_buf *index_to_afbc_aml_buf(struct hevc_state_s *hevc, int index)
 {
 	int i;
+
+	if (index == -1) {
+		hevc_print(hevc, H265_DEBUG_BUFMGR,
+			"%s index %d\n",
+			__func__, index);
+		return NULL;
+	}
+
 	for (i = 0; i < BUF_FBC_NUM_MAX; i++) {
 		if (hevc->m_BUF[index].v4l_ref_buf_addr
 			== hevc->afbc_buf_table[i].fb) {
@@ -16935,6 +16943,10 @@ done_end:
 		struct aml_buf *aml_buf = index_to_afbc_aml_buf(hevc,
 			hevc->cur_pic->BUF_index);
 
+		hevc_print(hevc, H265_DEBUG_BUFMGR_MORE,
+			"%s hevc->cur_pic->BUF_index %d\n",
+			__func__, hevc->cur_pic->BUF_index);
+
 		if (aml_buf) {
 			struct mmu_copy *mmu_copy = &hevc->mmu_copy_array[aml_buf->fbc->index];
 
@@ -17280,23 +17292,30 @@ static void vh265_work_back_implement(struct hevc_state_s *hevc,
 
 		struct aml_buf *aml_buf = index_to_afbc_aml_buf(hevc,
 			pic->BUF_index);
-		struct mmu_copy *mmu_copy = &hevc->mmu_copy_array[aml_buf->fbc->index];
 
-		if ((mmu_copy->mmu_copy_buf_start) &&
-			((!is_mmu_copy_enable()) || is_mmu_copy_dynamic_alloc_buffer())) {
-			if (hevc->bmmu_box)
-				decoder_bmmu_box_free_idx(hevc->bmmu_box,
-					MMU_COPY_IDX(aml_buf->fbc->index));
-			mmu_copy->mmu_copy_buf_start = 0;
-			mmu_copy->mmu_copy_buf_size = 0;
-		}
+		hevc_print(hevc, H265_DEBUG_BUFMGR_MORE,
+			"%s pic->BUF_index %d\n",
+			__func__, pic->BUF_index);
 
-		if (pic->need_mmu_copy) {
-			pic->used_4k_num = READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
-			pic->used_4k_num1 = READ_VREG(HEVC_SAO_MMU_STATUS_DBE1) >> 16;
+		if (aml_buf) {
+			struct mmu_copy *mmu_copy = &hevc->mmu_copy_array[aml_buf->fbc->index];
 
-			recycle_mmu_buf_tail(hevc, hevc->m_ins_flag, pic);
-			error_handle_mmu_copy(hevc, pic);
+			if ((mmu_copy->mmu_copy_buf_start) &&
+				((!is_mmu_copy_enable()) || is_mmu_copy_dynamic_alloc_buffer())) {
+				if (hevc->bmmu_box)
+					decoder_bmmu_box_free_idx(hevc->bmmu_box,
+						MMU_COPY_IDX(aml_buf->fbc->index));
+				mmu_copy->mmu_copy_buf_start = 0;
+				mmu_copy->mmu_copy_buf_size = 0;
+			}
+
+			if (pic->need_mmu_copy) {
+				pic->used_4k_num = READ_VREG(HEVC_SAO_MMU_STATUS) >> 16;
+				pic->used_4k_num1 = READ_VREG(HEVC_SAO_MMU_STATUS_DBE1) >> 16;
+
+				recycle_mmu_buf_tail(hevc, hevc->m_ins_flag, pic);
+				error_handle_mmu_copy(hevc, pic);
+			}
 		}
 	}
 
