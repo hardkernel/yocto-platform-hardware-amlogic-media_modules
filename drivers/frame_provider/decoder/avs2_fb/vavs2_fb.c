@@ -5175,18 +5175,12 @@ static int avs2_local_init(struct AVS2Decoder_s *dec)
 #define video_domain_addr(adr) (adr&0x7fffffff)
 #define DECODER_WORK_SPACE_SIZE 0x800000
 
-#define spec2canvas(x)  \
-	(((x)->uv_canvas_index << 16) | \
-		((x)->uv_canvas_index << 8)  | \
-		((x)->y_canvas_index << 0))
-
 static void set_canvas(struct AVS2Decoder_s *dec,
 	struct avs2_frame_s *pic)
 {
 	int canvas_w = ALIGN(pic->pic_w, 64)/4;
 	int canvas_h = ALIGN(pic->pic_h, 32)/4;
 	int blkmode = mem_map_mode;
-	struct vdec_s *vdec = hw_to_vdec(dec);
 	/*CANVAS_BLKMODE_64X32*/
 	if	(pic->double_write_mode) {
 		canvas_w = pic->pic_w	/
@@ -5197,22 +5191,6 @@ static void set_canvas(struct AVS2Decoder_s *dec,
 		canvas_w = ALIGN(canvas_w, 64);
 		canvas_h = ALIGN(canvas_h, 32);
 
-		if (vdec->parallel_dec == 1) {
-			if (pic->y_canvas_index == -1)
-				pic->y_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-			if (pic->uv_canvas_index == -1)
-				pic->uv_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-		} else {
-			pic->y_canvas_index = 128 + pic->index * 2;
-			pic->uv_canvas_index = 128 + pic->index * 2 + 1;
-		}
-
-		config_cav_lut_ex(pic->y_canvas_index,
-			pic->dw_y_adr, canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 0x7, VDEC_HEVC);
-		config_cav_lut_ex(pic->uv_canvas_index,
-			pic->dw_u_v_adr,	canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 0x7, VDEC_HEVC);
 #ifdef MULTI_INSTANCE_SUPPORT
 		pic->canvas_config[0].phy_addr = pic->dw_y_adr;
 		pic->canvas_config[0].width = canvas_w;
@@ -5230,27 +5208,6 @@ static void set_canvas(struct AVS2Decoder_s *dec,
 
 		ATRACE_COUNTER(dec->trace.set_canvas0_addr, pic->canvas_config[0].phy_addr);
 #endif
-	} else {
-	#ifndef AVS2_10B_MMU
-		if (vdec->parallel_dec == 1) {
-			if (pic->y_canvas_index == -1)
-				pic->y_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-			if (pic->uv_canvas_index == -1)
-				pic->uv_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-		} else {
-			pic->y_canvas_index = 128 + pic->index;
-			pic->uv_canvas_index = 128 + pic->index;
-		}
-
-		config_cav_lut_ex(pic->y_canvas_index,
-			pic->mc_y_adr, canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 0x7, VDEC_HEVC);
-		config_cav_lut_ex(pic->uv_canvas_index,
-			pic->mc_u_v_adr,canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 0x7, VDEC_HEVC);
-
-		ATRACE_COUNTER(dec->trace.set_canvas0_addr, spec2canvas(pic));
-	#endif
 	}
 
 #ifdef OW_TRIPLE_WRITE
@@ -5263,24 +5220,6 @@ static void set_canvas(struct AVS2Decoder_s *dec,
 		canvas_w = ALIGN(canvas_w, 64);
 		canvas_h = ALIGN(canvas_h, 32);
 
-#if 0
-		if (vdec->parallel_dec == 1) {
-			if (pic->tw_y_canvas_index == -1)
-				pic->tw_y_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-			if (pic->tw_uv_canvas_index == -1)
-				pic->tw_uv_canvas_index = vdec->get_canvas_ex(CORE_MASK_HEVC, vdec->id);
-		} else {
-			pic->tw_y_canvas_index = 128 + pic->index * 2;
-			pic->tw_uv_canvas_index = 128 + pic->index * 2 + 1;
-		}
-
-		config_cav_lut_ex(pic->y_canvas_index,
-			pic->dw_y_adr, canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 7, VDEC_HEVC);
-		config_cav_lut_ex(pic->uv_canvas_index, pic->dw_u_v_adr,
-			canvas_w, canvas_h,
-			CANVAS_ADDR_NOWRAP, blkmode, 7, VDEC_HEVC);
-#endif
 		pic->tw_canvas_config[0].phy_addr   = pic->tw_y_adr;
 		pic->tw_canvas_config[0].width      = canvas_w;
 		pic->tw_canvas_config[0].height     = canvas_h;
@@ -5958,10 +5897,8 @@ static void set_vframe(struct AVS2Decoder_s *dec,
 
 				vf->canvas1_config[0] = pic->canvas_config[0];
 				vf->canvas1_config[1] = pic->canvas_config[1];
-		} else
+		}
 #endif
-			vf->canvas0Addr = vf->canvas1Addr =
-				spec2canvas(pic);
 	} else {
 		vf->canvas0Addr = vf->canvas1Addr = 0;
 		vf->type = VIDTYPE_COMPRESS | VIDTYPE_VIU_FIELD;
@@ -10487,13 +10424,6 @@ static int ammvdec_avs2_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (pdata->parallel_dec == 1) {
-		int i;
-		for (i = 0; i < AVS2_MAX_BUFFER_NUM; i++) {
-			dec->avs2_dec.frm_pool[i].y_canvas_index = -1;
-			dec->avs2_dec.frm_pool[i].uv_canvas_index = -1;
-		}
-	}
 	pdata->private = dec;
 	pdata->dec_status = vavs2_dec_status;
 #ifdef I_ONLY_SUPPORT
@@ -10849,12 +10779,6 @@ static KV_INT_TO_VOID ammvdec_avs2_remove(struct platform_device *pdev)
 		vdec_core_release(hw_to_vdec(dec), CORE_MASK_HEVC);
 
 	vdec_set_status(hw_to_vdec(dec), VDEC_STATUS_DISCONNECTED);
-	if (pdata->parallel_dec == 1) {
-		for (i = 0; i < AVS2_MAX_BUFFER_NUM; i++) {
-			pdata->free_canvas_ex(dec->avs2_dec.frm_pool[i].y_canvas_index, pdata->id);
-			pdata->free_canvas_ex(dec->avs2_dec.frm_pool[i].uv_canvas_index, pdata->id);
-		}
-	}
 
 	for (i = 0; i < dec->used_buf_num; i++) {
 		if (i == (dec->used_buf_num - 1))

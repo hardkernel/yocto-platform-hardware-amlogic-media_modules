@@ -757,8 +757,8 @@ struct avs2_frame_s {
 	int comp_body_size;
 	dos_addr_t dw_y_adr;
 	dos_addr_t dw_u_v_adr;
-	int y_canvas_index;
-	int uv_canvas_index;
+	//int y_canvas_index;
+	//int uv_canvas_index;
 	struct canvas_config_s canvas_config[2];
 	int double_write_mode;
 	int bit_depth;

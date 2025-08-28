@@ -764,8 +764,8 @@ struct avs2_frame_s {
 	u32 luma_size_tw;
 	u32 chroma_size_tw;
 
-	int y_canvas_index;
-	int uv_canvas_index;
+	//int y_canvas_index;
+	//int uv_canvas_index;
 	struct canvas_config_s canvas_config[2];
 	int double_write_mode;
 
