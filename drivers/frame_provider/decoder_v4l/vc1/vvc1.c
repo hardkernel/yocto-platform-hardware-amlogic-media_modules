@@ -762,7 +762,6 @@ static int v4l_res_change(struct vdec_vc1_hw_s *hw)
 			hw->res_ch_flag = 1;
 			flush_output(hw);
 			notify_v4l_eos();
-			ctx->vdec_configure_update(ctx);
 			ret = 1;
 		}
 	}

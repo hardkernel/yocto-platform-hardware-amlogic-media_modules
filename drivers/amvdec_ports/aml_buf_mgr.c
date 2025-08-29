@@ -206,7 +206,7 @@ static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc)
 		"%s, ret:%d\n",
 		__func__, ret);
 
-	if (bm->config.dynamic_mode)
+	if (bm->config.dynamic_mode_probe)
 		dec_type = DEC_TYPE_VDEC_CORE_I;
 	if (bm->dec_type != dec_type) {
 		aml_buf_vpp_mgr_release(bm);
@@ -222,7 +222,7 @@ static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm)
 		return 0;
 
 	if (!bm->vpp_handle) {
-		if (bm->config.dynamic_mode)
+		if (bm->config.dynamic_mode_probe)
 			bm->dec_type = DEC_TYPE_VDEC_CORE_I;
 		else
 			bm->dec_type = DEC_TYPE_V4L_DEC;

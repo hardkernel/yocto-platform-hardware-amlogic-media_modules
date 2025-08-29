@@ -11854,6 +11854,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 
 	frame_width = frame_width - crop_right;
 	frame_height = frame_height - crop_bottom;
+	hw->double_write_mode = get_double_write_mode(hw);
 	hw->bForceInterlace	= check_force_interlace(hw, frame_width, frame_height);
 	ps->profile 		= level_idc;
 	ps->ref_frames 		= max_reference_size;
@@ -12130,7 +12131,6 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 			flush_dpb(p_H264_Dpb);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hw));
-			ctx->vdec_configure_update(ctx);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 			ret = 1;
 		}
@@ -12194,7 +12194,6 @@ static bool v4l_resolution_double_check(struct vdec_h264_hw_s *hw,
 		vdec_v4l_set_ps_infos(ctx, &ps);
 		vdec_v4l_res_ch_event(ctx);
 		aml_buf_update_planes(&ctx->bm);
-		ctx->vdec_configure_update(ctx);
 		if (!ctx->v4l_reqbuff_flag && ctx->resolution_event_done)
 			vdec_v4l_post_event(ctx, V4L2_EVENT_RES_CHANGE_CLEAR);
 	}

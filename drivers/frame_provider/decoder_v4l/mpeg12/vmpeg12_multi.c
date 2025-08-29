@@ -2411,7 +2411,6 @@ static int v4l_res_change(struct vdec_mpeg12_hw_s *hw, int width, int height, bo
 			flush_output(hw);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(hw));
-			ctx->vdec_configure_update(ctx);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 			hw->actual_frame_width = width;
 			hw->actual_frame_height = height;

@@ -48,6 +48,7 @@ struct aml_buf_mgr_s;
  * @enable_secure	: Indicates the secure mode.
  * @avbcd_work_mode	: Indicates the avbcd mode.
  * @dynamic_mode	: Indicates mode of dynamic binding of YUV dma and UVM dma.
+ * @dynamic_mode_probe	: Indicates mode of dynamic binding of YUV dma and UVM dma during resilotion change.
  * @vpp_work_mode	: Indicates the vpp work mode.
  * @priority		: Indicates the channel display priority;The lower the value, the higher the priority.
  * @memory_mode		: memory mode used by v4l2 vb queue.
@@ -62,6 +63,7 @@ struct aml_buf_config {
 	bool 	enable_secure;
 	bool	avbcd_work_mode;
 	bool	dynamic_mode;
+	bool	dynamic_mode_probe;
 	int	vpp_work_mode;
 	u32	priority;
 	int	memory_mode;

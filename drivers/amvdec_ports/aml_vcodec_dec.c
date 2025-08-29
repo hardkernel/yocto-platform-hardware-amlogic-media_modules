@@ -784,6 +784,7 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 
 	}
 
+	aml_buf_get_configure(&ctx->bm, &config);
 	config.enable_extbuf	= true;
 	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
@@ -874,6 +875,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
 	if (!ctx->v4l_resolution_change)
 		config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
+	config.dynamic_mode_probe = is_dynamic_mode(ctx) ? true : false;
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
@@ -2232,10 +2234,20 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	obj = dmabuf_get_uvm_buf_obj(dbuf);
 	mbuf = container_of(obj, struct mua_buffer, base);
 
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+		"%s last field %d v4l_resolution_change %d\n",
+		__func__, ctx->last_decoded_picinfo.field, ctx->v4l_resolution_change);
+
 	if (!ctx->enable_di_post ||
-		((ctx->picinfo.field == V4L2_FIELD_NONE) && (!aml_buf_check_dma_buf(&ctx->bm, (ulong)mbuf->idmabuf[0]))) ||
-		!is_vdec_core_fmt(ctx->output_pix_fmt))
+		((ctx->picinfo.field == V4L2_FIELD_NONE && !aml_buf_is_dynamic_mode_inited(&ctx->bm)) &&
+		(!aml_buf_check_dma_buf(&ctx->bm, (ulong)mbuf->idmabuf[0]))) ||
+		!is_vdec_core_fmt(ctx->output_pix_fmt)) {
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+				"%s enable_di_post %d field %d, aml_buf_check_dma_buf %d\n",
+				__func__, ctx->enable_di_post, ctx->picinfo.field,
+				aml_buf_check_dma_buf(&ctx->bm, (ulong)mbuf->idmabuf[0]));
 		return 0;
+	}
 
 	if (!ctx->master_buf && !is_there_enough_yuv_dmabuf(ctx, dbuf)) {
 		if (!aml_buf_check_uvm_dma_recycled(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf))
@@ -2649,6 +2661,11 @@ static int vidioc_decoder_reqbufs(struct file *file, void *priv,
 		__func__, q->type, rb->count);
 
 	if (!V4L2_TYPE_IS_OUTPUT(rb->type)) {
+		if (rb->count > 0) {
+			aml_buf_configure_update(ctx);
+			if (ctx->bm.config.dynamic_mode)
+				aml_buf_init_dma(&ctx->bm);
+		}
 		/* driver needs match v4l buffer number with total size*/
 		if (rb->count > CTX_BUF_TOTAL(ctx)) {
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
