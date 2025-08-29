@@ -1353,6 +1353,7 @@ static int aml_v4l2_vpp_push_vframe(struct aml_v4l2_vpp* vpp, struct vframe_s *v
 				(vpp->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG1) &&
 				(vpp->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG2) &&
 				(vpp->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG4) &&
+				(vpp->ctx->output_pix_fmt != V4L2_PIX_FMT_JPEG)  &&
 				(vpp->ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG)) {
 				vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 			}

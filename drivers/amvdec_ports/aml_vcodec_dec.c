@@ -84,8 +84,8 @@
 MODULE_IMPORT_NS(DMA_BUF);
 
 #define OUT_FMT_IDX		(0) //default h264
-#define CAP_FMT_IDX		(15) //capture nv21m
-#define CAP_FMT_I420_IDX	(19) //use for mjpeg
+#define CAP_FMT_IDX		(16) //capture nv21m
+#define CAP_FMT_I420_IDX	(20) //use for mjpeg
 
 #define AML_VDEC_MIN_W	64U
 #define AML_VDEC_MIN_H	64U
@@ -189,6 +189,12 @@ static struct aml_video_fmt aml_video_formats[] = {
 		.num_planes = 1,
 	},
 	{
+		.name = "JPEG",
+		.fourcc = V4L2_PIX_FMT_JPEG,
+		.type = AML_FMT_DEC,
+		.num_planes = 1,
+	},
+	{
 		.name = "AVS",
 		.fourcc = V4L2_PIX_FMT_AVS,
 		.type = AML_FMT_DEC,
@@ -266,6 +272,24 @@ static struct aml_video_fmt aml_video_formats[] = {
 		.type = AML_FMT_FRAME,
 		.num_planes = 2,
 	},
+	{
+		.name = "NV16",
+		.fourcc = V4L2_PIX_FMT_NV16,
+		.type = AML_FMT_FRAME,
+		.num_planes = 1,
+	},
+	{
+		.name = "NV16M",
+		.fourcc = V4L2_PIX_FMT_NV16M,
+		.type = AML_FMT_FRAME,
+		.num_planes = 2,
+	},
+	{
+		.name = "RGBA",
+		.fourcc = V4L2_PIX_FMT_RGBA32,
+		.type = AML_FMT_FRAME,
+		.num_planes = 1,
+	},
 };
 
 static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
@@ -301,6 +325,11 @@ static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
 	},
 	{
 		.fourcc = V4L2_PIX_FMT_MJPEG,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_JPEG,
 		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
 				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
 	},
@@ -366,6 +395,21 @@ static const struct aml_codec_framesizes aml_vdec_framesizes[] = {
 	},
 	{
 		.fourcc = V4L2_PIX_FMT_YUV420M,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV16,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV16M,
+		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
+				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_RGBA32,
 		.stepwise = {  AML_VDEC_MIN_W, AML_VDEC_MAX_W, 2,
 				AML_VDEC_MIN_H, AML_VDEC_MAX_H, 2},
 	},
@@ -995,6 +1039,7 @@ void fbc_transcode_and_set_vf(struct aml_vcodec_ctx *ctx,
 				(ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG1) &&
 				(ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG2) &&
 				(ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG4) &&
+				(ctx->output_pix_fmt != V4L2_PIX_FMT_JPEG)  &&
 				(ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG)) {
 				vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 			}
@@ -3507,6 +3552,7 @@ static int is_vdec_core_fmt(u32 fmt)
 		fmt == V4L2_PIX_FMT_MPEG1 || fmt == V4L2_PIX_FMT_MPEG2 ||
 		fmt == V4L2_PIX_FMT_MPEG4 || fmt == V4L2_PIX_FMT_AVS ||
 		fmt == V4L2_PIX_FMT_MJPEG || fmt == V4L2_PIX_FMT_VC1_ANNEX_G ||
+		fmt == V4L2_PIX_FMT_JPEG  ||
 		fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
 		return true;
 
@@ -3544,7 +3590,8 @@ static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type)
 	 * to DM_YUV_ONLY. Driver will set width alignment to 64, also satisfy width
 	 * alignment 32
 	 */
-	if (is_hevc_align32(0) && (ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG))
+	if (is_hevc_align32(0) && (ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG)
+		&& (ctx->output_pix_fmt != V4L2_PIX_FMT_JPEG))
 		w_align = 32;
 
 	if (V4L2_TYPE_IS_MULTIPLANAR(type)) {
@@ -3966,6 +4013,13 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 				fsize->stepwise.max_height =
 						VCODEC_DEC_4K_CODED_HEIGHT;
 			}
+
+			if (fsize->pixel_format == V4L2_PIX_FMT_JPEG) {
+				fsize->stepwise.max_width =
+						VCODEC_DEC_16K_CODED_WIDTH;
+				fsize->stepwise.max_height =
+						VCODEC_DEC_16K_CODED_HEIGHT;
+			}
 		} else {
 			if (ctx->dev->dec_capability & VCODEC_HEVC_8K_ENABLE) {
 				fsize->stepwise.max_width =
@@ -3994,7 +4048,7 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	return -EINVAL;
 }
 
-static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
+static int vidioc_enum_fmt(struct aml_vcodec_ctx *ctx, struct v4l2_fmtdesc *f, bool output_queue)
 {
 	struct aml_video_fmt *fmt;
 	int i = 0, j = 0;
@@ -4004,7 +4058,10 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
 		for (i = 0; i < NUM_FORMATS; i++) {
 			fmt = &aml_video_formats[i];
 			if ((fmt->fourcc == V4L2_PIX_FMT_YUV420) ||
-				(fmt->fourcc == V4L2_PIX_FMT_YUV420M)) {
+				(fmt->fourcc == V4L2_PIX_FMT_YUV420M) ||
+				(fmt->fourcc == V4L2_PIX_FMT_NV16) ||
+				(fmt->fourcc == V4L2_PIX_FMT_NV16M) ||
+				(fmt->fourcc == V4L2_PIX_FMT_RGBA32)) {
 				break;
 			}
 		}
@@ -4019,6 +4076,11 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
 		if (support_mjpeg && !support_format_I420 &&
 			((fmt->fourcc == V4L2_PIX_FMT_YUV420) ||
 			(fmt->fourcc == V4L2_PIX_FMT_YUV420M)))
+			continue;
+
+		if ((ctx->output_pix_fmt != V4L2_PIX_FMT_JPEG) && ((fmt->fourcc == V4L2_PIX_FMT_NV16) ||
+			(fmt->fourcc == V4L2_PIX_FMT_NV16M) ||
+			(fmt->fourcc == V4L2_PIX_FMT_RGBA32)))
 			continue;
 
 		if (j == f->index) {
@@ -4048,7 +4110,7 @@ static int vidioc_vdec_enum_fmt_vid_cap_mplane(struct file *file,
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s\n", __func__);
 
-	return vidioc_enum_fmt(f, false);
+	return vidioc_enum_fmt(ctx, f, false);
 }
 
 static int vidioc_vdec_enum_fmt_vid_out_mplane(struct file *file,
@@ -4058,7 +4120,7 @@ static int vidioc_vdec_enum_fmt_vid_out_mplane(struct file *file,
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s\n", __func__);
 
-	return vidioc_enum_fmt(f, true);
+	return vidioc_enum_fmt(ctx, f, true);
 }
 
 static int vidioc_vdec_g_fmt(struct file *file, void *priv,
@@ -4104,7 +4166,9 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		}
 
 		if ((ctx->picinfo.profile_idc != MJPEG_SUPPORTS_HV_SAMPLE) &&
-			ctx->output_pix_fmt == V4L2_PIX_FMT_MJPEG) {
+			(ctx->picinfo.profile_idc != 0) &&
+			((ctx->output_pix_fmt == V4L2_PIX_FMT_MJPEG)
+			|| (ctx->output_pix_fmt == V4L2_PIX_FMT_JPEG))) {
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 				"amvdec_mmjpeg: unsupport uv %d:%d\n",
 				ctx->picinfo.profile_idc >> 4, ctx->picinfo.profile_idc & 0xf);
@@ -4221,9 +4285,12 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 		int dw_mode = DM_YUV_ONLY;
 		int tw_mode = DM_INVALID;
 
-		if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-			*nplanes = 2;
-		else
+		if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			if (ctx->cap_pix_fmt == V4L2_PIX_FMT_RGBA32)
+				*nplanes = 1;
+			else
+				*nplanes = 2;
+		} else
 			*nplanes = 1;
 
 		if (vdec_if_get_param(ctx, GET_PARAM_DW_MODE, &dw_mode))
@@ -5685,7 +5752,8 @@ static int get_width_align(struct aml_vcodec_ctx *ctx)
 	return align;
 #else
 	if (ctx->avbcd_work_mode || (!is_hevc_align32(0))
-			|| (ctx->output_pix_fmt == V4L2_PIX_FMT_MJPEG))
+			|| (ctx->output_pix_fmt == V4L2_PIX_FMT_MJPEG)
+			|| (ctx->output_pix_fmt == V4L2_PIX_FMT_JPEG))
 		return 64;
 
 	return 32;

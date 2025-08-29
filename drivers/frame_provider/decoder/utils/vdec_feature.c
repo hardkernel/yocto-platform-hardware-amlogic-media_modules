@@ -48,7 +48,7 @@ static const char * const format_name[] = {
 	"ammvdec_h264",
 	"ammvdec_mjpeg",
 	"ammvdec_real",
-	"ammjpegdec",
+	"ammvdec_jpeg",
 	"ammvdec_vc1",
 	"ammvdec_avs",
 	"ammvdec_yuv",
@@ -259,6 +259,9 @@ static int vcodec_feature_MaxResolution(u8 *buf, int size, int vformat)
 		case VFORMAT_VC1:
 		case VFORMAT_AVS:
 			pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"1080p60\",\n");
+			break;
+		case VFORMAT_JPEG:
+			pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"16K\",\n");
 			break;
 		default:
 			break;

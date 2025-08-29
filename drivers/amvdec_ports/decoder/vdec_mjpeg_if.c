@@ -172,6 +172,10 @@ static void vdec_parser_parms(struct vdec_mjpeg_inst *inst)
 		pbuf += sprintf(pbuf, "parm_v4l_codec_enable:1;");
 		pbuf += sprintf(pbuf, "parm_v4l_canvas_mem_mode:%d;",
 			ctx->config.parm.dec.cfg.canvas_mem_mode);
+		pbuf += sprintf(pbuf, "out_width:%d;",
+			ctx->config.parm.dec.cfg.init_width);
+		pbuf += sprintf(pbuf, "out_height:%d;",
+			ctx->config.parm.dec.cfg.init_height);
 		pbuf += sprintf(pbuf, "parm_v4l_buffer_margin:%d;",
 			ctx->config.parm.dec.cfg.ref_buf_margin);
 		pbuf += sprintf(pbuf, "parm_v4l_canvas_mem_endian:%d;",

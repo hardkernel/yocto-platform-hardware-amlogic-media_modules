@@ -325,6 +325,10 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 		dst_fmt |= GE2D_FORMAT_M24_NV12;
 	else if (ge2d->work_mode & GE2D_MODE_CONVERT_NV21)
 		dst_fmt |= GE2D_FORMAT_M24_NV21;
+	else if (ge2d->work_mode & GE2D_MODE_CONVERT_NV16)
+		dst_fmt = GE2D_FORMAT_M24_YUV422SP;
+	else if (ge2d->work_mode & GE2D_MODE_CONVERT_RGBA)
+		dst_fmt = GE2D_FORMAT_S32_ABGR;
 
 	if (ge2d->work_mode & GE2D_MODE_CONVERT_LE)
 		dst_fmt |= GE2D_LITTLE_ENDIAN;
@@ -400,10 +404,18 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 		ge2d_config.src_para.height = ge2d_info->dst_vf->height;
 
 	/* dst canvas configure. */
+	if (ge2d->work_mode & GE2D_MODE_CONVERT_RGBA) {
+		ge2d_info->dst_vf->canvas0_config[0].width <<= 2;
+	}
 	canvas_config_config(ge2d->cache.res[3].cid, &ge2d_info->dst_vf->canvas0_config[0]);
+
 	if ((ge2d_config.src_para.format & 0xfffff) == GE2D_FORMAT_M24_YUV420) {
 		ge2d_info->dst_vf->canvas0_config[1].width <<= 1;
 	}
+
+	if (ge2d->work_mode & GE2D_MODE_CONVERT_NV16)
+		ge2d_info->dst_vf->canvas0_config[1].height <<= 1;
+
 	canvas_config_config(ge2d->cache.res[4].cid, &ge2d_info->dst_vf->canvas0_config[1]);
 	canvas_config_config(ge2d->cache.res[5].cid, &ge2d_info->dst_vf->canvas0_config[2]);
 	ge2d_config.dst_para.canvas_index =

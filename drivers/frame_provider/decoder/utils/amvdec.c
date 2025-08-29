@@ -559,6 +559,10 @@ s32 optee_load_fw(enum vformat_e type, const char *fw_name)
 			format = VIDEO_DEC_MJPEG;
 		break;
 
+	case VFORMAT_JPEG:
+		format = VIDEO_DEC_JPEG;
+		break;
+
 	case VFORMAT_VP9:
 		if (!strcmp(name, "vp9_mc"))
 			format = VIDEO_DEC_VP9;

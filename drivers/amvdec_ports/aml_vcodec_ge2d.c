@@ -350,6 +350,7 @@ static void ge2d_vf_get(void *caller, struct vframe_s *vf_out)
 						(ge2d->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG1) &&
 						(ge2d->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG2) &&
 						(ge2d->ctx->output_pix_fmt != V4L2_PIX_FMT_MPEG4) &&
+						(ge2d->ctx->output_pix_fmt != V4L2_PIX_FMT_JPEG)  &&
 						(ge2d->ctx->output_pix_fmt != V4L2_PIX_FMT_MJPEG)) {
 						vf->flag |= VFRAME_FLAG_VIDEO_LINEAR;
 					}
@@ -511,6 +512,10 @@ retry:
 			dst_fmt |= GE2D_FORMAT_M24_NV12;
 		else if (ge2d->work_mode & GE2D_MODE_CONVERT_NV21)
 			dst_fmt |= GE2D_FORMAT_M24_NV21;
+		else if (ge2d->work_mode & GE2D_MODE_CONVERT_NV16)
+			dst_fmt = GE2D_FORMAT_M24_YUV422SP;
+		else if (ge2d->work_mode & GE2D_MODE_CONVERT_RGBA)
+			dst_fmt = GE2D_FORMAT_S32_ABGR;
 
 		if (ge2d->work_mode & GE2D_MODE_CONVERT_LE)
 			dst_fmt |= GE2D_LITTLE_ENDIAN;
@@ -586,10 +591,17 @@ retry:
 			ge2d_config.src_para.height = in_buf->vf->height;
 
 		/* dst canvas configure. */
+		if (ge2d->work_mode & GE2D_MODE_CONVERT_RGBA) {
+			vf_out->canvas0_config[0].width <<= 2;
+		}
+
 		canvas_config_config(ctx->dev->cache.res[3].cid, &vf_out->canvas0_config[0]);
 		if ((ge2d_config.src_para.format & 0xfffff) == GE2D_FORMAT_M24_YUV420) {
 			vf_out->canvas0_config[1].width <<= 1;
 			vf_out->plane_num = 2;
+		}
+		if (ge2d->work_mode & GE2D_MODE_CONVERT_NV16) {
+			vf_out->canvas0_config[1].height <<= 1;
 		}
 		canvas_config_config(ctx->dev->cache.res[4].cid, &vf_out->canvas0_config[1]);
 		canvas_config_config(ctx->dev->cache.res[5].cid, &vf_out->canvas0_config[2]);
@@ -698,6 +710,9 @@ static inline void aml_v4l2_ge2d_set_workmode(struct aml_vcodec_ctx *ctx,
 	else if ((ctx->cap_pix_fmt == V4L2_PIX_FMT_NV21) ||
 		(ctx->cap_pix_fmt == V4L2_PIX_FMT_NV21M))
 		cfg->mode |= GE2D_MODE_CONVERT_NV21;
+	else if ((ctx->cap_pix_fmt == V4L2_PIX_FMT_NV16M) ||
+		(ctx->cap_pix_fmt == V4L2_PIX_FMT_NV16))
+		cfg->mode = GE2D_MODE_CONVERT_NV16;
 	else
 		cfg->mode |= GE2D_MODE_CONVERT_NV21;
 }

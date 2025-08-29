@@ -31,6 +31,8 @@
 #define GE2D_MODE_CONVERT_BE		(1 << 3)
 #define GE2D_MODE_SEPARATE_FIELD	(1 << 4)
 #define GE2D_MODE_422_TO_420		(1 << 5)
+#define GE2D_MODE_CONVERT_NV16		(1 << 6)
+#define GE2D_MODE_CONVERT_RGBA		(1 << 7)
 
 #define GE2D_FRAME_SIZE 64
 

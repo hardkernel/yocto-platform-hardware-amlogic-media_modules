@@ -132,6 +132,15 @@ static int mjpeg_codec_profile(struct codec_profile_t *vdec_profile)
 	return 0;
 }
 
+static int jpeg_codec_profile(struct codec_profile_t *vdec_profile)
+{
+	if (!is_support_format(VFORMAT_JPEG)) {
+		vdec_profile->name = "jpeg_unsupport";
+	}
+
+	return 0;
+}
+
 static int vc1_codec_profile(struct codec_profile_t *vdec_profile)
 {
 	if (is_support_format(VFORMAT_VC1)) {
@@ -312,6 +321,10 @@ static struct codec_profile decoder_profile[VFORMAT_MAX] =
 
 	[VFORMAT_MJPEG] = {
 		.codec_profile_reg = mjpeg_codec_profile,
+	},
+
+	[VFORMAT_JPEG] = {
+		.codec_profile_reg = jpeg_codec_profile,
 	},
 
 	[VFORMAT_VC1] = {
