@@ -686,17 +686,18 @@ static int time_stat_profile_dbg_open(struct inode *inode, struct file *file)
 	return single_open(file, time_stat_profile_dbg_show, NULL);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 static const struct proc_ops event_proc_fops = {
-	.proc_open = vdec_profile_dbg_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
+	.proc_open    = vdec_profile_dbg_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
 	.proc_release = seq_release,
 };
 
 static const struct proc_ops time_stat_proc_fops = {
-	.proc_open = time_stat_profile_dbg_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
+	.proc_open    = time_stat_profile_dbg_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
 	.proc_release = seq_release,
 };
 
@@ -718,6 +719,7 @@ static int vdec_profile_init_procfs(struct vdec_profile_debug_s *vdec_profile)
 
 	return 0;
 }
+#endif
 
 static const struct file_operations event_dbg_fops = {
 	.open    = vdec_profile_dbg_open,
@@ -772,7 +774,9 @@ int vdec_profile_init(void)
 
 	vdec_profile_init_debugfs(vdec_profile);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	vdec_profile_init_procfs(vdec_profile);
+#endif
 
 	mutex_init(&vdec_profile_mutex);
 
@@ -787,8 +791,10 @@ void vdec_profile_exit(void)
 	if (vdec_profile->debugfs_dir)
 		debugfs_remove_recursive(vdec_profile->debugfs_dir);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	if (vdec_profile->procfs_dir)
 		proc_remove(vdec_profile->procfs_dir);
+#endif
 }
 EXPORT_SYMBOL(vdec_profile_exit);
 
