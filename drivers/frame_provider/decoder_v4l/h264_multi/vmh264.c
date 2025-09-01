@@ -7212,8 +7212,7 @@ static void vui_config(struct vdec_h264_hw_s *hw)
 		hw->fixed_frame_rate_flag =
 			p_H264_Dpb->fixed_frame_rate_flag;
 
-		if ((p_H264_Dpb->dpb_param.l.data[SLICE_TYPE] == I_Slice) &&
-			(hw->num_units_in_tick != 0)) {
+		if (hw->num_units_in_tick != 0) {
 			u32 frame_rate = hw->time_scale / hw->num_units_in_tick;
 			u32 rem = hw->time_scale % hw->num_units_in_tick;
 
