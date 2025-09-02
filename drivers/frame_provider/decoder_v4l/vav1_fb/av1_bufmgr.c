@@ -39,7 +39,6 @@
 #define __SHORTSORT(lo, hi, width, comp, context) \
 	shortsort(lo, hi, width, comp)
 #define CUTOFF 8            /* testing shows that this is good value */
-#define STKSIZ (8*sizeof(void *) - 2)
 
 #undef swap
 static void swap(char *a, char *b, size_t width)
@@ -88,14 +87,15 @@ static void shortsort(char *lo, char *hi, size_t width,
 	}
 }
 
-static void qsort(void *base, size_t num, size_t width,
+static void qsort(AV1_COMMON *cm, void *base, size_t num, size_t width,
 	int (*comp)(const void *, const void *))
 {
 	char *lo, *hi;              /* ends of sub-array currently sorting */
 	char *mid;                  /* points to middle of subarray */
 	char *loguy, *higuy;        /* traveling pointers for partition step */
 	size_t size;                /* size of the sub-array */
-	char *lostk[STKSIZ], *histk[STKSIZ];
+	char **lostk = cm->qsort_lostk;
+	char **histk = cm->qsort_histk;
 	int stkptr;
 
 /*  stack for saving sub-array to be
@@ -1606,7 +1606,7 @@ void av1_set_frame_refs(AV1_COMMON *const cm, int *remapped_ref_idx,
 	}
 
 	// Sort ref frames based on their frame_offset values.
-	qsort(ref_frame_info, REF_FRAMES, sizeof(REF_FRAME_INFO),
+	qsort(cm, ref_frame_info, REF_FRAMES, sizeof(REF_FRAME_INFO),
 		compare_ref_frame_info);
 
 	// Identify forward and backward reference frames.

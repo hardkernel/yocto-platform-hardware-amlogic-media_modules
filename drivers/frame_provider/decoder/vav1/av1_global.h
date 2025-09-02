@@ -1738,6 +1738,8 @@ typedef struct {
   int frame_refs_short_signaling;
 } CurrentFrame;
 
+#define STKSIZ (8*sizeof(void *) - 2)
+
 typedef struct AV1_Common_s {
   CurrentFrame current_frame;
   struct aom_internal_error_info error;
@@ -2036,6 +2038,9 @@ typedef struct AV1_Common_s {
   int common_error_mark;
 
 #endif
+
+  char *qsort_lostk[STKSIZ];
+  char *qsort_histk[STKSIZ];
 } AV1_COMMON;
 
 

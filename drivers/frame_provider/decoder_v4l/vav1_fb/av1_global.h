@@ -1811,6 +1811,8 @@ struct av1_repeat_buf_t {
 	struct RefCntBuffer_s *frame_bufs[FRAME_BUFFERS];
 };
 
+#define STKSIZ (8*sizeof(void *) - 2)
+
 typedef struct AV1_Common_s {
 	CurrentFrame current_frame;
 	struct aom_internal_error_info error;
@@ -2109,6 +2111,9 @@ typedef struct AV1_Common_s {
 #endif
 	struct av1_repeat_buf_t repeat_buf;
 	int common_error_mark;
+
+	char *qsort_lostk[STKSIZ];
+	char *qsort_histk[STKSIZ];
 } AV1_COMMON;
 
 /*
