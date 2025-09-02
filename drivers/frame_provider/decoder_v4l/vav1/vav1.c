@@ -8202,6 +8202,15 @@ static void display_pic_quality(int pic_number)
 
 #endif
 
+static int av1_postproc(struct AV1HW_s *hw)
+{
+	if (hw->postproc_done)
+		return 0;
+	hw->postproc_done = true;
+
+	return av1_bufmgr_postproc(hw->pbi, hw->frame_decoded);
+}
+
 int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 {
 	int ret = 0;
@@ -8312,6 +8321,11 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 				dump_aux_buf(hw);
 			set_pic_aux_data(hw,
 				cur_pic_config, 0, 0);
+
+			if (hw->low_latency_flag) {
+				hw->postproc_done = false;
+				av1_postproc(hw);
+			}
 		}
 		config_next_ref_info_hw(hw);
 
@@ -9087,15 +9101,6 @@ static int load_param(struct AV1HW_s *hw, union param_u *params, uint32_t dec_st
 		unlock_buffer_pool(hw->common.buffer_pool, flags);
 	}
   return head_type;
-}
-
-static int av1_postproc(struct AV1HW_s *hw)
-{
-	if (hw->postproc_done)
-		return 0;
-	hw->postproc_done = 1;
-
-	return av1_bufmgr_postproc(hw->pbi, hw->frame_decoded);
 }
 
 static void vav1_get_comp_buf_info(struct AV1HW_s *hw,
@@ -10105,6 +10110,8 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 				if (hw->consume_byte != 0)
 					hw->dec_result = DEC_RESULT_UNFINISH;
 			}
+			if (hw->low_latency_flag)
+				hw->postproc_done = true;
 			amhevc_stop();
 			av1_work_implement(hw);
 		}
