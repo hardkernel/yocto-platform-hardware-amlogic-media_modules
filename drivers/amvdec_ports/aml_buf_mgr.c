@@ -154,6 +154,9 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 #endif
 	int ret = -1;
 
+	if (vf->type & VIDTYPE_V4L_EOS)
+		return -1;
+
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
 	vf->priority	= bm->config.priority;
@@ -559,6 +562,9 @@ static void aml_buf_get_fbc_info(struct aml_buf_mgr_s *bm,
 static void aml_buf_get_frame_cnt(struct aml_buf_mgr_s *bm,
 				struct vframe_s *vf)
 {
+	if (vf->type & VIDTYPE_V4L_EOS)
+		return;
+
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
 
