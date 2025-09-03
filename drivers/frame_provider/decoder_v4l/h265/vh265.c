@@ -11843,13 +11843,12 @@ void h265_prealloc_mv_buf(struct hevc_state_s *hw, int count, int size)
 	if (!vdec_secure(hw_to_vdec(hw)))
 		return;
 
-	if (size && count) {
-		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
-			memflags, ctx->id);
-	} else {
-		hevc_print(hw, H265_DEBUG_BUFMGR_MORE, "invalid para type for mv type size is %u count is %u\n",
-			size, count);
-	}
+	/* currently only support 2k */
+	if (hevc_is_support_4k())
+		return;
+
+	submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
+		memflags, ctx->id);
 }
 
 static void h265_recycle_fence_vf(struct hevc_state_s *hevc)

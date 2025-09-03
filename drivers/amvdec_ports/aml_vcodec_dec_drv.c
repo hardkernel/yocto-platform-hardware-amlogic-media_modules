@@ -946,6 +946,10 @@ MEDIA_PARAM(avbcd_work_mode, int, 0644);
 int crc_dump = 1;
 MEDIA_PARAM(crc_dump, int, 0664);
 
+int scatter_prealloc_size = 0;
+EXPORT_SYMBOL(scatter_prealloc_size);
+MEDIA_PARAM(scatter_prealloc_size, int, 0644);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
 static struct param_entry amvdec_ports_params[] = {
 	PARAM_UINT(debug_mode),
@@ -983,6 +987,7 @@ static struct param_entry amvdec_ports_params[] = {
 	PARAM_INT(enable_di_post),
 	PARAM_INT(avbcd_work_mode),
 	PARAM_INT(crc_dump),
+	PARAM_INT(scatter_prealloc_size),
 	{ /* sentinel */ }
 };
 module_param_cb(amvdec_ports, &key_value_param_ops, &amvdec_ports_params, 0644);

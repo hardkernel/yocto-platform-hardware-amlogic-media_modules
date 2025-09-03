@@ -129,7 +129,8 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define PAGE_NUM_ONE_MB	(256)
 //#define USEC_PER_SEC 1000000
 #define PREALLOC_YUV_BUF_NUM 10
-#define PREALLOC_SCATTER_SIZE 24
+#define PREALLOC_SCATTER_SIZE_FOR_2K 24
+#define PREALLOC_SCATTER_SIZE_FOR_4K 48
 #define INVALID_IDX -1
 #define DEMUX_ES_MAGIC_NUM 0x5a5a5a5a
 
@@ -392,6 +393,7 @@ extern int enable_di_post;
 extern int avbcd_work_mode;
 extern int force_nv12;
 extern bool enable_use_cma_first;
+extern int scatter_prealloc_size;
 
 extern int vdec_get_size_ratio(int dw_mode);
 static void update_ctx_dimension(struct aml_vcodec_ctx *ctx, u32 type);
@@ -3658,9 +3660,10 @@ int cal_yuv_size(struct aml_vcodec_ctx *ctx, u32 dw)
 	int max_height = 1088;
 	int y_size, uv_size;
 
-	/* currently only support 2k */
-	if (hevc_is_support_4k())
-		return 0;
+	if (hevc_is_support_4k()) {
+		max_width = 4096;
+		max_height = 2304;
+	}
 
 	/* currently only for android */
 	if (multiplanar)
@@ -3675,6 +3678,8 @@ int cal_yuv_size(struct aml_vcodec_ctx *ctx, u32 dw)
 		y_size = ALIGN(max_width >> 2, 64) * ALIGN(max_height >> 2, 64);
 		uv_size = y_size >> 1;
 	} else if (dw == 0x200) {
+		max_width = 1920;
+		max_height = 1088;
 		y_size = ALIGN(max_width, 64) * ALIGN(max_height, 64);
 		uv_size = y_size >> 1;
 	} else if (dw == 0x400) {
@@ -3693,11 +3698,10 @@ int cal_yuv_size(struct aml_vcodec_ctx *ctx, u32 dw)
 	return yuv_size;
 }
 
-u32 cal_slot_size(struct aml_vcodec_ctx *ctx, u32 dw, u32 slot_size)
+u32 cal_slot_num(struct aml_vcodec_ctx *ctx, u32 dw, int slot_size)
 {
-	/* currently only support 2k */
-	if (hevc_is_support_4k())
-		return 0;
+	int scatter_size;
+	int slot_num;
 
 	/* currently only for android */
 	if (multiplanar)
@@ -3711,9 +3715,15 @@ u32 cal_slot_size(struct aml_vcodec_ctx *ctx, u32 dw, u32 slot_size)
 	if (dw == DM_YUV_ONLY)
 		return 0;
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "slot_size %u\n", slot_size);
+	scatter_size = hevc_is_support_4k() ? PREALLOC_SCATTER_SIZE_FOR_4K : PREALLOC_SCATTER_SIZE_FOR_2K;
+	if (scatter_prealloc_size)
+		scatter_size = scatter_prealloc_size;
 
-	return slot_size;
+	slot_num = (scatter_size * SZ_1M + slot_size -1) / slot_size;
+
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "slot_num %d slot_size %d\n", slot_num, slot_size);
+
+	return slot_num;
 }
 
 static int vidioc_vdec_s_fmt(struct file *file, void *priv,
@@ -3817,7 +3827,6 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 			if (ctx->is_drm_mode) {
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
 				u32 slot_size = codec_mm_scatter_get_slot_size(CODEC_MM_FLAGS_TVP);
-				u32 slot_num = (PREALLOC_SCATTER_SIZE * SZ_1M + slot_size -1) / slot_size;
 				int memflags = CODEC_MM_FLAGS_TVP;
 
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
@@ -3826,9 +3835,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 				if (enable_use_cma_first)
 					memflags |= CODEC_MM_FLAGS_CMA_FIRST;
-				submit_prealloc_job(PREALLOC_SC_TYPE, slot_num,
-					cal_slot_size(ctx, dec->cfg.double_write_mode, slot_size),
-						PAGE_SHIFT, memflags, ctx->id);
+				submit_prealloc_job(PREALLOC_SC_TYPE, cal_slot_num(ctx, dec->cfg.double_write_mode, slot_size),
+					slot_size, PAGE_SHIFT, memflags, ctx->id);
 			}
 
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
@@ -3880,7 +3888,6 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 			if (ctx->is_drm_mode) {
 				struct aml_dec_params *dec = &ctx->config.parm.dec;
 				u32 slot_size = codec_mm_scatter_get_slot_size(CODEC_MM_FLAGS_TVP);
-				u32 slot_num = (PREALLOC_SCATTER_SIZE * SZ_1M + slot_size -1) / slot_size;
 				int memflags = CODEC_MM_FLAGS_TVP;
 
 				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
@@ -3889,9 +3896,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 				if (enable_use_cma_first)
 					memflags |= CODEC_MM_FLAGS_CMA_FIRST;
-				submit_prealloc_job(PREALLOC_SC_TYPE, slot_num,
-					cal_slot_size(ctx, dec->cfg.double_write_mode, slot_size),
-						PAGE_SHIFT, memflags, ctx->id);
+				submit_prealloc_job(PREALLOC_SC_TYPE, cal_slot_num(ctx, dec->cfg.double_write_mode, slot_size),
+					slot_size, PAGE_SHIFT, memflags, ctx->id);
 			}
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
 			if (ret) {

@@ -9287,12 +9287,11 @@ static inline void vp9_prealloc_mv_buf(struct VP9Decoder_s *hw, int count, int s
 	if (!vdec_secure(hw_to_vdec(hw)))
 		return;
 
-	if (size && count)
-		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
-			memflags, ctx->id);
-	else
-		vp9_print(hw, VP9_DEBUG_BUFMGR, "invalid para type for mv type size is %u count is %u\n",
-			size, count);
+	if (hevc_is_support_4k())
+		return;
+
+	submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n,
+		memflags, ctx->id);
 }
 
 static void vp9_recycle_fence_vf(struct VP9Decoder_s *pbi)
