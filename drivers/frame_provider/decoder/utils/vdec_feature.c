@@ -223,6 +223,18 @@ static int vcodec_feature_MaxResolution(u8 *buf, int size, int vformat)
 
 	switch (vformat) {
 		case VFORMAT_HEVC:
+			if (is_t6d_high_speed()) {
+				pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"4k60\",\n");
+				break;
+			} else {
+				if (hevc_is_support_8k())
+					pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"8k\",\n");
+				else if (hevc_is_support_4k())
+					pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"4k60\",\n");
+				else
+					pbuf += snprintf(pbuf, size, "        \"MaximumResolution\" : \"1080p60\",\n");
+				break;
+			}
 		case VFORMAT_VP9:
 		case VFORMAT_AVS2:
 		case VFORMAT_AV1:

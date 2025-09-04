@@ -225,6 +225,10 @@ bool is_cpu_t7c(void);
 bool is_cpu_s7(void);
 bool is_cpu_s7_s805x3(void);
 
+bool is_t6d_high_speed(void);
+
+bool is_support_4k_h265(void);
+
 inline bool is_support_new_dos_dev(void);
 
 struct dos_of_dev_s *dos_dev_get(void);

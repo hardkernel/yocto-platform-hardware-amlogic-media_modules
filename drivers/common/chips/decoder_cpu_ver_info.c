@@ -1124,6 +1124,27 @@ bool is_cpu_s7_s805x3(void)
 }
 EXPORT_SYMBOL(is_cpu_s7_s805x3);
 
+bool is_t6d_high_speed(void)
+{
+	struct dos_of_dev_s *dos = dos_dev_get();
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6D) {
+		if (dos->max_hevcf_clock == DOS_CLK_666M)
+			return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(is_t6d_high_speed);
+
+bool is_support_4k_h265(void)
+{
+	if (hevc_is_support_4k() || is_t6d_high_speed())
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(is_support_4k_h265);
+
 /*
 	feature from dos dev functions
 */
@@ -1340,6 +1361,10 @@ inline u32 get_format_max_resolution(int format)
 		case VFORMAT_H266:
 			return platform_dos_dev->hevc_max_resolution;
 		case VFORMAT_HEVC:
+			if (is_t6d_high_speed())
+				return RESOLUTION_4K;
+			else
+				return platform_dos_dev->hevc_max_resolution;
 		case VFORMAT_VP9:
 			if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2)
 				return RESOLUTION_1080P;

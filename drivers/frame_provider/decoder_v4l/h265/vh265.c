@@ -8196,7 +8196,7 @@ static int hevc_local_init(struct hevc_state_s *hevc, bool reset_flag)
 	} else {
 		if ((get_cpu_major_id() <= AM_MESON_CPU_MAJOR_ID_TM2 && !is_cpu_tm2_revb()) ||
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2)) {
-			if (hevc_is_support_4k()) {
+			if (is_support_4k_h265()) {
 				if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
 					(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TXHD2))
 					memcpy(cur_buf_info, &amvh265_workbuff_spec[2],	/* 4k */
@@ -8209,7 +8209,7 @@ static int hevc_local_init(struct hevc_state_s *hevc, bool reset_flag)
 				sizeof(struct BuffInfo_s));
 			}
 		} else { //get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2 || is_cpu_tm2_revb()
-			if (hevc_is_support_4k()) {
+			if (is_support_4k_h265()) {
 				memcpy(cur_buf_info, &amvh265_workbuff_spec[5],	/* 4k */
 				sizeof(struct BuffInfo_s));
 			} else {
@@ -9890,6 +9890,9 @@ static bool v4l_output_dw_with_compress(struct hevc_state_s *hevc, int dw)
 		(!(is_support_interlace_avbc() &&
 		(ctx->vpp_cfg.enable_nr == 1) &&
 		(ctx->vpp_cfg.enable_local_buf == 1))))
+		return false;
+
+	if (is_t6d_high_speed() && IS_4K_SIZE(hevc->frame_width, hevc->frame_height))
 		return false;
 
 	return true;
@@ -17184,7 +17187,7 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 			ctx->aux_infos.alloc_buffer(ctx, HDR10P_TYPE);
 	}
 
-	if (hevc_is_support_4k() &&
+	if (is_support_4k_h265() &&
 		(hevc->max_pic_w * hevc->max_pic_h < MAX_SIZE_4K)) {
 		hevc->max_pic_w = 4096;
 		hevc->max_pic_h = 2304;
@@ -17451,7 +17454,7 @@ static int __init amvdec_h265_driver_init_module(void)
 
 	if ((get_cpu_major_id() <= AM_MESON_CPU_MAJOR_ID_TM2 && !is_cpu_tm2_revb()) ||
 		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2)) {
-		if (hevc_is_support_4k()) {
+		if (is_support_4k_h265()) {
 			if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
 				(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TXHD2))
 				p_buf_info = &amvh265_workbuff_spec[2];
@@ -17460,7 +17463,7 @@ static int __init amvdec_h265_driver_init_module(void)
 		} else
 			p_buf_info = &amvh265_workbuff_spec[0];
 	} else { //get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2 || is_cpu_tm2_revb()
-		if (hevc_is_support_4k())
+		if (is_support_4k_h265())
 			p_buf_info = &amvh265_workbuff_spec[5];
 		else
 			p_buf_info = &amvh265_workbuff_spec[3];
