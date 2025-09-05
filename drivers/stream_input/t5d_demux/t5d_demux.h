@@ -97,7 +97,7 @@ t5d_log(const char *fmt, ...)
 	} while (0)
 #endif /*USERSPACE*/
 
-#include "linux/amlogic/aml_key.h"
+#include "uapi/amlogic/aml_key.h"
 #include "linux/dvb/ca.h"
 #include "linux/dvb/dmx.h"
 #include <linux/dvb/aml_dmx_ext.h>
