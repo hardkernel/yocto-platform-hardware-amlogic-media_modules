@@ -4725,7 +4725,7 @@ void (*callback)(struct vdec_s *, void *, int),
 		return;
 	}
 	vdec_prefix_config(PREFIX_ADDR(hw->buf_start));
-
+	WRITE_VREG(DECODE_STOP_POS, udebug_flag);
 	if (hw->dec_result != DEC_RESULT_UNFINISH)
 		hw->dec_result = DEC_RESULT_NONE;
 	hw->stat |= STAT_MC_LOAD;

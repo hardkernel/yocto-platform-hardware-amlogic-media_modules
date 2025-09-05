@@ -3213,7 +3213,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		return;
 	}
 	vdec_prefix_config(PREFIX_ADDR(hw->buf_start));
-
+	WRITE_VREG(DECODE_STOP_POS, udebug_flag);
 	if (vdec_frame_based(vdec)) {
 		size = hw->chunk_size +
 			(hw->chunk_offset & (VDEC_FIFO_ALIGN - 1));

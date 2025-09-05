@@ -1579,7 +1579,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		return;
 	}
 	vdec_prefix_config(PREFIX_ADDR(hw->buffer_spec[0].cma_alloc_addr));
-
+	WRITE_VREG(DECODE_STOP_POS, udebug_flag);
 	hw->stat |= STAT_MC_LOAD;
 	start_process_time(hw);
 	hw->last_vld_level = 0;
