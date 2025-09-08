@@ -4308,12 +4308,6 @@ static bool is_available_buffer(struct vdec_mpeg12_hw_s *hw)
 		return false;
 	}
 
-	if (ctx->vdec_combine_buffer) {
-		mutex_lock(&ctx->combine_lock);
-		ctx->vdec_combine_buffer(ctx);
-		mutex_unlock(&ctx->combine_lock);
-	}
-
 	if (!hw->aml_buf && !aml_buf_empty(&ctx->bm)) {
 		hw->aml_buf = aml_buf_get(&ctx->bm, BUF_USER_DEC, false);
 		if (!hw->aml_buf) {

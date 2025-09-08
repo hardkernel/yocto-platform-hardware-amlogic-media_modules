@@ -4891,23 +4891,31 @@ void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx)
 	struct aml_buf *am_buf;
 	int ret;
 	struct vb2_v4l2_buffer *vb2_v4l2;
+	u32 count = 0;
 
+try_combine:
 	if (!ctx->bm.bc.dma_free_num ||
 		(ctx->bm.bc.unbind_num < PAIR_DONE) ||
-		(ctx->fresh_uvmdma_num < ctx->dpb_size) ||
-		ctx->master_buf) {
+		(count >= ctx->bm.bc.dma_num)) {
 		return;
 	}
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s\n", __func__);
 	am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
 	vb2_v4l2 = to_vb2_v4l2_buffer(am_buf->vb);
 
 	ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s ret(%d), pair_state(%d)\n",
+					__func__, ret, am_buf->pair_state);
 	if (!ret && (am_buf->pair_state == MASTER_DONE ||
-		am_buf->pair_state == SUB0_DONE)) {
+		am_buf->pair_state == SUB0_DONE ||
+		am_buf->pair_state == SUB1_DONE)) {
 		struct vb2_v4l2_buffer *vb2_v4l2;
-		aml_buf_put_ref(&ctx->bm, am_buf);
+		struct aml_buf *master_buf;
+		if (am_buf->pair_state == MASTER_DONE)
+			master_buf = am_buf;
+		else
+			master_buf = am_buf->master_buf;
+		aml_buf_put_ref(&ctx->bm, master_buf);
 		for (; am_buf->pair_state < PAIR_DONE && !ret;) {
 			am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
 			if (!am_buf)
@@ -4921,6 +4929,10 @@ void aml_combine_free_uvm_dma_buffer(struct aml_vcodec_ctx *ctx)
 			aml_buf_put_ref(&ctx->bm, am_buf);
 		}
 	}
+
+	count++;
+
+	goto try_combine;
 }
 
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
