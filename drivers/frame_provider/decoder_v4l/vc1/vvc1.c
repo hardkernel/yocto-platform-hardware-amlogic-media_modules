@@ -1255,6 +1255,38 @@ static int vvc1_config_buf(struct vdec_vc1_hw_s *hw)
 	return 0;
 }
 
+static void set_frame_info(struct vdec_vc1_hw_s *hw, struct vframe_s *vf)
+{
+	u32 endian_tmp;
+	u32 buffer_index = vf->index;
+	int vf_dur = vdec_get_vf_dur();
+
+	if (hw->frame_dur > 0)
+		vf->duration = vf_dur ? vf_dur : hw->frame_dur;
+
+	vf->canvas0Addr = vf->canvas1Addr = -1;
+	vf->plane_num = 2;
+
+	vf->canvas0_config[0] = vc1_canvas_config[buffer_index][0];
+	vf->canvas0_config[1] = vc1_canvas_config[buffer_index][1];
+	vf->canvas1_config[0] = vc1_canvas_config[buffer_index][0];
+	vf->canvas1_config[1] = vc1_canvas_config[buffer_index][1];
+
+	if (is_cpu_t7()) {
+		endian_tmp = (hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;
+	} else {
+		endian_tmp = (hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 0 : 7;
+	}
+
+	vf->canvas0_config[0].endian = endian_tmp;
+	vf->canvas0_config[1].endian = endian_tmp;
+	vf->canvas1_config[0].endian = endian_tmp;
+	vf->canvas1_config[1].endian = endian_tmp;
+
+	vc1_print(0, VC1_DEBUG_DETAIL, "%s: canvas_mode %d, endian %d/%d\n",
+	    __func__, hw->canvas_mode, vc1_canvas_config[buffer_index][0].endian, endian_tmp);
+}
+
 static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 {
 	struct vframe_s *vf = NULL;
@@ -1271,11 +1303,17 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 	struct aml_buf *aml_buf = NULL;
 	struct aml_buf *sub0_buf = NULL;
 	struct aml_buf *sub1_buf = NULL;
+	ulong nv_order = VIDTYPE_VIU_NV21;
 
 	if (!hw->pics[buffer_index].v4l_ref_buf_addr) {
 		vc1_print(0, 0, "%s do not get aml_buf! \n", __func__);
 		return -1;
 	}
+
+	/* swap uv */
+	if ((ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
+		(ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12M))
+		nv_order = VIDTYPE_VIU_NV12;
 
 	vc1_print(0, VC1_DEBUG_DETAIL, "%s: buffer_info 0x%x, index %d, picture_type %d\n",
 					__func__, reg, buffer_index, picture_type);
@@ -1365,7 +1403,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		vf->type = (reg & BOTTOM_FIELD_FIRST_FLAG) ?
 		VIDTYPE_INTERLACE_BOTTOM : VIDTYPE_INTERLACE_TOP;
 #ifdef NV21
-		vf->type |= VIDTYPE_VIU_NV21;
+		vf->type |= nv_order;
 #endif
 		vf->canvas0Addr = vf->canvas1Addr =
 					index2canvas(buffer_index);
@@ -1379,15 +1417,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		vf->pts_us64 = pts_us64;
 		vf->timestamp = pts_us64;
 
-		vf->canvas0Addr = vf->canvas1Addr = -1;
-		vf->canvas0_config[0] = vc1_canvas_config[buffer_index][0];
-		vf->canvas0_config[1] = vc1_canvas_config[buffer_index][1];
-#ifdef NV21
-		vf->plane_num = 2;
-#else
-		vf->canvas0_config[2] = vc1_canvas_config[buffer_index][2];
-		vf->plane_num = 3;
-#endif
+		set_frame_info(hw, vf);
 
 		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D && vdec->use_vfm_path &&
 			vdec_stream_based(vdec)) {
@@ -1454,7 +1484,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		vf->type = (reg & BOTTOM_FIELD_FIRST_FLAG) ?
 		VIDTYPE_INTERLACE_TOP : VIDTYPE_INTERLACE_BOTTOM;
 #ifdef NV21
-		vf->type |= VIDTYPE_VIU_NV21;
+		vf->type |= nv_order;
 #endif
 		vf->canvas0Addr = vf->canvas1Addr =
 				index2canvas(buffer_index);
@@ -1468,15 +1498,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		vf->pts_us64 = pts_us64;
 		vf->timestamp = pts_us64;
 
-		vf->canvas0Addr = vf->canvas1Addr = -1;
-		vf->canvas0_config[0] = vc1_canvas_config[buffer_index][0];
-		vf->canvas0_config[1] = vc1_canvas_config[buffer_index][1];
-#ifdef NV21
-		vf->plane_num = 2;
-#else
-		vf->canvas0_config[2] = vc1_canvas_config[buffer_index][2];
-		vf->plane_num = 3;
-#endif
+		set_frame_info(hw, vf);
 
 		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D && vdec->use_vfm_path &&
 			vdec_stream_based(vdec)) {
@@ -1573,7 +1595,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 #ifdef NV21
 		vf->type =
 			VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD |
-			VIDTYPE_VIU_NV21;
+			nv_order;
 #else
 		vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD;
 #endif
@@ -1598,15 +1620,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 			((struct aml_vcodec_ctx *)(hw->v4l2_ctx))->id,
 			__func__, vf->v4l_mem_handle);
 
-		vf->canvas0Addr = vf->canvas1Addr = -1;
-		vf->canvas0_config[0] = vc1_canvas_config[buffer_index][0];
-		vf->canvas0_config[1] = vc1_canvas_config[buffer_index][1];
-#ifdef NV21
-		vf->plane_num = 2;
-#else
-		vf->canvas0_config[2] = vc1_canvas_config[buffer_index][2];
-		vf->plane_num = 3;
-#endif
+		set_frame_info(hw, vf);
 
 		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D && vdec->use_vfm_path &&
 			vdec_stream_based(vdec)) {
@@ -1737,6 +1751,26 @@ static irqreturn_t vvc1_isr_thread_handler(int irq, void *dev_id)
 				__func__, ctx->current_timestamp);
 			WRITE_VREG(DECODE_STATUS, 0);
 			return IRQ_HANDLED;
+		}
+
+		/* cbcr_merge_swap_en */
+		if (is_cpu_t7()) {
+			if ((ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21) ||
+				(ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21M))
+				CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+			else
+				SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+		} else {
+			if ((ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21) ||
+				(ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21M)) {
+				SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+				if (is_vdec_hevc_combine())
+					SET_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
+			} else {
+				CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+				if (is_vdec_hevc_combine())
+					CLEAR_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
+			}
 		}
 
 		if (!v4l_res_change(hw)) {
@@ -2233,6 +2267,8 @@ static int vvc1_workspace_init(void)
 
 static int vvc1_prot_init(void)
 {
+	struct vdec_vc1_hw_s *hw = &vc1_hw;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 	int r;
 #if 1	/* /MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6 */
 	WRITE_VREG(DOS_SW_RESET0, (1 << 7) | (1 << 6) | (1 << 4));
@@ -2311,7 +2347,26 @@ static int vvc1_prot_init(void)
 #ifdef NV21
 	SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 17);
 #endif
-	CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+
+	/* cbcr_merge_swap_en */
+	if (is_cpu_t7()) {
+		if ((ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21) ||
+			(ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21M))
+			CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+		else
+			SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+	} else {
+		if ((ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21) ||
+			(ctx->q_data[AML_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_NV21M)) {
+			SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+			if (is_vdec_hevc_combine())
+				SET_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
+		} else {
+			CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+			if (is_vdec_hevc_combine())
+				CLEAR_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
+		}
+	}
 
 	WRITE_VREG(CANVAS_BUF_REG, 0);
 	WRITE_VREG(ANC0_CANVAS_REG, 0);
@@ -2602,9 +2657,12 @@ static int amvdec_vc1_probe(struct platform_device *pdev)
 	is_reset = 0;
 	vdec = pdata;
 
+	hw->canvas_mode = pdata->canvas_mode;
+
 	/* the ctx from v4l2 driver. */
 	hw->v4l2_ctx = pdata->private;
 	if (pdata->config_len) {
+		pr_info("pdata->config=%s\n", pdata->config);
 		if (get_config_int(pdata->config, "parm_v4l_buffer_margin",
 			&config_val) == 0)
 			hw->dynamic_buf_num_margin = config_val;
@@ -2622,8 +2680,8 @@ static int amvdec_vc1_probe(struct platform_device *pdev)
 	} else
 		hw->dynamic_buf_num_margin = default_vc1_margin;
 
-	hw->canvas_mode = pdata->canvas_mode;
 	pr_info("canvas_mode %d\n", hw->canvas_mode);
+
 	spin_lock_init(&hw->reset_lock);
 
 	vvc1_vdec_info_init();
