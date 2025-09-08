@@ -875,7 +875,8 @@ s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid, bool is_hevc,
 		("sub_pid = 0x%x, pcrid = 0x%x\n",
 		 sid, pcrid);
 
-	if (vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO) {
+	if (vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO ||
+		vdec->frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
 		singleDmxNewPtsserv = true;
 		pr_info("single demux use new ptsserver.\n");
 	}
@@ -1605,6 +1606,11 @@ void tsdemux_set_demux(int dev)
 			r = demux_ops->set_demux(dev);
 		spin_unlock_irqrestore(&demux_ops_lock, flags);
 	}
+}
+
+void tsdemux_set_video_pts_server_id(s32 server_id) {
+	pVServerInsId = server_id;
+	return;
 }
 
 int tsdemux_get_pcr(int demux_device_index, int index, u64 *pcr)

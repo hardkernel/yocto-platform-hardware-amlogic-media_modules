@@ -37,10 +37,6 @@
 #include <linux/amlogic/gki_module.h>
 #endif
 
-#define pts_pr_vinfo(number,fmt,args...) pr_info("ptsserv_v:[%d] " fmt, number,##args)
-#define pts_pr_ainfo(number,fmt,args...) pr_info("ptsserv_a:[%d] " fmt, number,##args)
-
-static u32 ptsserver_debuglevel = 0;
 
 #define MAX_INSTANCE_NUM (40)
 #define MAX_EXPIRED_COUNT (300)
@@ -54,6 +50,31 @@ static u32 ptsserver_debuglevel = 0;
 #define DEFAULT_DOULBCHECK_THRESHOLD (5)
 #define DEFAULT_REWIND_PTS_THRESHOLD (5000000)
 #define DEFAULT_REWIND_INDEX_THRESHOLD (120)
+
+/* Debug log levels */
+#define PTS_SERVER_DEBUG_LEVEL_0   0   /* Critical logs only */
+#define PTS_SERVER_DEBUG_LEVEL_1   1   /* Important events */
+#define PTS_SERVER_DEBUG_LEVEL_2   2   /* Normal debug information */
+#define PTS_SERVER_DEBUG_LEVEL_3   3   /* Detailed debug information */
+#define PTS_SERVER_DEBUG_LEVEL_4   4   /* Verbose debugging */
+#define PTS_SERVER_DEBUG_LEVEL_5   5   /* Maximum details / trace */
+
+
+static u32 ptsserver_debuglevel = PTS_SERVER_DEBUG_LEVEL_0;  /* Default log level */
+
+#define PTS_LOG(level,type,number,fmt, args...)            \
+    do {                                                   \
+        if ((level) <= ptsserver_debuglevel)               \
+            printk(KERN_DEBUG "[PtsServ][%c:%d] " fmt,     \
+                   type,number,##args);                    \
+    } while (0)
+
+
+
+#define pts_pr_vinfo(number,fmt,args...) pr_info("ptsserv_v:[%d] " fmt, number,##args)
+#define pts_pr_ainfo(number,fmt,args...) pr_info("ptsserv_a:[%d] " fmt, number,##args)
+
+
 
 PtsServerManage vPtsServerInsList[MAX_INSTANCE_NUM];
 
@@ -166,9 +187,8 @@ long ptsserver_ins_init_syncinfo(ptsserver_ins* pInstance,ptsserver_alloc_para* 
 
 	for (index = 0; index < pInstance->mMaxCount; index++) {
 		ptn = &pInstance->all_free_ptn[index];
-		if (ptsserver_debuglevel >= 1) {
-			pr_info("server_id:%d ptn[%d]:%px\n", pts_server_id,index,ptn);
-		}
+		PTS_LOG(PTS_SERVER_DEBUG_LEVEL_5,'C',pts_server_id,
+			"server_id:%d ptn[%d]:%px\n",pts_server_id,index,ptn);
 		list_add_tail(&ptn->node, &pInstance ->pts_free_list);
 	}
 
@@ -1674,7 +1694,11 @@ long ptsserver_set_audio_offset_margin(s32 pServerInsId, u32 offsetMargin) {
 		mutex_unlock(&vPtsServerIns->mListLock);
 		return -1;
 	}
-	pr_info("%s --> pServerInsId:%d, set offset margin:%d\n", __func__, pServerInsId, offsetMargin);
+
+	PTS_LOG(PTS_SERVER_DEBUG_LEVEL_3,'A',index,
+		"%s pServerInsId:%d margin:%d\n",
+			__func__, pServerInsId, offsetMargin);
+
 	pInstance->mAudioOffsetMargin = offsetMargin;
 	mutex_unlock(&vPtsServerIns->mListLock);
 

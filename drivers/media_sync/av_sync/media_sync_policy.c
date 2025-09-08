@@ -1827,7 +1827,7 @@ static struct param_entry mediasyncpolicy_params[] = {
 	{ /* sentinel */ }
 };
 
-module_param_cb(debug_mediasyncpolicy, &key_value_param_ops, &mediasyncpolicy_params, 0644);
+module_param_cb(mediasync_policy, &key_value_param_ops, &mediasyncpolicy_params, 0644);
 
 #else
 module_param(media_sync_policy_debug_level, uint, 0664);

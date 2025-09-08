@@ -3993,7 +3993,8 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D ||
 		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2 ||
 		get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12A) &&
-		(vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO)) {
+		(vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO ||
+		vdec->frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE)) {
 		single_dmx_new_ptsserv = true;
 		p->use_vfm_path = 0;
 	}
@@ -5166,7 +5167,8 @@ int vdec_check_rec_num_enough(struct vdec_s *vdec) {
 		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D ||
 			get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2 ||
 			get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12A) &&
-			(vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO)) {
+			(vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO ||
+			vdec->frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE)) {
 			return ptsserver_check_rec_num_enough((vdec->pts_server_id & 0xff), total_rd_count);
 		} else {
 			if ((total_rd_count >= vdec->vbuf.last_offset[0]) &&

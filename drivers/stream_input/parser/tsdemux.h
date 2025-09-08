@@ -125,6 +125,8 @@ void tsdemux_set_skipbyte(int skipbyte);
 void tsdemux_set_demux(int dev);
 void tsdemux_tsync_func_init(void);
 
+void tsdemux_set_video_pts_server_id(s32 server_id);
+
 extern int register_mediasync_vpts_set_cb(void* pfunc);
 extern int register_mediasync_apts_set_cb(void* pfunc);
 

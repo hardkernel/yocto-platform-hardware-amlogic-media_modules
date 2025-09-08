@@ -353,7 +353,11 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 			return r;
 	}
 	addr = buf->buf_start;
-	buf->use_ptsserv = SINGLE_PTS_SERVER_DECODER_LOOKUP;
+	if (buf->type == BUF_TYPE_VIDEO) {
+		buf->use_ptsserv = SINGLE_PTS_SERVER_DECODER_LOOKUP;
+	}
+
+
 	init_waitqueue_head(&buf->wq);
 
 	/*

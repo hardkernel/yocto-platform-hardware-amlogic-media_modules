@@ -2117,7 +2117,8 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 	case AMSTREAM_SET_FRAME_BASE_PATH:
 		if (is_mult_inc(this->type) &&
 			(parm.frame_base_video_path < FRAME_BASE_PATH_MAX)) {
-			if (parm.frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO) {
+			if (parm.frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO ||
+				parm.frame_base_video_path == FRAME_BASE_PATH_DTV_TUNNEL_MEDIASYNC_MODE) {
 				this->flag &= (~PORT_FLAG_TSYNC);
 			}
 			vdec_set_video_path(priv->vdec, parm.data_32);
@@ -3496,7 +3497,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		}
 		if (!vbuf->ext_buf_addr)
 			return -ENODEV;
-
+		tsdemux_set_video_pts_server_id(meta.pts_server_id);
 		stream_buffer_meta_write(vbuf, &meta);
 		break;
 	}

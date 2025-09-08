@@ -834,6 +834,8 @@ static void mediasync_ins_reset_l(mediasync_ins* pInstance) {
 			pTable = &pInstance->frame_table[PTS_TYPE_VIDEO];
 			clear_frame_list(pInstance, pTable);
 		}
+		pInstance->mMediasyncCtlExt.resumePtsValue64 = -1;
+		pInstance->mMediasyncCtlExt.status = 0;
 		mediasync_pr_info(0,pInstance->mSyncIndex,"");
 	}
 }
@@ -4757,7 +4759,7 @@ static struct param_entry mediasync_params[] = {
 	{ /* sentinel */ }
 };
 
-module_param_cb(debug_mediasync, &key_value_param_ops, &mediasync_params, 0644);
+module_param_cb(mediasync_core, &key_value_param_ops, &mediasync_params, 0644);
 #else
 
 module_param(media_sync_debug_level, uint, 0664);

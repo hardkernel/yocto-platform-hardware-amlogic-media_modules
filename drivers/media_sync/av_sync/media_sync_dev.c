@@ -1523,6 +1523,7 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 
 		default:
 			pr_info("invalid cmd:%d\n", cmd);
+			ret = -EFAULT;
 		break;
 	}
 

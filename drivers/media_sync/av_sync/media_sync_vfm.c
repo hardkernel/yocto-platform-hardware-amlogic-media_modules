@@ -632,7 +632,7 @@ static struct param_entry mediasync_vfm_params[] = {
 	{ /* sentinel */ }
 };
 
-module_param_cb(debug_mediasync_vfm, &key_value_param_ops, &mediasync_vfm_params, 0644);
+module_param_cb(mediasync_vfm, &key_value_param_ops, &mediasync_vfm_params, 0644);
 
 #else
 module_param(media_sync_vf_debug_level, uint, 0664);
