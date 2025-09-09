@@ -2606,10 +2606,15 @@ static void vavs_work(struct work_struct *work)
 	struct vdec_avs_hw_s *hw =
 	container_of(work, struct vdec_avs_hw_s, work);
 	struct vdec_s *vdec = hw_to_vdec(hw);
-	if (hw->dec_result != DEC_RESULT_AGAIN)
+
+	if (hw->dec_result == DEC_RESULT_AGAIN) {
+		vdec_profile(vdec, VDEC_PROFILE_EVENT_AGAIN, CORE_MASK_VDEC_1);
+	} else {
 		debug_print(hw, PRINT_FLAG_RUN_FLOW,
-	"ammvdec_avs: vavs_work,result=%d,status=%d\n",
-	hw->dec_result, hw_to_vdec(hw)->next_status);
+			"ammvdec_avs: vavs_work,result=%d,status=%d\n",
+			hw->dec_result, hw_to_vdec(hw)->next_status);
+	}
+
 	hw->again_flag = 0;
 	if (hw->dec_result == DEC_RESULT_USERDATA) {
 		userdata_push_process(hw);
@@ -3241,6 +3246,8 @@ void (*callback)(struct vdec_s *, void *, int),
 	else
 #endif
 	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
+
 	hw->stat |= STAT_VDEC_RUN;
 
 	hw->stat |= STAT_TIMER_ARM;
@@ -4055,8 +4062,18 @@ static irqreturn_t vmavs_isr_thread_fn(struct vdec_s *vdec, int irq)
 
 static irqreturn_t vmavs_isr(struct vdec_s *vdec, int irq)
 {
+	struct vdec_avs_hw_s *hw =
+	(struct vdec_avs_hw_s *)vdec->private;
 
 	WRITE_VREG(ASSIST_MBOX1_CLR_REG, 1);
+
+	if (hw->m_ins_flag) {
+		u32 decode_status = READ_VREG(DECODE_STATUS) & 0xff;
+
+		if (decode_status == DECODE_STATUS_PIC_DONE) {
+			vdec_profile(vdec, VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_VDEC_1);
+		}
+	}
 
 	return IRQ_WAKE_THREAD;
 	//return vavs_isr(0, hw);

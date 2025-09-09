@@ -379,6 +379,7 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 		pr_info("fatal error, no available buffer slot.");
 		return IRQ_HANDLED;
 	}
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_VDEC_1);
 	vdec_profile(vdec, VDEC_PROFILE_DECODED_FRAME, CORE_MASK_VDEC_1);
 	vf->index = index;
 	set_frame_info(hw, vf);
@@ -1295,6 +1296,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	hw->last_vld_level = 0;
 	mod_timer(&hw->check_timer, jiffies + CHECK_INTERVAL);
 	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
 	vdec_enable_input(vdec);
 	hw->stat |= STAT_VDEC_RUN;
 	hw->init_flag = 1;
@@ -1375,6 +1377,10 @@ static void vmjpeg_work(struct work_struct *work)
 	struct vdec_mjpeg_hw_s *hw = container_of(work,
 	struct vdec_mjpeg_hw_s, work);
 	struct vdec_s *vdec = hw_to_vdec(hw);
+
+	if (hw->dec_result == DEC_RESULT_AGAIN) {
+		vdec_profile(vdec, VDEC_PROFILE_EVENT_AGAIN, CORE_MASK_VDEC_1);
+	}
 
 	mmjpeg_debug_print(DECODE_ID(hw), PRINT_FLAG_BUFFER_DETAIL,
 		"%s: result=%d,len=%d:%d\n",

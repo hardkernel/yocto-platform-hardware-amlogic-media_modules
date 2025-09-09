@@ -602,6 +602,7 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 	}
 
 	vdec_profile(vdec, VDEC_PROFILE_DECODED_FRAME, CORE_MASK_VDEC_1);
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_VDEC_1);
 	/*
 	 * Index is not illegal, line 478 has been determined.
 	 */
@@ -2273,6 +2274,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	hw->last_vld_level = 0;
 	mod_timer(&hw->check_timer, jiffies + CHECK_INTERVAL);
 	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
 	vdec_enable_input(vdec);
 	hw->stat |= STAT_VDEC_RUN;
 	hw->init_flag = 1;
@@ -2366,6 +2368,10 @@ static void vmjpeg_work(struct work_struct *work)
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+
+	if (hw->dec_result == DEC_RESULT_AGAIN) {
+		vdec_profile(vdec, VDEC_PROFILE_EVENT_AGAIN, CORE_MASK_VDEC_1);
+	}
 
 	mmjpeg_debug_print(DECODE_ID(hw), PRINT_FLAG_BUFFER_DETAIL,
 		"%s: result=%d,len=%d:%d\n",

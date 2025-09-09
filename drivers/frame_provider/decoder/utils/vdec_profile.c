@@ -92,6 +92,7 @@ struct vdec_profile_statistics_s {
 	struct vdec_profile_time_stat_s decode_time_stat;
 	struct vdec_profile_time_stat_s again_time_stat;
 	struct vdec_profile_time_stat_s hw_time_stat;
+	bool start_flag;
 };
 
 static struct vdec_profile_statistics_s statistics_s[MAX_INSTANCE_MUN];
@@ -263,10 +264,12 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 			time_stat->hw_lasttimestamp = timestamp;
 			time_stat->hw_cnt++;
 		}
-	} else if (event == VDEC_PROFILE_DECODER_HEADER_END) {
+		time_stat->start_flag = true;
+	} else if ((event == VDEC_PROFILE_DECODER_HEADER_END) && time_stat->start_flag) {
 		time_stat->multi_us_sum += (timestamp - time_stat->hw_lasttimestamp);
 		time_stat->hw_lasttimestamp = timestamp;
-	} else if (event == VDEC_PROFILE_DECODER_PIC_END) {
+		time_stat->start_flag = false;
+	} else if ((event == VDEC_PROFILE_DECODER_PIC_END) && time_stat->start_flag) {
 		if (!back_core_flag) {
 			time_stat->hw_cnt++;
 			time_stat->multi_us_sum += (timestamp - time_stat->hw_lasttimestamp);
@@ -286,6 +289,7 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 			ATRACE_COUNTER(vdec->decode_hw_back_spend_time_avg, div_u64(time_stat->hw_time_stat.time_total_us, time_stat->hw_cnt));
 			vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, timestamp - time_stat->hw_lasttimestamp);
 		}
+		time_stat->start_flag = false;
 	}
 
 	if (event == VDEC_PROFILE_EVENT_RUN) {

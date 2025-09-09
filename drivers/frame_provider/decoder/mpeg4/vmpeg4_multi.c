@@ -1376,6 +1376,7 @@ static irqreturn_t vmpeg4_isr_thread_handler(struct vdec_s *vdec, int irq)
 		}
 		return IRQ_HANDLED;
 	} else {
+		vdec_profile(vdec, VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_VDEC_1);
 		reset_process_time(hw);
 		vdec_profile(vdec, VDEC_PROFILE_DECODED_FRAME, CORE_MASK_VDEC_1);
 		picture_type = (reg >> 3) & 7;
@@ -1842,6 +1843,10 @@ static void vmpeg4_work(struct work_struct *work)
 	struct vdec_mpeg4_hw_s *hw =
 		container_of(work, struct vdec_mpeg4_hw_s, work);
 	struct vdec_s *vdec = hw_to_vdec(hw);
+
+	if (hw->dec_result == DEC_RESULT_AGAIN) {
+		vdec_profile(vdec, VDEC_PROFILE_EVENT_AGAIN, CORE_MASK_VDEC_1);
+	}
 
 	/* finished decoding one frame or error,
 	 * notify vdec core to switch context
@@ -3019,6 +3024,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	if (vdec->mvfrm)
 		vdec->mvfrm->hw_decode_start = local_clock();
 	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
 	hw->stat |= STAT_VDEC_RUN;
 	hw->stat |= STAT_TIMER_ARM;
 	hw->init_flag = 1;

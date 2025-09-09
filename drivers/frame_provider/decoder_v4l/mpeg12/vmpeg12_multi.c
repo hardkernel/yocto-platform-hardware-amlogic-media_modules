@@ -2774,6 +2774,8 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 		}
 		return IRQ_HANDLED;
 	}else {  /* MPEG12_PIC_DONE, MPEG12_SEQ_END */
+		vdec_profile(vdec, VDEC_PROFILE_DECODER_PIC_END, CORE_MASK_VDEC_1);
+
 		debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 			"%s, level %x, wp %x, rp %x, cnt %x\n",
 			__func__,
@@ -3203,6 +3205,10 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 {
 	int r;
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+
+	if (hw->dec_result == DEC_RESULT_AGAIN) {
+		vdec_profile(vdec, VDEC_PROFILE_EVENT_AGAIN, CORE_MASK_VDEC_1);
+	}
 
 	hw->last_frame_ud_num = 0;
 
@@ -4753,6 +4759,7 @@ void (*callback)(struct vdec_s *, void *, int),
 	if (vdec->mvfrm)
 		vdec->mvfrm->hw_decode_start = local_clock();
 	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
 	hw->stat |= STAT_VDEC_RUN;
 	hw->stat |= STAT_TIMER_ARM;
 	hw->init_flag = 1;
