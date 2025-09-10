@@ -244,7 +244,8 @@ int decoder_mmu_box_alloc_idx(
 	struct decoder_mmu_box *box = handle;
 	struct codec_mm_scatter *sc;
 	int ret;
-	int i;
+	int i, j;
+	int count;
 
 	if (!box || idx < 0) {
 		pr_err("can't alloc mmu box(%p),idx:%d\n",
@@ -280,9 +281,18 @@ int decoder_mmu_box_alloc_idx(
 		}
 		decoder_mmu_box_set_sc_from_idx(box, idx, sc);
 	}
-
-	for (i = 0; i < num_pages; i++)
-		mmu_index_adr[i] = PAGE_INDEX(sc->pages_list[i]);
+	/*
+	* PAGE_SHIFT represents the system page size (typically 12 or 14).
+	* SCATTER_PAGE_SHIFT is fixed to 12, matching the hardware's 4KB page size.
+	* A conversion is required when the system page size differs from the
+	* scatter page size, as the hardware only supports 4KB pages.
+	*/
+	count = 1 << (PAGE_SHIFT - SCATTER_PAGE_SHIFT);
+	for (i = 0; i < num_pages; i++) {
+		for (j = 0; j < count; j++) {
+			mmu_index_adr[i * count + j] = PAGE_INDEX(sc->pages_list[i]) + j;
+		}
+	}
 
 	mutex_unlock(&box->mutex);
 
@@ -296,6 +306,14 @@ int decoder_mmu_box_free_idx_tail(
 {
 	struct decoder_mmu_box *box = handle;
 	struct codec_mm_scatter *sc;
+	/*
+	* real_start_index refers to the system page index, which may correspond
+	* to either a 4KB or 16KB system page size.
+	* start_release_index refers to the scatter-page index, where the scatter
+	* page size is fixed to 4KB.
+	*/
+	int align_shift = PAGE_SHIFT - SCATTER_PAGE_SHIFT;
+	int real_start_index = DIV_ROUND_UP(start_release_index, 1 << align_shift);
 
 	if (!box || idx < 0) {
 		pr_err("can't free tail mmu box(%p),idx:%d in (%d-%d)\n",
@@ -303,11 +321,12 @@ int decoder_mmu_box_free_idx_tail(
 			box ? (box->max_sc_num - 1) : 0);
 		return -1;
 	}
+
 	mutex_lock(&box->mutex);
 	sc = decoder_mmu_box_get_sc_from_idx(box, idx);
-	if (sc && start_release_index < sc->page_cnt)
+	if (sc && real_start_index < sc->page_cnt)
 		codec_mm_scatter_free_tail_pages_fast(sc,
-				start_release_index);
+				real_start_index);
 	mutex_unlock(&box->mutex);
 	return 0;
 }
