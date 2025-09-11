@@ -9799,7 +9799,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 	}
 
 	if (scalable_enable &&
-		(dec_status == AOM_AV1_FRAME_PARSER_DONE)) {
+		(dec_status == AOM_AV1_SEQ_HEAD_PARSER_DONE)) {
 		hw->max_spatial_id = count_ones(hw->aom_param.p.max_operating_point_idc >> 8);
 
 		av1_print(hw, AV1_DEBUG_BUFMGR, "max_spatial_id %d\n", hw->max_spatial_id);
