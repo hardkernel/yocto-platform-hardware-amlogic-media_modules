@@ -1528,9 +1528,10 @@ struct tile_s {
 
 #define SEI_MASTER_DISPLAY_COLOR_MASK 0x00000001
 #define SEI_CONTENT_LIGHT_LEVEL_MASK  0x00000002
-#define SEI_HDR10PLUS_MASK			  0x00000004
-#define SEI_HDR_CUVA_MASK	      0x00000008
-#define SEI_HDR_FMM_MASK	      0x00000010
+#define SEI_HDR10PLUS_MASK            0x00000004
+#define SEI_HDR_CUVA_MASK             0x00000008
+#define SEI_HDR_FMM_MASK              0x00000010
+#define SEI_HDR_IMAX_MASK             0x00000020
 
 #define VF_POOL_SIZE        32
 
@@ -8942,6 +8943,25 @@ static int parse_sei(struct hevc_state_s *hevc,
 						}
 						PR_INFO(hevc->index);
 					}
+				}  else if (p_sei[0] == 0xB5
+					&& p_sei[1] == 0x58
+					&& p_sei[2] == 0x43
+					&& p_sei[3] == 0x00
+					&& p_sei[4] == 0x00
+					&& p_sei[5] == 0x01) {
+					pic->sei_present_flag |= SEI_HDR_IMAX_MASK;
+
+					if (get_dbg_flag(hevc) & H265_DEBUG_PRINT_SEI) {
+						PR_INIT(128);
+						hevc_print(hevc, 0,
+							"hdr IMAX data: (size %d)\n", payload_size);
+						for (i = 0; i < payload_size; i++) {
+							PR_FILL("%02x ", p_sei[i]);
+							if (((i + 1) & 0xf) == 0)
+								PR_INFO(hevc->index);
+						}
+						PR_INFO(hevc->index);
+					}
 				} else if (p_sei[0] == 0x26
 					&& p_sei[1] == 0x00
 					&& p_sei[2] == 0x04
@@ -9288,6 +9308,14 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 			data = vf->ext_signal_type;
 			data = data & 0xFFFFFFFE;
 			data = data | (1<<0);
+			vf->ext_signal_type = data;
+		}
+
+		if (pic->sei_present_flag & SEI_HDR_IMAX_MASK) {
+			u32 data;
+			data = vf->ext_signal_type;
+			data = data & 0xFFFFFFF7;
+			data = data | (1<<3);
 			vf->ext_signal_type = data;
 		}
 	}

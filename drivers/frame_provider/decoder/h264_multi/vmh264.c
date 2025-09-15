@@ -467,7 +467,8 @@ u32 V_BUF_ADDR_OFFSET = 0x200000 + 0x8000/* 32*0x400 */ + 0x20000/* 256*0x200 */
 #define SWITCHING_STATE_ON_CMD3   1
 #define SWITCHING_STATE_ON_CMD1   2
 
-#define SEI_HDR_FMM_MASK	      0x00000010
+#define SEI_HDR_FMM_MASK          0x00000010
+#define SEI_HDR_IMAX_MASK         0x00000020
 
 #define INCPTR(p) ptr_atomic_wrap_inc(&p)
 
@@ -5606,6 +5607,14 @@ static void set_frame_info(struct vdec_h264_hw_s *hw, struct vframe_s *vf,
 			data = data | (1<<0);
 			vf->ext_signal_type = data;
 		}
+
+		if (hw->sei_present_flag & SEI_HDR_IMAX_MASK) {
+			u32 data;
+			data = vf->ext_signal_type;
+			data = data & 0xFFFFFFF7;
+			data = data | (1<<3);
+			vf->ext_signal_type = data;
+		}
 	} else {
 		vf->signal_type = 0;
 		vf->ext_signal_type = 0;
@@ -7486,7 +7495,29 @@ static int parse_one_sei_record(struct vdec_h264_hw_s *hw,
 					dpb_print_cont(DECODE_ID(hw),
 						0, "\n");
 				}
-			}  else if (
+			} else if (p_sei[0] == 0xB5
+				&& p_sei[1] == 0x58
+				&& p_sei[2] == 0x43
+				&& p_sei[3] == 0x00
+				&& p_sei[4] == 0x00
+				&& p_sei[5] == 0x01) {
+				hw->sei_present_flag |= SEI_HDR_IMAX_MASK;
+
+				if (dpb_is_debug(DECODE_ID(hw),
+					PRINT_FLAG_SEI_DETAIL)) {
+					dpb_print(DECODE_ID(hw), 0, "hdr IMAX data size %d\n", payload_size);
+					for (i = 0; i < payload_size; i++) {
+						dpb_print_cont(DECODE_ID(hw), 0,
+							"%02x ", p_sei[i]);
+						if (((i + 1) & 0xf) == 0)
+							dpb_print_cont(
+							DECODE_ID(hw),
+								0, "\n");
+					}
+					dpb_print_cont(DECODE_ID(hw),
+						0, "\n");
+				}
+			} else if (
 				(p_sei[0] == 0xB5 && p_sei[1] == 0x00 && p_sei[2] == 0x3A && p_sei[3] == 0x01) ||
 				(p_sei[0] == 0xB5 && p_sei[1] == 0x00 && p_sei[2] == 0x3A && p_sei[3] == 0x00)) {
 				if (pic) {
