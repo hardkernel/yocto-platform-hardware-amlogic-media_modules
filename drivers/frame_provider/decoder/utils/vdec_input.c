@@ -30,6 +30,7 @@
 #include <asm/cacheflush.h>
 #include <linux/crc32.h>
 
+#define VFRAME_BLOCK_SIZE_AVBCD (SZ_1K)/*1k for avbcd mode.*/
 #define VFRAME_BLOCK_SIZE (512 * SZ_1K)/*512 for 1080p default init.*/
 #define VFRAME_BLOCK_SIZE_4K (2 * SZ_1M) /*2M for 4K default.*/
 #define VFRAME_BLOCK_SIZE_MAX (4 * SZ_1M)
@@ -337,6 +338,8 @@ int vdec_input_prepare_bufs(struct vdec_input_s *input,
 		/*have add data before. ignore prepare buffers.*/
 		input->default_block_size = VFRAME_BLOCK_SIZE_4K;
 	}
+	if (input->vdec->avbc_mode)
+		input->default_block_size = VFRAME_BLOCK_SIZE_AVBCD;
 	/*prepared 3 buffers for smooth start.*/
 	for (i = 0; i < 3; i++) {
 		block = vdec_input_alloc_new_block(input, 0, 0, NULL, NULL);

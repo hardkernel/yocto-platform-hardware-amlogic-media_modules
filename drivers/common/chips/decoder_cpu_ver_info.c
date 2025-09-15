@@ -1610,6 +1610,17 @@ inline bool is_support_avbc_wrapper(void)
 }
 EXPORT_SYMBOL(is_support_avbc_wrapper);
 
+inline bool is_support_hw_avbcd(void)
+{
+	enum AM_MESON_CPU_MAJOR_ID cpu_major_id = get_cpu_major_id();
+
+	if (cpu_major_id == AM_MESON_CPU_MAJOR_ID_T6W)
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(is_support_hw_avbcd);
+
 inline bool is_use_std_reset_if(void)
 {
 	enum AM_MESON_CPU_MAJOR_ID cpu_major_id = get_cpu_major_id();

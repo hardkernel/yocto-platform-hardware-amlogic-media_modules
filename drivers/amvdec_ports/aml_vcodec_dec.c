@@ -852,7 +852,7 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 
 	aml_buf_get_configure(&ctx->bm, &config);
 	config.enable_extbuf	= true;
-	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
+	config.enable_fbc	= (((dw != DM_YUV_ONLY) && (dw != DM_YUV_P010_ONLY)) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
 	config.memory_mode	= que->memory;
 	config.planes		= V4L2_TYPE_IS_MULTIPLANAR(que->type) ? 2 : 1;
@@ -6432,7 +6432,8 @@ static int check_dec_cfginfo(struct aml_vcodec_ctx *ctx, struct aml_vdec_cfg_inf
 		cfg->double_write_mode != DM_YUV_1_4_10BIT_AVBC &&
 		cfg->double_write_mode != DM_YUV_1_2_10BIT_AVBC &&
 		cfg->double_write_mode != DM_YUV_1_8_10BIT_AVBC &&
-		cfg->double_write_mode != DM_YUV_14_11_10BIT_AVBC) {
+		cfg->double_write_mode != DM_YUV_14_11_10BIT_AVBC &&
+		cfg->double_write_mode != DM_YUV_P010_ONLY) {
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR, "Invalid DW:0x%x\n", cfg->double_write_mode);
 		return -1;
 	}

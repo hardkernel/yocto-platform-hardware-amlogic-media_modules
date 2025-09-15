@@ -2983,6 +2983,9 @@ static int v4l_alloc_and_config_pic(struct AV1HW_s *hw,
 		}
 	}
 
+	if (get_double_write_mode(hw) & 0x10)
+		hw->mmu_enable = 0;
+
 	if (get_double_write_mode(hw) & 0x20) {
 		hw->m_BUF[i].header_dw_addr = aml_buf->fbc->haddr_dw;
 		if (debug & AV1_DEBUG_BUFMGR_MORE) {

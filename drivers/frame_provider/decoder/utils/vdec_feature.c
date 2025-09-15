@@ -406,6 +406,8 @@ static int vcodec_feature_avbcd_mode(u8 *buf, int size, int vformat, int is_v4l)
 		case VFORMAT_AV1:
 		case VFORMAT_H264:
 			pbuf += snprintf(pbuf, size, "        \"AVBCD mode\" : true,\n");
+			if (is_support_hw_avbcd())
+				pbuf += snprintf(pbuf, size, "        \"AVBCD HW mode\" : true,\n");
 			break;
 		default:
 			break;

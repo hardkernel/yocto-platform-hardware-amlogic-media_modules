@@ -320,6 +320,8 @@ inline bool is_need_fix_streambuf_rp(void);
 
 inline bool is_support_avbc_wrapper(void);
 
+inline bool is_support_hw_avbcd(void);
+
 inline bool is_use_std_reset_if(void);
 
 inline bool is_need_send_parser_cmd(void);

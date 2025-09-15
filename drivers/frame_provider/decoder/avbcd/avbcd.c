@@ -11806,8 +11806,8 @@ static int __init amvdec_avbcd_driver_init_module(void)
 				p_buf_info = &amavbcd_workbuff_spec[1];
 		} else
 			p_buf_info = &amavbcd_workbuff_spec[0];
-	} else { //get_cpu_major_id() > AM_MESON_CPU_MAJOR_ID_TM2 || is_cpu_tm2_revb()
-		if (hevc_is_support_4k())
+	} else {
+		if (hevc_is_support_4k() && (cpu_major_id != AM_MESON_CPU_MAJOR_ID_T6W))
 			p_buf_info = &amavbcd_workbuff_spec[5];
 		else
 			p_buf_info = &amavbcd_workbuff_spec[3];
