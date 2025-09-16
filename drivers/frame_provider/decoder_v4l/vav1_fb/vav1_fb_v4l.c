@@ -350,6 +350,15 @@ static u32 double_write_mode;
  */
 static u32 triple_write_mode;
 
+/*
+ *error handling
+ */
+/*error_handle_policy:
+ *bit 0: 0:check order_hint; 1: not check order_hint
+ */
+#define CHECK_ORDER_HINT (1 << 0)
+static u32 error_handle_policy;
+
 #define DRIVER_NAME "amvdec_av1_fb_v4l"
 #define DRIVER_HEADER_NAME "amvdec_av1_fb_header"
 
@@ -1046,6 +1055,9 @@ struct AV1HW_s {
 	u32 max_spatial_id;
 	int error_mark;
 	enum FenceModeBufStatus fence_mode_buf_status;
+	int chunk_frame_buf_idx[FRAME_BUFFERS];
+	int chunk_frame_pos;
+	int last_order_hint;
 };
 
 #ifdef NEW_FB_CODE
@@ -1960,6 +1972,16 @@ static int v4l_get_free_fb(struct AV1HW_s *hw)
 		free_pic->fence_create = 0;
 		av1_print(hw, AOM_DEBUG_HW_MORE, "temporal_spatial_id = 0x%x\n",
 			hw->aom_param.p.temporal_spatial_id);
+
+		if (!(error_handle_policy & CHECK_ORDER_HINT)) {
+			if (hw->chunk_frame_pos < FRAME_BUFFERS) {
+				hw->chunk_frame_buf_idx[hw->chunk_frame_pos] = free_pic->index;
+				hw->chunk_frame_pos++;
+			} else {
+				av1_print(hw, AOM_DEBUG_HW_MORE, "chunk_frame_pos(%d) is over\n",
+					hw->chunk_frame_pos);
+			}
+		}
 	}
 
 	if (debug & AV1_DEBUG_BUFMGR) {
@@ -2257,27 +2279,6 @@ static u32 low_latency_flag;
 
 static u32 no_head;
 
-/*
- *error handling
- */
-/*error_handle_policy:
- *bit 0: 0, auto skip error_skip_nal_count nals before error recovery;
- *1, skip error_skip_nal_count nals before error recovery;
- *bit 1 (valid only when bit0 == 1):
- *1, wait vps/sps/pps after error recovery;
- *bit 2 (valid only when bit0 == 0):
- *0, auto search after error recovery (av1_recover() called);
- *1, manual search after error recovery
- *(change to auto search after get IDR: WRITE_VREG(NAL_SEARCH_CTL, 0x2))
- *
- *bit 4: 0, set error_mark after reset/recover
- *    1, do not set error_mark after reset/recover
- *bit 5: 0, check total lcu for every picture
- *    1, do not check total lcu
- *
- */
-
-static u32 error_handle_policy;
 #define MAX_BUF_NUM_NORMAL     16
 /*less bufs num 12 caused frame drop, nts failed*/
 #define MAX_BUF_NUM_LESS   14
@@ -3693,6 +3694,54 @@ static int config_pic_size(struct AV1HW_s *hw, unsigned short bit_depth)
 #endif
 	return 0;
 
+}
+
+int get_relative_dist(int a, int b, int order_hint_bits)
+{
+	int m = 1 << (order_hint_bits - 1);
+	int mask = (1 << order_hint_bits) - 1;
+	int diff = (a - b) & mask;
+
+	if (diff & m) {
+		diff -= (1 << order_hint_bits);
+	}
+
+	return diff;
+}
+
+static void check_order_hint(struct AV1HW_s *hw, PIC_BUFFER_CONFIG *sd)
+{
+	AV1_COMMON *cm = &hw->common;
+	struct RefCntBuffer_s *const frame_bufs = cm->buffer_pool->frame_bufs;
+	int i = 0;
+	bool check_fail = false;
+
+	if ((sd->slice_type != KEY_FRAME) &&
+		(sd->slice_type != INTRA_ONLY_FRAME)) {
+		int order_hint_bits = cm->seq_params.order_hint_info.order_hint_bits_minus_1 + 1;
+
+		if (get_relative_dist(sd->order_hint, hw->last_order_hint, order_hint_bits) != 1) {
+			check_fail = true;
+		}
+
+		if (check_fail) {
+			sd->error_mark = 1;
+			av1_print(hw, AOM_DEBUG_HW_MORE,
+				"cur_pic order_hint %d, last_pic order_hint %d, set cur pic is error\n",
+				sd->order_hint, hw->last_order_hint);
+			for (i = 0; i < hw->chunk_frame_pos; i++) {
+				av1_print(hw, AOM_DEBUG_HW_MORE,
+					"hw->chunk_frame_buf_idx %d, set pic is error\n",
+					hw->chunk_frame_buf_idx[i]);
+				frame_bufs[hw->chunk_frame_buf_idx[i]].buf.error_mark = 1;
+			}
+		}
+	}
+
+	for (i = 0; i < FRAME_BUFFERS; i++) {
+		hw->chunk_frame_buf_idx[i] = INVALID_IDX;
+		hw->chunk_frame_pos = 0;
+	}
 }
 
 static int config_mc_buffer(struct AV1HW_s *hw, unsigned short bit_depth, unsigned char inter_flag)
@@ -7055,16 +7104,22 @@ void av1_raw_write_image(AV1Decoder *pbi, PIC_BUFFER_CONFIG *sd)
 		int signed_count = 0;
 		struct vframe_s *signed_fence[VF_POOL_SIZE];
 		struct aml_buf *buf;
+
+		if (!(error_handle_policy & CHECK_ORDER_HINT)) {
+			check_order_hint(hw, sd);
+		}
+		hw->last_order_hint = sd->order_hint;
+
 		/* notify signal to wake up wq of fence. */
 		if (hw->enable_fence && (hw->fence_mode_buf_status == FENCE_MODE_BUF_POSTED) && vdec->sync->fence) {
 			int ret = dma_fence_get_status(vdec->sync->fence);
 			if (ret == 0) {
 				if (fence_drop_error_frame &&
-					(hw->error_mark == 1)) {
+					((hw->error_mark == 1) || (sd->error_mark))) {
 					vdec_fence_status_set(vdec->sync->fence, -1);
 					av1_print(hw, 0,
-						"%s, error_mark:%d, vdec_fence_status_set error.\n",
-						__FUNCTION__, hw->error_mark);
+						"%s, enable_fence, error_mark:%d, sd->error_mark %d vdec_fence_status_set error.\n",
+						__FUNCTION__, hw->error_mark, sd->error_mark);
 				}
 				vdec_timeline_increase(vdec->sync, 1);
 
@@ -7116,8 +7171,14 @@ void av1_raw_write_image(AV1Decoder *pbi, PIC_BUFFER_CONFIG *sd)
 			"%s, frame err, do not display,idx:%d\n",
 			__func__, hw->common.current_frame_id);
 	} else {
-		av1_print(hw, AOM_DEBUG_HW_MORE, "Out frame index %d not_need_display %d, error_mark %d\n",
-			sd->index, sd->not_need_display, sd->error_mark);
+		av1_print(hw, AOM_DEBUG_HW_MORE, "Out frame index %d not_need_display %d, error_mark %d, order_hint %d, idx %d\n",
+			sd->index, sd->not_need_display, sd->error_mark, sd->order_hint, hw->chunk_frame_pos);
+
+		if (!(error_handle_policy & CHECK_ORDER_HINT)) {
+			check_order_hint(hw, sd);
+		}
+		hw->last_order_hint = sd->order_hint;
+
 		if ((sd->not_need_display == 0) && (sd->error_mark == 0)) {
 			prepare_display_buf((struct AV1HW_s *)(pbi->private_data), sd);
 		} else if (ctx->current_timestamp != sd->timestamp) {
@@ -7129,7 +7190,10 @@ void av1_raw_write_image(AV1Decoder *pbi, PIC_BUFFER_CONFIG *sd)
 			if (vdec_frame_based(vdec) && (hw->chunk != NULL)) {
 				ctx->current_timestamp = hw->chunk->timestamp;
 			}
+		} else if (sd->error_mark == 1) {
+			vdec_v4l_post_error_frame_event(ctx);
 		}
+
 	}
 	pbi->pre_stream_offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);
 }
