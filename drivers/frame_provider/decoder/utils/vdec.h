@@ -70,7 +70,7 @@ void vdec_module_exit(void);
 #ifdef LIMIT_DECODE_INSTANCE
 #define MAX_INSTANCE_MUN     LIMIT_DECODE_INSTANCE
 #else
-#define MAX_INSTANCE_MUN     9
+#define MAX_INSTANCE_MUN     16
 #endif
 
 #define VDEC_DEBUG_SUPPORT
