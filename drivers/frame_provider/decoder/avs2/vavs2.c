@@ -4600,14 +4600,8 @@ static int avs2_local_init(struct AVS2Decoder_s *dec)
 
 #ifndef AVS2_10B_MMU
 	init_buf_list(dec);
-#else
-	dec->used_buf_num = avs2_calc_dpb_size(dec) + dec->dynamic_buf_margin;
-	if (dec->used_buf_num > MAX_BUF_NUM)
-		dec->used_buf_num = MAX_BUF_NUM;
-	if (dec->used_buf_num > FRAME_BUFFERS)
-		dec->used_buf_num = FRAME_BUFFERS;
-#endif
 	dec->avs2_dec.ref_maxbuffer = dec->used_buf_num - 1;
+#endif
 
 	pts_unstable = ((unsigned long)(dec->vavs2_amstream_dec_info.param)
 			& 0x40) >> 6;
@@ -6411,6 +6405,20 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			}
 		}
 		ATRACE_COUNTER(dec->trace.decode_header_memory_time_name, TRACE_HEADER_RPM_END);
+
+#ifdef AVS2_10B_MMU
+	if (dec->pic_list_init_flag == 0) {
+		dec->frame_width = dec->avs2_dec.param.p.horizontal_size;
+		dec->frame_height = dec->avs2_dec.param.p.vertical_size;
+		dec->init_pic_w = dec->frame_width;
+		dec->init_pic_h = dec->frame_height;
+		dec->used_buf_num = avs2_calc_dpb_size(dec) + dec->dynamic_buf_margin;
+		if (dec->used_buf_num > MAX_BUF_NUM)
+			dec->used_buf_num = MAX_BUF_NUM;
+
+		dec->avs2_dec.ref_maxbuffer = dec->used_buf_num - 1;
+	}
+#endif
 #ifdef SANITY_CHECK
 		if (dec->avs2_dec.param.p.num_of_ref_cur >
 			dec->avs2_dec.ref_maxbuffer) {
