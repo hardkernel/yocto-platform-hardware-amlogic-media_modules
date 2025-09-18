@@ -2757,10 +2757,10 @@ int async_fifo_init(struct aml_asyncfifo *afifo, int initirq)
 		return -1;
 
 	afifo->source  = AM_DMX_MAX;
-	afifo->pages = 0;
+//	afifo->pages = 0;
 	afifo->buf_toggle = 0;
 	afifo->buf_read = 0;
-	afifo->buf_len = 0;
+//	afifo->buf_len = 0;
 
 	if (afifo->asyncfifo_irq == -1) {
 		pr_error("no irq for ASYNC_FIFO%d\n", afifo->id);
@@ -2795,12 +2795,13 @@ int async_fifo_deinit(struct aml_asyncfifo *afifo, int freeirq)
 	CLEAR_ASYNC_FIFO_REG_MASK(afifo->id, REG2, 1 << ASYNC_FIFO_FILL_EN);
 	spin_unlock_irqrestore(&dvb->slock, flags);
 
-	asyncfifo_put_buffer(afifo);
+	/*don't free this memory*/
+	/*asyncfifo_put_buffer(afifo);*/
 
 	afifo->source  = AM_DMX_MAX;
 	afifo->buf_toggle = 0;
 	afifo->buf_read = 0;
-	afifo->buf_len = 0;
+//	afifo->buf_len = 0;
 
 	if (afifo->asyncfifo_irq != -1) {
 		if (freeirq)
@@ -3835,9 +3836,10 @@ static void async_fifo_set_regs(struct aml_asyncfifo *afifo, int source_val)
 
 	if (!afifo->pages)
 	{
+		pr_inf("async_fifo_set_regs pages NULL\n");
 		return;
 	}
-
+	pr_dbg("##########async_fifo_set_regs size:%x, flush size:%x\n", size, flush_size);
 	start_addr = (afifo->secure_enable && afifo->blk.addr)?
 			afifo->blk.addr : afifo->pages_map;
 
@@ -4044,7 +4046,6 @@ static void reset_async_fifos(struct aml_dvb *dvb)
 			&& (afifo != highest_dmx_fifo))
 			async_fifo_disable(afifo);
 	}
-
 	/*Set the async fifo regs */
 	if (low_dmx_fifo) {
 		async_fifo_set_regs(low_dmx_fifo, 0x3);
@@ -5251,7 +5252,11 @@ int aml_asyncfifo_hw_reset(struct aml_asyncfifo *afifo)
 	struct aml_dvb *dvb = afifo->dvb;
 	unsigned long flags;
 	int ret, src = -1;
+	int fsize;
+	int len;
 
+	pr_dbg("############# aml_asyncfifo_hw_reset start\n");
+	mutex_lock(&dvb->mutex);
 	if (afifo->init) {
 		src = afifo->source;
 		async_fifo_deinit(afifo, 0);
@@ -5262,12 +5267,28 @@ int aml_asyncfifo_hw_reset(struct aml_asyncfifo *afifo)
 	/* restore the source */
 	if (src != -1)
 		afifo->source = src;
-
+	/*restore flush size*/
+	if (afifo->buf_len != 0) {
+		len = afifo->buf_len;
+		if ((afifo->flush_size <= 0)
+			|| (afifo->flush_size > (len >> 1))) {
+			afifo->flush_size = len >> 1;
+		} else if (afifo->flush_size < 128) {
+			afifo->flush_size = 128;
+		} else {
+			for (fsize = 128; fsize < (len >> 1); fsize <<= 1) {
+				if (fsize >= afifo->flush_size)
+					break;
+			}
+			afifo->flush_size = fsize;
+		}
+	}
 	if ((ret == 0) && afifo->dvb)
 		reset_async_fifos(afifo->dvb);
 
 	spin_unlock_irqrestore(&dvb->slock, flags);
-
+	mutex_unlock(&dvb->mutex);
+	pr_dbg("############# aml_asyncfifo_hw_reset end\n");
 	return ret;
 }
 
@@ -5700,6 +5721,7 @@ int aml_asyncfifo_hw_set_source(struct aml_asyncfifo *afifo,
 		return -EINVAL;
 	}
 
+	mutex_lock(&dvb->mutex);
 	spin_lock_irqsave(&dvb->slock, flags);
 
 	pr_dbg("asyncfifo %d set source %d->%d",
@@ -5723,6 +5745,7 @@ int aml_asyncfifo_hw_set_source(struct aml_asyncfifo *afifo,
 		reset_async_fifos(afifo->dvb);
 
 	spin_unlock_irqrestore(&dvb->slock, flags);
+	mutex_unlock(&dvb->mutex);
 
 	return ret;
 }
