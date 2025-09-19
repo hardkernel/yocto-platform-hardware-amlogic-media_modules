@@ -2229,7 +2229,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	if ((vb->vb2_buf.memory != VB2_MEMORY_DMABUF) ||
 		!dbuf ||
 		!dmabuf_is_uvm(dbuf))
-		return 0;
+		return -1;
 
 	obj = dmabuf_get_uvm_buf_obj(dbuf);
 	mbuf = container_of(obj, struct mua_buffer, base);
@@ -2246,7 +2246,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 				"%s enable_di_post %d field %d, aml_buf_check_dma_buf %d\n",
 				__func__, ctx->enable_di_post, ctx->picinfo.field,
 				aml_buf_check_dma_buf(&ctx->bm, (ulong)mbuf->idmabuf[0]));
-		return 0;
+		return -1;
 	}
 
 	if (!ctx->master_buf && !is_there_enough_yuv_dmabuf(ctx, dbuf)) {
@@ -4904,13 +4904,13 @@ try_combine:
 	vb2_v4l2 = to_vb2_v4l2_buffer(am_buf->vb);
 
 	ret = aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s ret(%d), pair_state(%d)\n",
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "%s ret(%d), pair_state(%d)\n",
 					__func__, ret, am_buf->pair_state);
 	if (!ret && (am_buf->pair_state == MASTER_DONE ||
 		am_buf->pair_state == SUB0_DONE ||
 		am_buf->pair_state == SUB1_DONE)) {
 		struct vb2_v4l2_buffer *vb2_v4l2;
-		struct aml_buf *master_buf;
+		struct aml_buf *master_buf = NULL;
 		if (am_buf->pair_state == MASTER_DONE)
 			master_buf = am_buf;
 		else
@@ -4926,9 +4926,14 @@ try_combine:
 				break;
 			if (am_buf->master_buf)
 				am_buf = (struct aml_buf *)am_buf->master_buf;
-			aml_buf_put_ref(&ctx->bm, am_buf);
+			if (am_buf->pair_state == PAIR_DONE) {
+				aml_buf_put_ref(&ctx->bm, am_buf);
+				break;
+			} else
+				aml_buf_put_ref(&ctx->bm, am_buf);
 		}
-	}
+	} else
+		aml_buf_set_unbind_dmabuf(&ctx->bm, am_buf);
 
 	count++;
 
