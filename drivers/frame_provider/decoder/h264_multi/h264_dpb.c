@@ -2267,7 +2267,10 @@ static void get_smallest_poc(struct DecodedPictureBuffer *p_Dpb, int *poc,
 		/* rain */
 		if ((*poc > p_Dpb->fs[i]->poc) &&
 			(!p_Dpb->fs[i]->is_output) &&
-			(!p_Dpb->fs[i]->pre_output)) {
+			(!p_Dpb->fs[i]->pre_output) &&
+			((p_Dpb->fs[i]->is_used == 3 ||
+			((p_Dpb->fs[i]->data_flag & ERROR_FLAG) &&
+			(p_Dpb->fs[i]->data_flag & FIELD_DISP_FLAG))))) {
 #else
 		if ((*poc > p_Dpb->fs[i]->poc) && (!p_Dpb->fs[i]->is_output)) {
 #endif
@@ -3641,6 +3644,12 @@ int store_picture_in_dpb(struct h264_dpb_stru *p_H264_Dpb,
 					}
 				}
 			}
+
+			p_Dpb->last_picture->data_flag |= ERROR_FLAG;
+			p_Dpb->last_picture->data_flag |= FIELD_DISP_FLAG;
+			dpb_print(p_H264_Dpb->decoder_index,
+				PRINT_FLAG_DPB_DETAIL, "%s: last_picture->data_flag:0x%x, is_used %d, poc:%d\n",
+				__func__, p_Dpb->last_picture->data_flag, p_Dpb->last_picture->is_used, p_Dpb->last_picture->poc);
 		}
 	}
 	/* this is a frame or a field which has no stored
@@ -3662,22 +3671,6 @@ int store_picture_in_dpb(struct h264_dpb_stru *p_H264_Dpb,
 
 	while (remove_unused_frame_from_dpb(p_H264_Dpb))
 		;
-
-	if (p_Dpb->last_picture) {
-		if ((int)p_Dpb->last_picture->frame_num !=
-			p->pic_num) {
-			if (((p_Dpb->last_picture->is_used == 2) ||
-				(p_Dpb->last_picture->is_used == 1)) &&
-				(p_Dpb->last_picture->data_flag & ERROR_FLAG)) {
-				p_Dpb->last_picture->data_flag |= FIELD_DISP_FLAG;
-
-				dpb_print(p_H264_Dpb->decoder_index,
-					PRINT_FLAG_DPB_DETAIL,
-					"%s, last_picture->data_flag:0x%x, last_picture->poc:%d\n", __func__, p_Dpb->last_picture->data_flag, p_Dpb->last_picture->poc);
-
-			}
-		}
-	}
 
 	while (output_frames(p_H264_Dpb, 0))
 		;
