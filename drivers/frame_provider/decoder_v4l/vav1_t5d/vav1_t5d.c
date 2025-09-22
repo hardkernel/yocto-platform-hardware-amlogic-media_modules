@@ -3356,9 +3356,11 @@ static void check_order_hint(struct AV1HW_s *hw, PIC_BUFFER_CONFIG *sd)
 	struct RefCntBuffer_s *const frame_bufs = cm->buffer_pool->frame_bufs;
 	int i = 0;
 	bool check_fail = false;
+	int enable_order_hint = cm->seq_params.order_hint_info.enable_order_hint;
 
 	if ((sd->slice_type != KEY_FRAME) &&
-		(sd->slice_type != INTRA_ONLY_FRAME)) {
+		(sd->slice_type != INTRA_ONLY_FRAME) &&
+		enable_order_hint) {
 		int order_hint_bits = cm->seq_params.order_hint_info.order_hint_bits_minus_1 + 1;
 
 		if (get_relative_dist(sd->order_hint, hw->last_order_hint, order_hint_bits) != 1) {
