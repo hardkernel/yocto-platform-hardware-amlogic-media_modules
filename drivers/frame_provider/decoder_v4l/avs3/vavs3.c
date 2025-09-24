@@ -8902,6 +8902,8 @@ int vavs3_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->total_data = dec->gvs->total_data;
 	vstatus->samp_cnt = dec->gvs->samp_cnt;
 	vstatus->offset = dec->gvs->offset;
+	vdec->vdec_info_statistic.bit_depth = dec->avs3_dec.input.sample_bit_depth;
+	vdec->vdec_info_statistic.is_interlace = false; //Only supports progressive
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name), "%s", DRIVER_NAME);
 	return 0;
 }

@@ -10354,6 +10354,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->b_decoded_frames = hw->gvs.b_decoded_frames;
 	vstatus->b_lost_frames = hw->gvs.b_lost_frames;
 	vstatus->b_concealed_frames = hw->gvs.b_concealed_frames;
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->is_interlace;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 		"%s-%02d", DRIVER_NAME, hw->id);
 

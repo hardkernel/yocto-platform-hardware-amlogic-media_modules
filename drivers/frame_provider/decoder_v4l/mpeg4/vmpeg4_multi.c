@@ -2299,9 +2299,10 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->b_decoded_frames = hw->b_decoded_frames;
 	vstatus->b_lost_frames = hw->b_lost_frames;
 	vstatus->b_concealed_frames = hw->b_concealed_frames;
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->report_field == V4L2_FIELD_INTERLACED ? true : false;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 			"%s", DRIVER_NAME);
-
 	return 0;
 }
 

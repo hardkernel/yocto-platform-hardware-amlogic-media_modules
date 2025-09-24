@@ -428,6 +428,8 @@ struct vdec_info_statistic_s {
 	struct vdec_info vstatus;
 	struct aspect_ratio_info aspect_ratio;
 	int ext_info_valid;
+	bool is_interlace;
+	u32 bit_depth;
 };
 
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
@@ -645,6 +647,7 @@ struct vdec_s {
 	bool input_underrun;
 	char sched_priority;
 	int mediasync_vfm_dev_id;
+	struct vdec_info_statistic_s vdec_info_statistic;
 };
 
 #define CODEC_MODE(a, b, c, d)\

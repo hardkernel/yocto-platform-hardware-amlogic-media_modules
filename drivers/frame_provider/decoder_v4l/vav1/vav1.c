@@ -10447,6 +10447,8 @@ int vav1_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->drop_frame_count = av1->gvs->drop_frame_count;
 	vstatus->samp_cnt = av1->gvs->samp_cnt;
 	vstatus->offset = av1->gvs->offset;
+	vdec->vdec_info_statistic.bit_depth = av1->aom_param.p.bit_depth;
+	vdec->vdec_info_statistic.is_interlace = false; //Only supports progressive
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 		"%s", DRIVER_NAME);
 	return 0;

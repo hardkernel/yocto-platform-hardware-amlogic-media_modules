@@ -7393,7 +7393,15 @@ static ssize_t vdec_status_show(KV_CLASS_CONST struct class *class,
 			pbuf += sprintf(pbuf,
 				"%13s : %x\n\n", "ratio_control",
 				vs.vstatus.ratio_control);
-
+			pbuf += sprintf(pbuf,
+				"%13s : %s\n", "is_secure",
+				vdec_secure(vdec) ? "yes" : "no");
+			pbuf += sprintf(pbuf,
+				"%13s : %s\n", "scan_type",
+				vdec->vdec_info_statistic.is_interlace ? "interlaced" : "progressive");
+			pbuf += sprintf(pbuf,
+				"%13s : %u\n", "bitdepth",
+				vdec->vdec_info_statistic.bit_depth);
 			vdec_num++;
 		}
 	}

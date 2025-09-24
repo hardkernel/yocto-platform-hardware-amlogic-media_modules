@@ -10065,7 +10065,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatistic->aspect_ratio.dar_height = -1;
 	vstatistic->aspect_ratio.dar_width = -1;
 	vstatistic->ext_info_valid = hw->aspect_ratio_info_present_flag;
-
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->is_interlace;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 		"%s-%02d", DRIVER_NAME, hw->id);
 

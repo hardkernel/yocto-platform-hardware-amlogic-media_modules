@@ -869,7 +869,8 @@ static int vmjpeg_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->frame_rate = 96000;
 	vstatus->error_count = 0;
 	vstatus->status = hw->stat;
-
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = false; //Only supports progressive
 	return 0;
 }
 

@@ -365,6 +365,7 @@ struct vdec_mpeg4_hw_s {
 	bool run_flag;
 	bool process_busy;
 	int dec_again_cnt;
+	bool is_interlace;
 };
 static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw);
 static int vmpeg4_hw_ctx_restore(struct vdec_mpeg4_hw_s *hw);
@@ -1278,6 +1279,7 @@ static irqreturn_t vmpeg4_isr_thread_handler(struct vdec_s *vdec, int irq)
 		if (hw->is_used_v4l) {
 			int frame_width = READ_VREG(MP4_PIC_WH)>> 16;
 			int frame_height = READ_VREG(MP4_PIC_WH) & 0xffff;
+			hw->is_interlace = (READ_VREG(MP4_PIC_RATIO) & 0x80000000) >> 31;
 			if (!v4l_res_change(hw, frame_width, frame_height)) {
 				struct aml_vcodec_ctx *ctx =
 					(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
@@ -2087,6 +2089,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->b_decoded_frames = hw->b_decoded_frames;
 	vstatus->b_lost_frames = hw->b_lost_frames;
 	vstatus->b_concealed_frames = hw->b_concealed_frames;
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->is_interlace;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 			"%s", DRIVER_NAME);
 

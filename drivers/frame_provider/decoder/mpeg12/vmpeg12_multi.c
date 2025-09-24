@@ -393,6 +393,7 @@ struct vdec_mpeg12_hw_s {
 	u32 consume_byte;
 	u32 last_frame_ud_num;
 	u32 cur_frame_ud_num;
+	bool is_interlace;
 };
 
 static u32 get_ratio_control(struct vdec_mpeg12_hw_s *hw);
@@ -2381,6 +2382,12 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 	if (reg == 1) {
 		int frame_width = READ_VREG(MREG_PIC_WIDTH);
 		int frame_height = READ_VREG(MREG_PIC_HEIGHT);
+		int info = READ_VREG(MREG_SEQ_INFO);
+		hw->is_interlace = false;
+
+		if ((info & SEQINFO_EXT_AVAILABLE) &&
+			((info & SEQINFO_PROG) == 0))
+			hw->is_interlace = true;
 
 		if (hw->kpi_first_i_comming == 0) {
 			hw->kpi_first_i_comming = 1;
@@ -3299,7 +3306,8 @@ static int vmmpeg12_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->offset = hw->gvs.offset;
 	vstatus->ratio_control = get_ratio_control(hw);
 	vmpeg12_get_aspect_ratio_info(hw, vstatistic);
-
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->is_interlace;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 			"%s", DRIVER_NAME);
 

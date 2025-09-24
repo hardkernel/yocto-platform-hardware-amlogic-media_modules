@@ -13290,7 +13290,8 @@ int vh265_dec_status(struct vdec_info *vstatus)
 	vstatistic->aspect_ratio.dar_width = -1;
 	vstatistic->aspect_ratio.dar_height = -1;
 	vstatistic->ext_info_valid = 1;
-
+	vdec->vdec_info_statistic.bit_depth = hevc->bit_depth_luma;
+	vdec->vdec_info_statistic.is_interlace = hevc->interlace_flag;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name), "%s", DRIVER_NAME);
 	vstatus->ratio_control = hevc->ratio_control;
 	return 0;

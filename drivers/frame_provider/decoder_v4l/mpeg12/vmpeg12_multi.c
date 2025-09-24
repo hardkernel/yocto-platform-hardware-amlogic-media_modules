@@ -3605,6 +3605,8 @@ static int vmmpeg12_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->samp_cnt = hw->gvs.samp_cnt;
 	vstatus->offset = hw->gvs.offset;
 	vstatus->ratio_control = hw->ratio_control;
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->report_field == V4L2_FIELD_INTERLACED ? true : false;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 			"%s", DRIVER_NAME);
 

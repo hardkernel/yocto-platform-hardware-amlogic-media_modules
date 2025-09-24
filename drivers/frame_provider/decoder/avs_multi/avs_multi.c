@@ -532,6 +532,7 @@ struct vdec_avs_hw_s {
 	bool process_busy;
 	bool run_flag;
 	int tvp_flag;
+	u32 interlace_flag;
 };
 
 static void reset_process_time(struct vdec_avs_hw_s *hw);
@@ -1162,6 +1163,8 @@ static int vavs_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->total_data = hw->gvs->total_data;
 	vstatus->samp_cnt = hw->gvs->samp_cnt;
 	vstatus->offset = hw->gvs->offset;
+	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
+	vdec->vdec_info_statistic.is_interlace = hw->interlace_flag;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 		"%s", DRIVER_NAME);
 
@@ -3835,6 +3838,7 @@ static irqreturn_t vmavs_isr_thread_fn(struct vdec_s *vdec, int irq)
 		}
 		reg = READ_VREG(DECODE_STATUS); // need find a null register pyx
 		if (reg == DECODE_STATUS_INFO) {
+			hw->interlace_flag = (READ_VREG(AVS_PIC_INFO) >> 28) & 0x1;
 			WRITE_VREG(DECODE_STATUS, 0);
 			debug_print(hw, PRINT_FLAG_DECODING, "READ_VREG(AVS_PIC_INFO) = 0x%x\n", READ_VREG(AVS_PIC_INFO));
 			return IRQ_HANDLED;

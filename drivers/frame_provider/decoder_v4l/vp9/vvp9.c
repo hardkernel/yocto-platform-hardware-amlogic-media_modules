@@ -10211,6 +10211,8 @@ int vvp9_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->total_data = vp9->gvs->total_data;
 	vstatus->samp_cnt = vp9->gvs->samp_cnt;
 	vstatus->offset = vp9->gvs->offset;
+	vdec->vdec_info_statistic.bit_depth = vp9->param.p.bit_depth;
+	vdec->vdec_info_statistic.is_interlace = false; //Only supports progressive
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name),
 		"%s", DRIVER_NAME);
 	return 0;

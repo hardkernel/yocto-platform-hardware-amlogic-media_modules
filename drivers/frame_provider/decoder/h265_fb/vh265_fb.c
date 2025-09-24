@@ -14621,7 +14621,8 @@ int vh265_dec_status(struct vdec_info *vstatus)
 		vstatus->samp_cnt = hevc->gvs->samp_cnt;
 		vstatus->offset = hevc->gvs->offset;
 	}
-
+	vdec->vdec_info_statistic.bit_depth = hevc->bit_depth_luma;
+	vdec->vdec_info_statistic.is_interlace = hevc->interlace_flag;
 	snprintf(vstatus->vdec_name, sizeof(vstatus->vdec_name), "%s", DRIVER_NAME);
 	vstatus->ratio_control = hevc->ratio_control;
 	return 0;
