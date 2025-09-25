@@ -224,7 +224,13 @@ long ptsserver_ins_alloc(s32 *pServerInsId,
 			pInstance->mPtsServerInsId = index;
 			pInstance->mRef++;
 			*pServerInsId = index;
-			ptsserver_ins_init_syncinfo(pInstance,allocParm);
+			if (ptsserver_ins_init_syncinfo(pInstance,allocParm) != 0) {
+				pr_err("ptsserv: %s alloc syncinfo fail, free instance\n", __func__);
+				vPtsServerInsList[index].pInstance = NULL;
+				kfree(pInstance);
+				mutex_unlock(&vPtsServerInsList[index].mListLock);
+				return -1;
+			}
 			mutex_unlock(&vPtsServerInsList[index].mListLock);
 			break;
 		}

@@ -4414,6 +4414,10 @@ long mediasync_ins_check_apts_valid(MediaSyncManager* pSyncManage, s64 apts) {
 		return -1;
 	}
 
+	if (!media_sync_calculate_cache_enable) {
+		return -1;
+	}
+
 	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
 	frame_in.frameid = 0;
 	pInstance = pSyncManage->pInstance;
@@ -4437,6 +4441,10 @@ long mediasync_ins_check_vpts_valid(MediaSyncManager* pSyncManage, s64 vpts) {
 	mediasync_frameinfo_inner frame_in;
 
 	if (pSyncManage == NULL) {
+		return -1;
+	}
+
+	if (!media_sync_calculate_cache_enable) {
 		return -1;
 	}
 
@@ -4464,6 +4472,11 @@ long mediasync_ins_set_cache_frames(MediaSyncManager* pSyncManage, s64 cache) {
 	if (pSyncManage == NULL) {
 		return -1;
 	}
+
+	if (!media_sync_calculate_cache_enable) {
+		return -1;
+	}
+
 	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
 	pInstance = pSyncManage->pInstance;
 	if (pInstance == NULL) {
