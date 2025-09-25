@@ -5646,9 +5646,8 @@ static void set_frame_info(struct vdec_h264_hw_s *hw, struct vframe_s *vf,
 		vf->duration = hw->frame_dur;
 
 	if (hw->h264_ar == 0x3ff)
-		ar_tmp = (0x100 *
-			hw->frame_height * hw->height_aspect_ratio) /
-			(hw->frame_width * hw->width_aspect_ratio);
+		ar_tmp = div_u64((256ULL * hw->frame_height * hw->height_aspect_ratio),
+				(hw->frame_width * hw->width_aspect_ratio));
 	else
 		ar_tmp = hw->h264_ar;
 
@@ -10038,9 +10037,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	else
 		vstatus->status = hw->stat;
 	if (hw->h264_ar == 0x3ff)
-		ar_tmp = (0x100 *
-			hw->frame_height * hw->height_aspect_ratio) /
-			(hw->frame_width * hw->width_aspect_ratio);
+		ar_tmp = div_u64((256ULL * hw->frame_height * hw->height_aspect_ratio),
+				(hw->frame_width * hw->width_aspect_ratio));
 	else
 		ar_tmp = hw->h264_ar;
 	ar = min_t(u32,

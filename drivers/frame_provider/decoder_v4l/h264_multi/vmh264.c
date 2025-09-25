@@ -6004,11 +6004,13 @@ static void set_frame_info(struct vdec_h264_hw_s *hw, struct vframe_s *vf,
 	}
 
 	if (hw->h264_ar == 0x3ff)
-		ar_tmp = (0x100 *
-			hw->frame_height * hw->height_aspect_ratio) /
-			(hw->frame_width * hw->width_aspect_ratio);
+		ar_tmp = div_u64((256ULL * hw->frame_height * hw->height_aspect_ratio),
+				(hw->frame_width * hw->width_aspect_ratio));
 	else
 		ar_tmp = hw->h264_ar;
+
+	dpb_print(DECODE_ID(hw), PRINT_FLAG_DPB_DETAIL,
+		"ar_tmp %x hw->h264_ar: %x\n", ar_tmp, hw->h264_ar);
 
 	vf->ratio_control =
 		(min_t(u32,
@@ -10331,9 +10333,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->error_count = hw->gvs.error_frame_count;
 	vstatus->status = hw->stat;
 	if (hw->h264_ar == 0x3ff)
-		ar_tmp = (0x100 *
-			hw->frame_height * hw->height_aspect_ratio) /
-			(hw->frame_width * hw->width_aspect_ratio);
+		ar_tmp = div_u64((256ULL * hw->frame_height * hw->height_aspect_ratio),
+				(hw->frame_width * hw->width_aspect_ratio));
 	else
 		ar_tmp = hw->h264_ar;
 	ar = min_t(u32,
