@@ -798,6 +798,7 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.tw_mode		= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
 	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
+	config.dynamic_mode_probe = is_dynamic_mode(ctx) ? true : false;
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
@@ -5201,6 +5202,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
 	config.dynamic_mode	= is_dynamic_mode(ctx) ? true : false;
+	config.dynamic_mode_probe = is_dynamic_mode(ctx) ? true : false;
 
 	config.memory_mode	= vb->vb2_queue->memory;
 	config.planes		= V4L2_TYPE_IS_MULTIPLANAR(vb->vb2_queue->type) ? 2 : 1;
