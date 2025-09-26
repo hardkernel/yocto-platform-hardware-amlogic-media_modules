@@ -2089,9 +2089,8 @@ static void  hevc_set_frame_done(struct vdec_h264_hw_s *hw)
 {
 	ulong timeout = jiffies + HZ / 10;
 
-	if ((hw->dpb.dec_dpb_status == H264_PIC_DATA_DONE &&
-		vh264_is_mb_decode_complete(hw, 0)) ||
-		!is_hevc_bus_ctrl()) {
+	if (hw->dpb.dec_dpb_status == H264_PIC_DATA_DONE &&
+		vh264_is_mb_decode_complete(hw, 0)) {
 		dpb_print(DECODE_ID(hw),
 			PRINT_FLAG_MMU_DETAIL, "hevc_frame_done...set\n");
 		while ((READ_VREG(HEVC_SAO_INT_STATUS) & 0x1) == 0) {
@@ -2128,9 +2127,6 @@ static void release_cur_decoding_buf(struct vdec_h264_hw_s *hw)
 		p_H264_Dpb->mVideo.dec_picture->data_flag &= ~ERROR_FLAG;
 		p_H264_Dpb->mVideo.dec_picture->data_flag &= ~NULL_FLAG;
 		p_H264_Dpb->mVideo.dec_picture = NULL;
-		if (hw->mmu_enable &&
-			hw->dec_result != DEC_RESULT_TIMEOUT)
-			hevc_set_frame_done(hw);
 	}
 	mutex_unlock(&hw->pic_mutex);
 }
@@ -12523,7 +12519,6 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 		struct aml_vcodec_ctx *ctx =
 			(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 		if (hw->dec_result == DEC_RESULT_TIMEOUT && hw->mmu_enable) {
-			hevc_set_frame_done(hw);
 			hevc_sao_wait_done(hw);
 		}
 
