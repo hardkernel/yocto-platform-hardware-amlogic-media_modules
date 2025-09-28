@@ -1457,6 +1457,8 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 	struct vdec_s *vdec = op_arg;
 	struct vdec_avs_hw_s *hw =
 	(struct vdec_avs_hw_s *)vdec->private;
+	struct aml_vcodec_ctx *ctx =
+		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
 	if (hw->recover_flag)
 		return NULL;
@@ -1469,7 +1471,10 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 	mutex_lock(&hw->vf_mutex);
 	if (kfifo_get(&hw->display_q, &vf)) {
 		if (vf) {
-			vf->index_disp = atomic_read(&hw->get_num);
+			if (ctx->enable_di_post)
+				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			else
+				vf->index_disp = atomic_read(&hw->get_num);
 			atomic_add(1, &hw->get_num);
 			if (force_fps & 0x100) {
 				u32 rate = force_fps & 0xff;
