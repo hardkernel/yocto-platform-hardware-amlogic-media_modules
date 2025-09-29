@@ -6415,6 +6415,10 @@ static int vidioc_vdec_s_parm(struct file *file, void *fh,
 			v4l_buf_size_decision(ctx);
 		}
 		ctx->enable_di_post = dec->cfg.metadata_config_flag & (1 << 20);
+		if (ctx->enable_di_post) {
+			ctx->vpp_cfg.enable_nr = false;
+			ctx->vpp_cfg.enable_local_buf = false;
+		}
 		if (enable_di_post)
 			ctx->enable_di_post = true;
 
