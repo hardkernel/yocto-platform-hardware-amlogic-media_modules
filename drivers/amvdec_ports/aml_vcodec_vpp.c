@@ -38,6 +38,8 @@
 #define INPUT_PORT 0
 #define OUTPUT_PORT 1
 
+#define INVALID_IDX -1
+
 extern int dump_vpp_input;
 extern int vpp_bypass_frames;
 extern char dump_path[32];
@@ -818,6 +820,12 @@ retry:
 			/* submit I to DI. */
 			aml_buf = out_buf->aml_vb->aml_buf;
 			aml_buf->state = FB_ST_VPP;
+
+			aml_buf->sei_buf = in_buf->aml_vb->aml_buf->sei_buf;
+			aml_buf->sei_size = in_buf->aml_vb->aml_buf->sei_size;
+			aml_buf->sei_buf_idx = in_buf->aml_vb->aml_buf->sei_buf_idx;
+			in_buf->aml_vb->aml_buf->sei_buf = NULL;
+			in_buf->aml_vb->aml_buf->sei_buf_idx = INVALID_IDX;
 
 			memcpy(vf_out, in_buf->di_buf.vf, sizeof(*vf_out));
 			memcpy(vf_out->canvas0_config,

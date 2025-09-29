@@ -11306,7 +11306,7 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 				"%s: size %d/%d, index %d, sei_itu_data_len %d\n",
 				__func__, pic->aux_data_size, size, index, hw->sei_itu_data_len);
 
-		if ((size < SEI_BUF_SIZE) && (user_data_buf != NULL)) {
+		if ((size < SEI_BUF_SIZE) && (pic->aux_data_buf != NULL)) {
 			memset(user_data_buf, 0, SEI_ITU_DATA_SIZE);
 			if (hw->sei_itu_data_len < SEI_ITU_DATA_SIZE &&
 				(hw->sei_itu_data_len > 0)) {

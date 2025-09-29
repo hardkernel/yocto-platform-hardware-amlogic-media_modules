@@ -4542,14 +4542,14 @@ void aml_alloc_buffer(struct aml_vcodec_ctx *ctx, int flag)
 				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_ALLOC;
 				ctx->aux_infos.sei_need_free = false;
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-					"v4l2 alloc %dth aux buffer:%px\n",
+					"v4l2 alloc %dth sei buffer:%px\n",
 					i, ctx->aux_infos.bufs[i].sei_buf);
 			} else {
 				ctx->aux_infos.bufs[i].sei_buf = NULL;
 				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_INVALID;
 				ctx->aux_infos.bufs[i].sei_size  = 0;
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-					"v4l2 alloc %dth aux buffer fail\n", i);
+					"v4l2 alloc %dth sei buffer fail\n", i);
 			}
 		}
 	}
@@ -4592,7 +4592,7 @@ void aml_free_buffer(struct aml_vcodec_ctx *ctx, int flag)
 		for (i = 0; i < V4L_CAP_BUFF_MAX; i++) {
 			if (ctx->aux_infos.bufs[i].sei_buf != NULL) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-					"v4l2 free %dth aux buffer:%px\n",
+					"v4l2 free %dth sei buffer:%px\n",
 					i, ctx->aux_infos.bufs[i].sei_buf);
 				aml_media_mem_free(ctx->aux_infos.bufs[i].sei_buf);
 				ctx->aux_infos.bufs[i].sei_state = SEI_STATE_INVALID;
@@ -4619,7 +4619,7 @@ void aml_free_one_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size,
 {
 	if (ctx->aux_infos.bufs[idx].sei_buf != NULL) {
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"v4l2 free %dth aux buffer:%px\n",
+			"v4l2 free %dth sei buffer:%px\n",
 			idx, ctx->aux_infos.bufs[idx].sei_buf);
 
 		vfree(ctx->aux_infos.bufs[idx].sei_buf);
@@ -4661,9 +4661,10 @@ void aml_bind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, int
 	if (count == V4L_CAP_BUFF_MAX) {
 		*addr = NULL;
 		*size = 0;
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "v4l2 bind addr NULL\n");
 	} else {
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"v4l2 bind %dth aux buffer:%px, count = %d, sei_state %d\n",
+			"v4l2 bind %dth sei buffer:%px, count = %d, sei_state %d\n",
 			index, ctx->aux_infos.bufs[index].sei_buf, count,
 			ctx->aux_infos.bufs[index].sei_state);
 		*addr = ctx->aux_infos.bufs[index].sei_buf;
@@ -4700,10 +4701,16 @@ void aml_unbind_sei_buffer(struct aml_vcodec_ctx *ctx, char **addr, int *size, i
 {
 	int index = ctx->aux_infos.sei_index;
 
+	if ((idx < 0) || (idx >= V4L_CAP_BUFF_MAX))
+		return;
+
 	if ((ctx->aux_infos.bufs[idx].sei_buf == *addr) &&
 		(ctx->aux_infos.bufs[idx].sei_state == SEI_STATE_USED)) {
 		ctx->aux_infos.bufs[idx].sei_state = SEI_STATE_FREE;
 		ctx->aux_infos.sei_index = (index + V4L_CAP_BUFF_MAX - 1) % V4L_CAP_BUFF_MAX;
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
+			"v4l2 unbind %dth sei buffer:%px, sei_state %d\n",
+			idx, ctx->aux_infos.bufs[idx].sei_buf, ctx->aux_infos.bufs[idx].sei_state);
 	}
 }
 
