@@ -487,7 +487,12 @@ static u32 lcu_percentage_threshold = 0;
  *       1, NOT use interlace policy
  *bit 9: 0, discard dirty data on playback start
  *       1, do not discard dirty data on playback start
+ *bit10: 0, when ucode always returns again, it supports discarding data
+ *       1, When ucode always returns again, it does not support discarding data
+ *bit11: 0, statistics lcu error cnt
+ *       1, not statistics lcu error cnt
  */
+#define STATISTICS_ERROR_CNT (1 << 11)
 static u32 error_handle_policy;
 static u32 error_skip_nal_count = 6;
 static u32 error_handle_threshold = 30;
@@ -2040,6 +2045,7 @@ struct hevc_state_s {
 	u32 stream_multi_frame_flag;
 	int overscan_info_present_flag;
 	int overscan_appropriate_flag;
+	u32 lcu_skip_cnt;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -6414,6 +6420,7 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 	new_pic->lcu_cnt = 0;
 	new_pic->drop_flag = false;
 	new_pic->used_4k_num = 0;
+	hevc->lcu_skip_cnt = 0;
 
 	/*Update new GOP IDR poc*/
 	if (hevc->m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR
@@ -6980,7 +6987,12 @@ static void check_pic_decoded_error(struct hevc_state_s *hevc,
 		return;
 
 	if (pic) {
-		pic->lcu_cnt = decoded_lcu;
+		if (decoded_lcu > hevc->lcu_skip_cnt)
+			pic->lcu_cnt = decoded_lcu - hevc->lcu_skip_cnt;
+		else
+			pic->lcu_cnt = decoded_lcu;
+		current_lcu_idx = pic->lcu_cnt;
+
 		pic->decoder_tile_cnt =
 			(READ_VREG(HEVC_DECODE_INFO) >> 16) & 0xff;
 	}
@@ -12251,6 +12263,22 @@ out:
 	return free_count >= run_ready_min_buf_num ? 1 : 0;
 }
 
+void check_skip_lcu_cnt(struct hevc_state_s *hevc)
+{
+	u32 cur_lcu_cnt = (READ_VREG(HEVC_PARSER_LCU_START) & 0xffffff) + 1;
+
+	if (!(error_handle_policy & STATISTICS_ERROR_CNT) && !hevc->tile_enabled && hevc->cur_pic) {
+		u32 slice_segment_address = hevc->param.p.slice_segment_address;
+
+		if (cur_lcu_cnt < slice_segment_address) {
+			hevc->lcu_skip_cnt += (slice_segment_address - cur_lcu_cnt);
+			hevc_print(hevc, H265_DEBUG_BUFMGR,
+				"cur_lcu_cnt %d, slice_segment_address %d lcu_skip_cnt %d\n",
+				cur_lcu_cnt, slice_segment_address, hevc->lcu_skip_cnt);
+		}
+	}
+}
+
 static irqreturn_t vh265_isr_thread_fn(int irq, void *data)
 {
 	struct hevc_state_s *hevc = (struct hevc_state_s *) data;
@@ -13412,6 +13440,8 @@ force_output:
 			;
 #endif
 		} else if (ret == 0) {
+			check_skip_lcu_cnt(hevc);
+
 			if ((hevc->new_pic) && (hevc->cur_pic)) {
 				if (hevc->param.p.slice_type == I_SLICE) {
 					if ((hevc->PB_skip_mode == 0)
@@ -16484,6 +16514,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		WRITE_VREG(HEVC_DECODE_COUNT, hevc->decode_idx);
 	hevc->init_flag = 1;
 	hevc->check_suffix_data = false;
+	hevc->lcu_skip_cnt = 0;
 
 	if (hevc->pic_list_init_flag == 3)
 		init_pic_list_hw(hevc);
