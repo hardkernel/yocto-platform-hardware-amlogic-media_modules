@@ -600,6 +600,11 @@ static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ul
 		dma->inited,
 		bc->dma_free_num);
 
+	mutex_lock(&bc->workqueue_mutex);
+	if (bc->workqueue_enabled)
+		queue_work(bc->recycle_buf_ref_workqueue,
+			&bc->combine_buf_work);
+	mutex_unlock(&bc->workqueue_mutex);
 out:
 	mutex_unlock(&bc->dma_mutex);
 }

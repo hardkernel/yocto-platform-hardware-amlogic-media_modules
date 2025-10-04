@@ -2734,8 +2734,16 @@ int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags)
 
 		if (pic->cma_alloc_addr) {
 			if (pic->idmabuf) {
-				if (!reset_flags)
+				if (!reset_flags) {
 					aml_buf_put_free_dmabuf(&ctx->bm, pic->buf_adr, 0, true);
+					if (!pic->vf_ref) {
+						aml_buf = (struct aml_buf *)pic->cma_alloc_addr;
+						if ((hw->aml_buf != NULL) && (hw->aml_buf == aml_buf))
+							continue;
+						if (!ctx->avbcd_work_mode)
+							aml_buf_put_ref(&ctx->bm, aml_buf);
+					}
+				}
 				while (pic->vf_ref) {
 					atomic_add(1, &hw->vf_put_count);
 					pic->vf_ref--;
@@ -4147,6 +4155,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			vh264_vf_put(vf, vdec);
 			atomic_add(1, &hw->vf_get_count);
 			frame->pre_output = 1;
+			hw->buffer_spec[buffer_index].vf_ref = 0;
 			kfifo_put(&hw->newframe_q, (const struct vframe_s *)vf);
 			ATRACE_COUNTER(hw->trace.new_q_name, kfifo_len(&hw->newframe_q));
 			continue;

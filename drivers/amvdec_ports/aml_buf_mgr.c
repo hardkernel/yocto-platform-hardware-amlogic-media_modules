@@ -83,11 +83,6 @@ static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 			"%s, idmabuf:%px\n",
 			__func__, dbuf);
 		bc->buf_ops.put_dma(bc, key, 0, false);
-		mutex_lock(&bc->workqueue_mutex);
-		if (bc->workqueue_enabled)
-			queue_work(bc->recycle_buf_ref_workqueue,
-				&bc->combine_buf_work);
-		mutex_unlock(&bc->workqueue_mutex);
 		return;
 	} else {
 		hash_for_each_possible(bc->buf_table, entry, h_node, key) {
