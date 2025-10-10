@@ -340,6 +340,15 @@ typedef struct default_threshold {
 	int32_t mReserved[4];
 } mediasync_default_threshold;
 
+typedef struct preplay_slow_sync {
+	int32_t slow_sync_enable;
+	int32_t slow_sync_speed;
+	int32_t pvdiff_threshold;
+	int32_t max_pvdiff_threshold;
+	int32_t expect_sync_time;
+	int32_t reserved[4];
+} mediasync_preplay_slowsync;
+
 typedef struct instance{
 	s32 mSyncIndex;
 	s32 mSyncId;
@@ -389,7 +398,6 @@ typedef struct instance{
 	mediasync_discontinue_frame_info mAudioDiscontinueInfo;
 	aml_Source_Type mSourceType;
 	mediasync_audio_format mAudioFormat;
-	bool mSlowSyncEnable;
 	char atrace_video[32];
 	char atrace_audio[32];
 	char atrace_pcrscr[32];
@@ -412,6 +420,7 @@ typedef struct instance{
 	int32_t video_wait_audio_threshold;
 	int32_t audio_wait_bind_threshold;
 	int32_t video_wait_bind_threshold;
+	mediasync_preplay_slowsync preplay_slow_sync;
 }mediasync_ins;
 
 typedef struct Media_Sync_Manage {
@@ -545,4 +554,6 @@ long mediasync_ins_update_speed_mediatime(MediaSyncManager* pSyncManage,
 long mediasync_ins_get_tunnel_combined_para(mediasync_ins* pInstance, mediasync_tunnel_combined_para* info);
 long mediasync_ins_set_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold threshold);
 long mediasync_ins_get_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold *threshold);
+long mediasync_ins_set_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync threshold);
+long mediasync_ins_get_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync *threshold);
 #endif

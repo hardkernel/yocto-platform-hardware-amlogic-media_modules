@@ -58,6 +58,10 @@ static u32 media_sync_debug_level = 0;
 static u32 media_sync_calculate_cache_enable = 0;
 
 static u32 media_sync_start_slow_sync_enable = 1;
+static u32 media_sync_preplay_slow_sync_speed = 30;
+static u32 media_sync_preplay_slow_sync_pvdiff = 300;
+static u32 media_sync_preplay_slow_sync_maxpvdiff = 3500;
+static u32 media_sync_preplay_slow_sync_expect_sync_time = 3200;
 
 static u32 media_sync_start_play_threshold = 300;
 
@@ -824,8 +828,12 @@ static void mediasync_ins_reset_l(mediasync_ins* pInstance) {
 		pInstance->mFreeRunType = 0;
 		pInstance->mVideoTrickMode = 0;
 		pInstance->mStartStrategy = 0xFF;
-		pInstance->mSlowSyncEnable = media_sync_start_slow_sync_enable;
 		pInstance->mStartPlayThreshold = media_sync_start_play_threshold;
+		pInstance->preplay_slow_sync.slow_sync_enable = media_sync_start_slow_sync_enable;
+		pInstance->preplay_slow_sync.slow_sync_speed = media_sync_preplay_slow_sync_speed;
+		pInstance->preplay_slow_sync.pvdiff_threshold = media_sync_preplay_slow_sync_pvdiff;
+		pInstance->preplay_slow_sync.max_pvdiff_threshold = media_sync_preplay_slow_sync_maxpvdiff;
+		pInstance->preplay_slow_sync.expect_sync_time = media_sync_preplay_slow_sync_expect_sync_time;
 		pInstance->mIsAbnormalAudio = false;
 		pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 		if (media_sync_calculate_cache_enable) {
@@ -4234,13 +4242,13 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		}
 		case SET_SLOW_SYNC_ENABLE:
 		{
-			pInstance->mSlowSyncEnable = mediasyncControl->value;
+			pInstance->preplay_slow_sync.slow_sync_enable = mediasyncControl->value;
 			ret = 0;
 			break;
 		}
 		case GET_SLOW_SYNC_ENABLE:
 		{
-			mediasyncControl->value = pInstance->mSlowSyncEnable;
+			mediasyncControl->value = pInstance->preplay_slow_sync.slow_sync_enable;
 			ret = 0;
 			break;
 		}
@@ -4735,6 +4743,71 @@ long mediasync_ins_get_default_threshold(MediaSyncManager *p_sync_manage, medias
 	return 0;
 }
 
+long mediasync_ins_set_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync threshold) {
+	mediasync_ins *p_instance = NULL;
+	unsigned long flags = 0;
+	s32 sync_index = 0;
+	if (p_sync_manage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(p_sync_manage->m_lock),flags);
+	p_instance = p_sync_manage->pInstance;
+	if (p_instance == NULL) {
+		spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+		return -1;
+	}
+
+	if (threshold.slow_sync_enable >= 0) {
+		p_instance->preplay_slow_sync.slow_sync_enable = threshold.slow_sync_enable;
+	}
+
+	if (threshold.slow_sync_speed >= 0) {
+		p_instance->preplay_slow_sync.slow_sync_speed = threshold.slow_sync_speed;
+	}
+
+	if (threshold.pvdiff_threshold >= 0) {
+		p_instance->preplay_slow_sync.pvdiff_threshold = threshold.pvdiff_threshold;
+	}
+
+	if (threshold.max_pvdiff_threshold >= 0) {
+		p_instance->preplay_slow_sync.max_pvdiff_threshold = threshold.max_pvdiff_threshold;
+	}
+
+	if (threshold.expect_sync_time >= 0) {
+		p_instance->preplay_slow_sync.expect_sync_time = threshold.expect_sync_time;
+	}
+
+	p_instance->mStcParmUpdateCount++;
+	sync_index = p_instance->mSyncIndex;
+
+	spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+
+	return 0;
+}
+
+long mediasync_ins_get_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync *threshold) {
+
+	mediasync_ins *p_instance = NULL;
+	unsigned long flags = 0;
+	if (p_sync_manage == NULL || threshold == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(p_sync_manage->m_lock),flags);
+	p_instance = p_sync_manage->pInstance;
+	if (p_instance == NULL) {
+		spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+		return -1;
+	}
+
+	memcpy(threshold,&p_instance->preplay_slow_sync,sizeof(mediasync_preplay_slowsync));
+
+	spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
+
+	return 0;
+}
+
 int register_mediasync_video_hold_set_cb(void* pfunc) {
 	if (pfunc == NULL) {
 		return -1;
@@ -4750,6 +4823,10 @@ static struct param_entry mediasync_params[] = {
 	PARAM_INT(media_sync_user_debug_level),
 	PARAM_INT(media_sync_calculate_cache_enable),
 	PARAM_INT(media_sync_start_slow_sync_enable),
+	PARAM_INT(media_sync_preplay_slow_sync_speed),
+	PARAM_INT(media_sync_preplay_slow_sync_pvdiff),
+	PARAM_INT(media_sync_preplay_slow_sync_maxpvdiff),
+	PARAM_INT(media_sync_preplay_slow_sync_expect_sync_time),
 	PARAM_INT(media_sync_start_play_threshold),
 	PARAM_INT(media_sync_show_firstframe_nosync),
 	PARAM_INT(media_sync_audio_wait_video_threshold),
@@ -4773,7 +4850,19 @@ module_param(media_sync_calculate_cache_enable, uint, 0664);
 MODULE_PARM_DESC(media_sync_calculate_cache_enable, "\n mediasync calculate cache enable\n");
 
 module_param(media_sync_start_slow_sync_enable, uint, 0664);
-MODULE_PARM_DESC(media_sync_start_slow_sync_enable, "\n media sync policy  slow sync enable\n");
+MODULE_PARM_DESC(media_sync_start_slow_sync_enable, "\n media sync policy slow sync enable\n");
+
+module_param(media_sync_preplay_slow_sync_speed, uint, 0664);
+MODULE_PARM_DESC(media_sync_preplay_slow_sync_speed, "\n media sync slow sync peed\n");
+
+module_param(media_sync_preplay_slow_sync_pvdiff, uint, 0664);
+MODULE_PARM_DESC(media_sync_preplay_slow_sync_pvdiff, "\n media sync slow sync pvdiff\n");
+
+module_param(media_sync_preplay_slow_sync_maxpvdiff, uint, 0664);
+MODULE_PARM_DESC(media_sync_preplay_slow_sync_maxpvdiff, "\n media sync slow sync max pvdiff\n");
+
+module_param(media_sync_preplay_slow_sync_expect_sync_time, uint, 0664);
+MODULE_PARM_DESC(media_sync_preplay_slow_sync_expect_sync_time, "\n media sync slow sync expect sync time\n");
 
 module_param(media_sync_start_play_threshold, uint, 0664);
 MODULE_PARM_DESC(media_sync_start_play_threshold, "\n mediasync start play threshold\n");
