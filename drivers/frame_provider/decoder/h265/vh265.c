@@ -4497,8 +4497,6 @@ static struct PIC_s *output_pic(struct hevc_state_s *hevc,
 				fast_output_enable & 0x1) {
 				/*fast output for first I picture*/
 				pic->num_reorder_pic = 0;
-				if (vdec->master || vdec->slave)
-					pic_display = pic;
 				first_pic_flag = 1;
 				hevc->first_output_poc = pic->POC;
 				hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "VH265: output first frame poc %d \n",hevc->first_output_poc);
@@ -12100,6 +12098,7 @@ force_output:
 						"first slice_type %x no_switch_dvlayer_count %x\n",
 						hevc->cur_pic->slice_type,
 						hevc->no_switch_dvlayer_count);
+				hevc->cur_pic->output_mark = 1;
 				goto  force_output;
 			}
 			vdec_schedule_work(&hevc->work);
@@ -15013,7 +15012,7 @@ done_end:
 			hevc->pic_decoded_lcu_idx);
 		pic = get_pic_by_POC(hevc, hevc->curr_POC);
 		hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
-			"%s: end of stream, last dec poc %d => 0x%pf\n",
+			"%s: end of stream, last dec poc %d => 0x%px\n",
 			__func__, hevc->curr_POC, pic);
 		flush_output(hevc, pic);
 		/* dummy vf with eos flag to backend */
