@@ -1816,11 +1816,17 @@ bool vdec_has_single_mode(void)
 {
 	struct vdec_s *vdec;
 	struct vdec_core_s *core = vdec_core;
+	unsigned long flags;
+
+	flags = vdec_core_lock(core);
 
 	list_for_each_entry(vdec, &core->connected_vdec_list, list) {
-		if (vdec_single(vdec))
+		if (vdec_single(vdec)) {
+			vdec_core_unlock(core, flags);
 			return true;
+		}
 	}
+	vdec_core_unlock(core, flags);
 
 	return false;
 }
@@ -4514,6 +4520,7 @@ static void vdec_connect_list_force_clear(struct vdec_core_s *core, struct vdec_
 	struct vdec_s *vdec, *tmp;
 	unsigned long flags;
 
+	mutex_lock(&vdec_mutex);
 	flags = vdec_core_lock(core);
 
 	list_for_each_entry_safe(vdec, tmp,
@@ -4543,6 +4550,8 @@ static void vdec_connect_list_force_clear(struct vdec_core_s *core, struct vdec_
 	}
 
 	vdec_core_unlock(core, flags);
+	mutex_unlock(&vdec_mutex);
+
 }
 
 st_userdata *get_vdec_userdata_ctx(void)
