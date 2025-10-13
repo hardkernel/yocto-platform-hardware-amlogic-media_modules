@@ -424,6 +424,7 @@ struct low_power_ctrl_t *dos_low_power_ctrl_init(void)
 		}
 	}
 	if (get_cpu_major_id() < AM_MESON_CPU_MAJOR_ID_T6X) {
+		/* t6d, t6w, gxlx4 */
 		if (is_vdec_hevc_combine()) {
 			for (i = 0; i < VFORMAT_MAX; i++) {
 				if (is_core_hevc_fmt(i)) {
@@ -438,6 +439,7 @@ struct low_power_ctrl_t *dos_low_power_ctrl_init(void)
 			lpc->vdec_mm_clk_gate_off = lp_clk_off_common_v1;
 			return lpc;
 		}
+		/* s7, s7d, s6 */
 		if (is_vcpu_clk_set()) {
 			for (i = 0; i < VFORMAT_MAX; i++) {
 				if (is_core_hevc_fmt(i)) {
@@ -445,6 +447,8 @@ struct low_power_ctrl_t *dos_low_power_ctrl_init(void)
 					lpc->clk_gate_off[i] = hevc_amrisc_gate_off;
 				}
 			}
+			lpc->vdec_mm_clk_gate_on = hevc_amrisc_gate_on;
+			lpc->vdec_mm_clk_gate_off = hevc_amrisc_gate_off;
 		}
 		return lpc;
 	}
