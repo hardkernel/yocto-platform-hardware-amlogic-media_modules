@@ -165,17 +165,10 @@ static int vdec_vc1_init(struct aml_vcodec_ctx *ctx, unsigned long *h_vdec)
 	inst->vdec.ctx		= ctx;
 	inst->ctx		= ctx;
 
-	if (ctx->stream_mode) {
-		if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
-			inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
-		else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
-			inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
-	} else {
-		if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
-			inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
-		else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
-			inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
-	}
+	if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G)
+		inst->vdec.format = VIDEO_DEC_FORMAT_WMV3;
+	else if (ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)
+		inst->vdec.format = VIDEO_DEC_FORMAT_WVC1;
 
 	vdec_parser_parms(inst);
 
