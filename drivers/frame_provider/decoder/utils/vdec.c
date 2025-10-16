@@ -4446,8 +4446,8 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 #endif
 	if (vdec_single(vdec) && !vdec_secure(vdec)) {
 		if (!is_support_no_parser())
-			tee_config_device_state(DMC_DEV_ID_PARSER, 0);
-		tee_config_device_state(DMC_DEV_ID_VDEC, 0);
+			tee_config_device_state_lock(DMC_DEV_ID_PARSER, 0);
+		tee_config_device_state_lock(DMC_DEV_ID_VDEC, 0);
 	}
 	p->dolby_meta_with_el = 0;
 
@@ -5444,31 +5444,31 @@ void vdec_prepare_run(struct vdec_s *vdec, unsigned long mask)
 
 	if (vdec_stream_based(vdec) && !vdec_secure(vdec))
 	{
-		tee_config_device_state(DMC_DEV_ID_PARSER, 0);
+		tee_config_device_state_lock(DMC_DEV_ID_PARSER, 0);
 	}
 
 	if (input->target == VDEC_INPUT_TARGET_VLD) {
-		tee_config_device_state(DMC_DEV_ID_VDEC, secure);
+		tee_config_device_state_lock(DMC_DEV_ID_VDEC, secure);
 
 		if (is_support_dual_core()) {
 			if (mask & CORE_MASK_HEVC_BACK)
-				tee_config_device_state(DMC_DEV_ID_HEVC_B, secure);
+				tee_config_device_state_lock(DMC_DEV_ID_HEVC_B, secure);
 		} else {
 			if (mask & CORE_MASK_HEVC)
-				tee_config_device_state(DMC_DEV_ID_HEVC, secure);
+				tee_config_device_state_lock(DMC_DEV_ID_HEVC, secure);
 		}
 	} else if (input->target == VDEC_INPUT_TARGET_HEVC) {
 		if (is_support_dual_core()) {
 			if (mask & CORE_MASK_HEVC) {
-				tee_config_device_state(DMC_DEV_ID_HEVC, secure);
+				tee_config_device_state_lock(DMC_DEV_ID_HEVC, secure);
 				if (!front_back_mode)
-					tee_config_device_state(DMC_DEV_ID_HEVC_B, secure);
+					tee_config_device_state_lock(DMC_DEV_ID_HEVC_B, secure);
 			}
 			if (mask & CORE_MASK_HEVC_BACK)
-				tee_config_device_state(DMC_DEV_ID_HEVC_B, secure);
+				tee_config_device_state_lock(DMC_DEV_ID_HEVC_B, secure);
 		} else {
 			if (mask & CORE_MASK_HEVC)
-				tee_config_device_state(DMC_DEV_ID_HEVC, secure);
+				tee_config_device_state_lock(DMC_DEV_ID_HEVC, secure);
 		}
 	}
 
