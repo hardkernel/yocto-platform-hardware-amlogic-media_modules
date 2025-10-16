@@ -226,6 +226,7 @@ struct buf_core_entry {
 	struct buf_core_mgr_s 	*bc;
 	bool			set_buf_planes_flag;
 	bool			unbind;
+	bool			output;
 };
 
 /*
@@ -372,6 +373,7 @@ struct buf_core_mgr_s {
 	int			buf_num;
 	int			internal_num;
 	u32			unbind_num;
+	int			output_num;
 	DECLARE_HASHTABLE(buf_table, BUF_HASH_BITS);
 	int			dma_num;
 	int			dma_free_num;
@@ -379,6 +381,8 @@ struct buf_core_mgr_s {
 	struct mutex		dma_mutex;
 	struct buf_core_dma 	*dma[DAMBUF_POOL];
 	struct work_struct 	combine_buf_work;
+	u32			checkin_num;
+	u32			checkout_num;
 
 	void	(*config)(struct buf_core_mgr_s *, void *);
 	void	(*get_config)(struct buf_core_mgr_s *, void *);
@@ -407,6 +411,8 @@ struct buf_core_mgr_s {
 	void    (*reconfigure_planes)(struct buf_core_mgr_s *, struct buf_core_entry *);
 	bool 	(*is_dynamic_mode_init)(struct buf_core_mgr_s *);
 	bool 	(*check_in_dma_array)(struct buf_core_mgr_s *, ulong);
+	void	(*output_record)(struct buf_core_mgr_s *, ulong);
+	void	(*delete_record)(struct buf_core_mgr_s *, ulong);
 
 	struct buf_core_mem_ops	mem_ops;
 	struct buf_core_ops	buf_ops;

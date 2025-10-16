@@ -109,6 +109,32 @@ static inline void aml_buf_reset(struct aml_buf_mgr_s *bm, bool v4l_res_change)
 }
 
 /*
+ * aml_buf_output_record() - Use to record buffers output.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @key		: The key information of buffer.
+ *
+ * Use to record buffers output.
+ */
+static inline void aml_buf_output_record(struct aml_buf_mgr_s *bm, ulong key)
+{
+	bm->bc.output_record(&bm->bc, key);
+}
+
+/*
+ * aml_buf_delete_record() - Use to delete output record of buffers.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @key		: The key information of buffer.
+ *
+ * Use to delete output record of buffers.
+ */
+static inline void aml_buf_delete_record(struct aml_buf_mgr_s *bm, ulong key)
+{
+	bm->bc.delete_record(&bm->bc, key);
+}
+
+/*
  * aml_buf_refresh_planes() - Interface used to update buffer planes information.
  *
  * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.

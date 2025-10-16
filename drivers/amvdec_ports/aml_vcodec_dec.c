@@ -1351,7 +1351,7 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 
 	mutex_lock(&ctx->state_lock);
 	if (aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
-		aml_buf_detach(&ctx->bm, (ulong)vb2_buf->planes[0].dbuf);
+		aml_buf_output_record(&ctx->bm, (ulong)vb2_buf->planes[0].dbuf);
 		dstbuf->aml_buf = NULL;
 	}
 	mutex_unlock(&ctx->state_lock);
@@ -1543,8 +1543,8 @@ ssize_t aml_vdec_basic_information(struct aml_vcodec_ctx *ctx, char *buf)
 		ctx->vpp_cfg.enable_local_buf,
 		ctx->vpp_cfg.enable_nr,
 		ctx->ge2d_cfg.mode);
-	pbuf += sprintf(pbuf, "write frames : %d, out_buff : %d in_buff : %d\n",
-		ctx->write_frames, ctx->out_buff_cnt, ctx->in_buff_cnt);
+	pbuf += sprintf(pbuf, "write frames : %d, out_buff : %d in_buff : %d checkin : %u\n",
+		ctx->write_frames, ctx->out_buff_cnt, ctx->in_buff_cnt, ctx->bm.bc.checkin_num - ctx->bm.bc.checkout_num);
 
 	return pbuf - buf;
 }
@@ -5154,6 +5154,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && aml_buf_is_dynamic_mode_inited(&ctx->bm)) {
 			pyh_addr = prepare_get_addr(vb->planes[0].dbuf, dev);
 
+			aml_buf_delete_record(&ctx->bm, (ulong)vb->planes[0].dbuf);
 			ret = aml_buf_attach(&ctx->bm, (ulong)vb->planes[0].dbuf,
 				pyh_addr, vb);
 			if (ret)
@@ -5526,6 +5527,8 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 			key = (ulong)vb->planes[0].dbuf;
 		else if (vb->memory == VB2_MEMORY_MMAP)
 			key = vb2_dma_contig_plane_dma_addr(vb, 0);
+
+		aml_buf_delete_record(&ctx->bm, key);
 
 		ret = aml_buf_attach(&ctx->bm, key,
 			vb2_dma_contig_plane_dma_addr(vb, 0), vb);

@@ -81,9 +81,10 @@ static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 	ulong key = (ulong)dbuf;
 
 	if (bm->config.dynamic_mode) {
+		bc->checkout_num++;
 		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, idmabuf:%px\n",
-			__func__, dbuf);
+			"%s, idmabuf:%px, checkout:%u\n",
+			__func__, dbuf, bc->checkout_num);
 		bc->buf_ops.put_dma(bc, key, 0, false);
 		return;
 	} else {
@@ -100,14 +101,16 @@ static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 			queue_work(bc->recycle_buf_ref_workqueue,
 				&entry->recycle_buf_ref_work);
 
+		bc->checkout_num++;
 		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, key:%lx, phy:%lx, idx:%d, st:(%d, %d), free:%d\n",
+			"%s, key:%lx, phy:%lx, idx:%d, st:(%d, %d), checkout:%u, free:%d\n",
 			__func__,
 			entry->key,
 			entry->phy_addr,
 			entry->index,
 			entry->state,
 			bc->state,
+			bc->checkout_num,
 			bc->free_num);
 		mutex_unlock(&bc->workqueue_mutex);
 	} else
@@ -177,15 +180,16 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	if (buf->dma && bc->is_dynamic_mode_init(bc) && !ret)
 		bc->buf_ops.get_dma_ref(bc, entry->phy_addr, false);
 
+	bc->checkin_num++;
 	if (buf->dma && bc->is_dynamic_mode_init(bc))
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), priority(%d), ret: %d\n",
-			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, vf->priority, ret);
+		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), priority(%d), checkin(%u), ret: %d\n",
+			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, vf->priority, bc->checkin_num, ret);
 	else
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d, priority(%d), ret: %d\n",
+			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d, priority(%d), checkin(%u), ret: %d\n",
 			__func__, vf, vf->index, vf->frame_index, vf->timestamp,
-			buf->planes[0].dbuf, buf->index, vf->priority, ret);
+			buf->planes[0].dbuf, buf->index, vf->priority, bc->checkin_num, ret);
 
 
 	return ret;
@@ -251,6 +255,8 @@ static void aml_buf_vpp_mgr_release(struct aml_buf_mgr_s *bm)
 		buf_mgr_release(bm->vpp_handle);
 
 	bm->vpp_handle = NULL;
+	bm->bc.checkin_num = 0;
+	bm->bc.checkout_num = 0;
 	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
 			"%s success!\n", __func__);
 }

@@ -1062,7 +1062,7 @@ static void buf_core_fill(struct buf_core_mgr_s *bc,
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 
-	if (bc->external_process)
+	if (!bc->is_dynamic_mode_init(bc) && bc->external_process)
 		bc->external_process(bc, entry);
 
 	mutex_lock(&bc->mutex);
@@ -1236,6 +1236,7 @@ static void buf_core_reset(struct buf_core_mgr_s *bc, bool v4l_res_change)
 	bc->free_num = 0;
 	bc->internal_num = 0;
 	bc->unbind_num = 0;
+	bc->output_num = 0;
 
 	mutex_unlock(&bc->mutex);
 }
@@ -1270,6 +1271,94 @@ static void buf_core_update_planes(struct buf_core_mgr_s *bc)
 	hash_for_each_safe(bc->buf_table, bucket, h_tmp, entry, h_node) {
 		if (entry->set_buf_planes_flag)
 			bc->reconfigure_planes(bc, entry);
+	}
+
+	mutex_unlock(&bc->mutex);
+}
+
+static void buf_core_output_record(struct buf_core_mgr_s *bc, ulong key)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	struct hlist_node *h_tmp;
+	struct buf_core_entry *entry;
+
+	if (!bm->config.dynamic_mode)
+		return;
+
+	mutex_lock(&bc->mutex);
+
+	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
+		if (key == entry->key) {
+			entry->output = true;
+			bc->output_num++;
+			break;
+		}
+	}
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d, %d), free:%d, output:(%d, %d)\n",
+		__func__,
+		entry,
+		entry->user,
+		entry->key,
+		entry->phy_addr,
+		entry->index,
+		entry->state,
+		bc->state,
+		entry->dma_ref,
+		atomic_read(&entry->ref),
+		kref_read(&bc->core_ref),
+		bc->free_num,
+		entry->output,
+		bc->output_num);
+
+	mutex_unlock(&bc->mutex);
+}
+
+
+static void buf_core_delete_record(struct buf_core_mgr_s *bc, ulong key)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	struct buf_core_entry *entry;
+	struct hlist_node *h_tmp;
+
+	if (!bm->config.dynamic_mode)
+		return;
+
+	mutex_lock(&bc->mutex);
+
+	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
+		if (key == entry->key && entry->output) {
+			bc->output_num--;
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s(entry %px), user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d, %d), free:%d, output:(%d, %d)\n",
+				__func__,
+				entry,
+				entry->user,
+				entry->key,
+				entry->phy_addr,
+				entry->index,
+				entry->state,
+				bc->state,
+				entry->dma_ref,
+				atomic_read(&entry->ref),
+				kref_read(&bc->core_ref),
+				bc->free_num,
+				entry->output,
+				bc->output_num);
+
+			mutex_unlock(&bc->mutex);
+			if (bc->external_process)
+				bc->external_process(bc, entry);
+			mutex_lock(&bc->mutex);
+
+			entry->state = BUF_STATE_ERR;
+			hash_del(&entry->h_node);
+			bc->mem_ops.free(bc, entry);
+
+			kref_put(&bc->core_ref, buf_core_destroy);
+			break;
+		}
 	}
 
 	mutex_unlock(&bc->mutex);
@@ -1493,7 +1582,7 @@ static bool buf_core_check_in_table(struct buf_core_mgr_s *bc, ulong key)
 	mutex_lock(&bc->mutex);
 
 	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
-		if (key == entry->key) {
+		if (key == entry->key && !entry->output) {
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
 				"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
 				__func__,
@@ -1655,6 +1744,8 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->update_planes	= buf_core_update_planes;
 	bc->check_in_table	= buf_core_check_in_table;
 	bc->check_in_dma_array  = buf_core_check_in_dma_array;
+	bc->output_record	= buf_core_output_record;
+	bc->delete_record	= buf_core_delete_record;
 
 	/* The interface set of the buffer core operation. */
 	bc->buf_ops.get		= buf_core_get;
