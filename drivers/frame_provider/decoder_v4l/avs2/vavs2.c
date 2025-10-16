@@ -4922,7 +4922,8 @@ static void set_vframe(struct AVS2Decoder_s *dec,
 		vf->type = VIDTYPE_PROGRESSIVE |
 			VIDTYPE_VIU_FIELD;
 		vf->type |= nv_order;
-		if (pic->double_write_mode == 3) {
+		if ((pic->double_write_mode != 16) &&
+			(!IS_8K_SIZE(pic->pic_w, pic->pic_h))) {
 			vf->type |= VIDTYPE_COMPRESS;
 #ifdef AVS2_10B_MMU
 			vf->type |= VIDTYPE_SCATTER;
