@@ -98,13 +98,14 @@ static inline void aml_buf_detach(struct aml_buf_mgr_s *bm, ulong key)
 /*
  * aml_buf_reset() - Interface used to reset the state of the buffer manager.
  *
- * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @bm			: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @v4l_res_change	: resolution change flag
  *
  * Interface used to reset the state of the buffer manager.
  */
-static inline void aml_buf_reset(struct aml_buf_mgr_s *bm)
+static inline void aml_buf_reset(struct aml_buf_mgr_s *bm, bool v4l_res_change)
 {
-	bm->bc.reset(&bm->bc);
+	bm->bc.reset(&bm->bc, v4l_res_change);
 }
 
 /*

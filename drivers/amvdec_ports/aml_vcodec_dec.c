@@ -5572,7 +5572,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 		if (ctx->v4l_resolution_change)
 			aml_ubuf_queue_del(ctx);
-		aml_buf_reset(&ctx->bm);
+		aml_buf_reset(&ctx->bm, ctx->v4l_resolution_change);
 		aml_codec_connect(ctx->ada_ctx); /* for resolution change */
 		aml_compressed_info_show(ctx, NULL);
 		memset(&ctx->compressed_buf_info, 0, sizeof(ctx->compressed_buf_info));

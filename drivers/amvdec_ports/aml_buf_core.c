@@ -1163,7 +1163,7 @@ static bool buf_core_empty(struct buf_core_mgr_s *bc)
 	return list_empty(&bc->free_que);
 }
 
-static void buf_core_reset(struct buf_core_mgr_s *bc)
+static void buf_core_reset(struct buf_core_mgr_s *bc, bool v4l_res_change)
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	struct buf_core_entry *entry, *tmp;
@@ -1171,7 +1171,7 @@ static void buf_core_reset(struct buf_core_mgr_s *bc)
 	ulong bucket;
 
 	if (bc->vpp_reset)
-		bc->vpp_reset(bc);
+		bc->vpp_reset(bc, v4l_res_change);
 
 	mutex_lock(&bc->workqueue_mutex);
 	flush_workqueue(bc->recycle_buf_ref_workqueue);

@@ -384,13 +384,13 @@ struct buf_core_mgr_s {
 	void	(*get_config)(struct buf_core_mgr_s *, void *);
 	int	(*attach)(struct buf_core_mgr_s *, ulong, ulong, void *);
 	void	(*detach)(struct buf_core_mgr_s *, ulong);
-	void	(*reset)(struct buf_core_mgr_s *);
+	void	(*reset)(struct buf_core_mgr_s *, bool v4l_res_change);
 	void	(*prepare)(struct buf_core_mgr_s *, struct buf_core_entry *);
 	void	(*input)(struct buf_core_mgr_s *, struct buf_core_entry *, enum buf_core_user);
 	int	(*output)(struct buf_core_mgr_s *, struct buf_core_entry *, enum buf_core_user);
 	int	(*vpp_que)(struct buf_core_mgr_s *, ulong, ulong);
 	int	(*vpp_dque)(struct buf_core_mgr_s *, struct buf_core_entry *);
-	int	(*vpp_reset)(struct buf_core_mgr_s *);
+	int	(*vpp_reset)(struct buf_core_mgr_s *, bool v4l_res_change);
 	void    (*external_process)(struct buf_core_mgr_s *, struct buf_core_entry *);
 	void    (*wake_up_vdec)(struct buf_core_mgr_s *);
 	int	(*get_pre_user) (struct buf_core_mgr_s *, struct buf_core_entry *, enum buf_core_user);

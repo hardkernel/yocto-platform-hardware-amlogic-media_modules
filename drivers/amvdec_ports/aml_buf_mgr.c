@@ -189,7 +189,7 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	return ret;
 }
 
-static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc)
+static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc, bool v4l_res_change)
 {
 	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int ret = -1;
@@ -203,7 +203,7 @@ static int aml_buf_vpp_reset(struct buf_core_mgr_s *bc)
 
 	if (bm->config.dynamic_mode_probe)
 		dec_type = DEC_TYPE_VDEC_CORE_I;
-	if (bm->dec_type != dec_type) {
+	if (bm->dec_type != dec_type || v4l_res_change) {
 		aml_buf_vpp_mgr_release(bm);
 		aml_buf_vpp_mgr_init(bm);
 	}
