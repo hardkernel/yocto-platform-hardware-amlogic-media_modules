@@ -343,7 +343,6 @@ struct vdec_mpeg4_hw_s {
 	struct firmware_s *fw;
 	struct vdec_info   gvs;
 	u32 blkmode;
-	wait_queue_head_t wait_q;
 	bool is_used_v4l;
 	void *v4l2_ctx;
 	bool v4l_params_parsed;
@@ -2148,7 +2147,6 @@ static void vmpeg4_work(struct work_struct *work)
 
 	vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_0, 0);
 
-	wake_up_interruptible(&hw->wait_q);
 	if (hw->vdec_cb)
 		hw->vdec_cb(vdec, hw->vdec_cb_arg, CORE_MASK_VDEC_1);
 }
@@ -2806,8 +2804,6 @@ static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw)
 	}
 
 	INIT_WORK(&hw->work, vmpeg4_work);
-
-	init_waitqueue_head(&hw->wait_q);
 }
 
 static s32 vmmpeg4_init(struct vdec_mpeg4_hw_s *hw)
@@ -3479,17 +3475,6 @@ static KV_INT_TO_VOID ammvdec_mpeg4_remove(struct platform_device *pdev)
 		(((struct vdec_s *)(platform_get_drvdata(pdev)))->private);
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	int i;
-
-	if (vdec->next_status == VDEC_STATUS_DISCONNECTED
-				&& (vdec->status == VDEC_STATUS_ACTIVE)) {
-			mmpeg4_debug_print(DECODE_ID(hw), 0,
-				"%s  force exit %d\n", __func__, __LINE__);
-			hw->dec_result = DEC_RESULT_FORCE_EXIT;
-			vdec_schedule_work(&hw->work);
-			wait_event_interruptible_timeout(hw->wait_q,
-				(vdec->status == VDEC_STATUS_CONNECTED),
-				msecs_to_jiffies(1000));  /* wait for work done */
-	}
 
 	vmpeg4_stop(hw);
 

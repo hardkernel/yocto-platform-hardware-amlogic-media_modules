@@ -958,7 +958,6 @@ struct vdec_h264_hw_s {
 	void *v4l2_ctx;
 	bool v4l_params_parsed;
 	bool dw_para_set_flag;
-	wait_queue_head_t wait_q;
 	u32 reg_g_status;
 	struct mutex chunks_mutex;
 	int need_cache_size;
@@ -10646,8 +10645,6 @@ static void vh264_local_init(struct vdec_h264_hw_s *hw, int flush_flag, bool is_
 	hw->vh264_stream_switching_state = SWITCHING_STATE_OFF;
 	hw->hevc_cur_buf_idx = 0xffff;
 
-	init_waitqueue_head(&hw->wait_q);
-
 	return;
 }
 
@@ -12938,8 +12935,6 @@ result_done:
 	/* mark itself has all HW resource released and input released */
 	vdec_core_finish_run(vdec, hw->mask & (~CORE_MASK_COMBINE));
 
-	wake_up_interruptible(&hw->wait_q);
-
 	if (ctx->param_sets_from_ucode &&
 		!hw->v4l_params_parsed)
 		vdec_v4l_write_frame_sync(ctx);
@@ -14223,17 +14218,6 @@ static KV_INT_TO_VOID ammvdec_h264_remove(struct platform_device *pdev)
 	int i;
 
 	struct vdec_s *vdec = hw_to_vdec(hw);
-
-	if (vdec->next_status == VDEC_STATUS_DISCONNECTED
-				&& (vdec->status == VDEC_STATUS_ACTIVE)) {
-			dpb_print(DECODE_ID(hw), 0,
-				"%s  force exit %d\n", __func__, __LINE__);
-			hw->dec_result = DEC_RESULT_FORCE_EXIT;
-			vdec_schedule_work(&hw->work);
-			wait_event_interruptible_timeout(hw->wait_q,
-				(vdec->status == VDEC_STATUS_CONNECTED),
-				msecs_to_jiffies(1000));  /* wait for work done */
-	}
 
 	atomic_set(&hw->vh264_active, 0);
 

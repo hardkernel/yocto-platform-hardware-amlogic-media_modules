@@ -5004,7 +5004,6 @@ static int ammvdec_mpeg12_probe(struct platform_device *pdev)
 }
 
 static KV_INT_TO_VOID ammvdec_mpeg12_remove(struct platform_device *pdev)
-
 {
 	struct vdec_mpeg12_hw_s *hw =
 		(struct vdec_mpeg12_hw_s *)

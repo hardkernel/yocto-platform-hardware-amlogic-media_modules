@@ -300,7 +300,6 @@ struct vdec_mpeg12_hw_s {
 	s32 refs[2];
 	int dec_result;
 	u32 timeout_processing;
-	wait_queue_head_t wait_q;
 	struct work_struct work;
 	struct work_struct timeout_work;
 	struct work_struct notify_work;
@@ -3050,7 +3049,6 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 	else
 		vdec_core_finish_run(vdec, CORE_MASK_VDEC_1 | CORE_MASK_HEVC);
 
-	wake_up_interruptible(&hw->wait_q);
 	if (hw->is_used_v4l) {
 		struct aml_vcodec_ctx *ctx =
 			(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
@@ -3970,7 +3968,6 @@ static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw)
 	hw->process_busy = false;
 	hw->last_ud_flag = 0;
 
-	init_waitqueue_head(&hw->wait_q);
 	if (dec_control)
 		hw->dec_control = dec_control;
 }
@@ -4597,17 +4594,6 @@ static KV_INT_TO_VOID ammvdec_mpeg12_remove(struct platform_device *pdev)
 		(((struct vdec_s *)(platform_get_drvdata(pdev)))->private);
 	struct vdec_s *vdec = hw_to_vdec(hw);
 	int i;
-
-	if (vdec->next_status == VDEC_STATUS_DISCONNECTED
-		&& (vdec->status == VDEC_STATUS_ACTIVE)) {
-		debug_print(DECODE_ID(hw), 0,
-			"%s, force exit %d\n", __func__, __LINE__);
-		hw->dec_result = DEC_RESULT_FORCE_EXIT;
-		vdec_schedule_work(&hw->work);
-		wait_event_interruptible_timeout(hw->wait_q,
-			(vdec->status == VDEC_STATUS_CONNECTED),
-			msecs_to_jiffies(1000));  /* wait for work done */
-	}
 
 	if (hw->stat & STAT_VDEC_RUN) {
 		amvdec_stop();
