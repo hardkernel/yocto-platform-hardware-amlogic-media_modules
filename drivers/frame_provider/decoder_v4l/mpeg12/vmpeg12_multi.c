@@ -3876,6 +3876,8 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 	int i;
 
 	if (is_vdec_hevc_combine()) {
+		u32 canvas_width = vdec_width_align_force(hw->frame_width, hw->canvas_mode);
+
 		WRITE_VREG(HEVCD_IPP_TOP_CNTL, (0 << 1) | (1 << 0));
 		WRITE_VREG(HEVCD_IPP_TOP_CNTL, (1 << 1) | (0 << 0));
 
@@ -3884,6 +3886,7 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 		WRITE_VREG(HEVCD_MPP_VDEC_MCR_CTL, (1 << 4) | 1);
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, 1 << 31);
 
+		WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | canvas_width));
 		SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 18);
 	}
 

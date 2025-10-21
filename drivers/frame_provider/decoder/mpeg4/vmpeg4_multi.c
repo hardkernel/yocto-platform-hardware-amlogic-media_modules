@@ -2504,6 +2504,14 @@ static int vmpeg4_hw_ctx_restore(struct vdec_mpeg4_hw_s *hw)
 		WRITE_VREG(HEVCD_MPP_VDEC_MCR_CTL, (1 << 4) | 1);
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, 1 << 31);
 
+		WRITE_VREG(HEVCD_IPP_TOP_FRMCONFIG, (hw->frame_height << 16 | hw->frame_width));
+		if (buf_size <= 0x00400000) {
+			// config fix stride
+			WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | 768));
+		} else {
+			WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | 1920));
+		}
+
 		SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 18);
 	}
 
@@ -2874,8 +2882,10 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
 	vdec_reset_core(vdec);
-	if (is_vdec_hevc_combine())
+	if (is_vdec_hevc_combine()) {
+		hevc_reset_core(vdec);
 		WRITE_VREG(HEVC_CORE_ENABLE, 0);
+	}
 
 	if ((vdec_frame_based(vdec)) &&
 		(hw->dec_result == DEC_RESULT_UNFINISH)) {
