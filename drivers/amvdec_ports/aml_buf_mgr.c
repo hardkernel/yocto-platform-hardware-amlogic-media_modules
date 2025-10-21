@@ -40,8 +40,10 @@
 
 #define IS_VPP_POST(bm)	(bm->config.vpp_work_mode == VPP_WORK_MODE_DI_POST)
 
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
 static int aml_buf_vpp_mgr_init(struct aml_buf_mgr_s *bm);
 static void aml_buf_vpp_mgr_release(struct aml_buf_mgr_s *bm);
+#endif
 
 void aml_buf_ref_recycle_worker(struct work_struct *work)
 {
@@ -69,7 +71,7 @@ void aml_buf_combine_worker(struct work_struct *work)
 }
 
 
-#ifdef CONFIG_AMLOGIC_DI_PROCESS
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
 static void aml_buf_vpp_callback(void *caller_data, struct file *file, int id)
 {
 	struct buf_core_mgr_s *bc = caller_data;
@@ -598,7 +600,7 @@ static void aml_buf_mgr_destroy(struct kref *kref)
 	if (bm->fbc_array) {
 		aml_buf_fbc_destroy(bm);
 	}
-#ifdef CONFIG_AMLOGIC_DI_PROCESS
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
 	aml_buf_vpp_mgr_release(bm);
 #endif
 }
@@ -789,7 +791,7 @@ static int aml_buf_set_default_parms(struct aml_buf_mgr_s *bm,
 		// alloc buffer
 		aml_buf_set_planes(bm, buf);
 	}
-#ifdef CONFIG_AMLOGIC_DI_PROCESS
+#ifdef CONFIG_AMLOGIC_BUF_MANAGER
 	ret = aml_buf_vpp_mgr_init(bm);
 	if (ret) {
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_ERROR,
