@@ -2785,7 +2785,9 @@ int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags)
 			if (!ctx->avbcd_work_mode) {
 				aml_buf_put_ref(&ctx->bm, aml_buf);
 
-				if (!pic->vf_ref) {
+				if (!pic->vf_ref &&
+					(!((pic->used == 2) || (pic->used == 3)
+					|| (pic->used == 5)))) {
 					aml_buf_put_ref(&ctx->bm, aml_buf);
 					if (ctx->picinfo.field == V4L2_FIELD_INTERLACED)
 						aml_buf_put_ref(&ctx->bm, aml_buf);
@@ -5038,6 +5040,15 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 		&& (!(pSlice->slice_type == I_SLICE))) {
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
 			"no i/idr error mark\n");
+		hw->data_flag |= ERROR_FLAG;
+		pic->data_flag |= ERROR_FLAG;
+	}
+
+	if ((pSlice->slice_type == NUM_SLICE_TYPES) &&
+		(pSlice->listXsize[0] == 0) &&
+		(pSlice->listXsize[1] == 0)) {
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
+			"err slice type 5\n");
 		hw->data_flag |= ERROR_FLAG;
 		pic->data_flag |= ERROR_FLAG;
 	}
