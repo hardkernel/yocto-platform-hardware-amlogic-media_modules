@@ -38,7 +38,7 @@
 
 struct aml_v4l2_ge2d_buf {
 	u32			flag;
-	struct vframe_s		*vf;
+	struct vframe_s		vf;
 	void			*caller_data;
 	struct aml_v4l2_buf	*aml_vb;
 };

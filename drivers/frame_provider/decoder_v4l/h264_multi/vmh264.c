@@ -2680,7 +2680,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 
 		if (!v4l->avbcd_work_mode) {
 			if ((aml_buf_is_dynamic_mode_inited(&v4l->bm) ||
-				v4l->vpp_is_need) &&
+				v4l->vpp_is_need || v4l->ge2d_is_need) &&
 				p_H264_Dpb->mVideo.dec_picture) {
 				pic_struct = p_H264_Dpb->mVideo.dec_picture->pic_struct;
 				structure = p_H264_Dpb->mVideo.dec_picture->structure;
@@ -3679,7 +3679,8 @@ static int post_prepare_process(struct vdec_s *vdec, struct FrameStore *frame)
 	if ((!hw->duration_from_pts_done) && (hw->frame_dur > 6400ULL)) {
 		if ((check_force_interlace(hw, hw->frame_width, hw->frame_height) ||
 			(aml_buf_is_dynamic_mode_inited(&ctx->bm) ||
-			(ctx->vpp_is_need && (ctx->picinfo.field == V4L2_FIELD_INTERLACED)))) &&
+			(ctx->vpp_is_need && (ctx->picinfo.field == V4L2_FIELD_INTERLACED)) ||
+			ctx->ge2d_is_need)) &&
 			(frame->slice_type == I_SLICE) &&
 			(hw->pts_outside)) {
 			if ((!hw->h264_pts_count) || (!hw->h264pts1)) {
@@ -3806,7 +3807,8 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 
 	bForceInterlace = check_force_interlace(hw, hw->frame_width, hw->frame_height);
 	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm) ||
-		(v4l2_ctx->vpp_is_need && (pic->pic_field == V4L2_FIELD_INTERLACED))) {
+		(v4l2_ctx->vpp_is_need && (pic->pic_field == V4L2_FIELD_INTERLACED)) ||
+		v4l2_ctx->ge2d_is_need) {
 		bForceInterlace = 1;
 	}
 	if (bForceInterlace)
@@ -3824,7 +3826,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		hw->buffer_spec[buffer_index].vf_ref = 0;
 	fill_frame_info(hw, frame);
 
-	if (((vdec->prog_only) || (!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post)))
+	if (((vdec->prog_only) || (!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post && !v4l2_ctx->ge2d_is_need)))
 		vf_count = 1;
 	if (v4l2_ctx->vpp_is_need && (vf_count == 1) && (pic->pic_field != V4L2_FIELD_NONE)) {
 		struct StorablePicture *valid_pic = frame->top_field ? frame->top_field : frame->bottom_field;
@@ -8306,7 +8308,8 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 
 		if (!ctx->avbcd_work_mode) {
 			if (aml_buf_is_dynamic_mode_inited(&ctx->bm) ||
-				ctx->vpp_is_need) {//frame_mbs_only_flag
+				ctx->vpp_is_need ||
+				ctx->ge2d_is_need) {//frame_mbs_only_flag
 				if (pic_struct == PIC_TOP_BOT ||
 					pic_struct == PIC_BOT_TOP ||
 					ctx->picinfo.field == V4L2_FIELD_INTERLACED) {

@@ -835,7 +835,8 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 	if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
 		(v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12M))
 		nv_order = VIDTYPE_VIU_NV12;
-	if (vdec->prog_only || (!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post))
+	if (vdec->prog_only ||
+		(!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post && !v4l2_ctx->ge2d_is_need))
 		pic->pic_info &= ~INTERLACE_FLAG;
 
 	if (hw->i_only)
@@ -1609,7 +1610,7 @@ static irqreturn_t vmpeg4_isr_thread_handler(struct vdec_s *vdec, int irq)
 		}
 
 		aml_buf = (struct aml_buf *)hw->pic[index].v4l_ref_buf_addr;
-		if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+		if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
 			hw->report_field == V4L2_FIELD_INTERLACED)
 			aml_buf_get_ref(&ctx->bm, aml_buf);
 

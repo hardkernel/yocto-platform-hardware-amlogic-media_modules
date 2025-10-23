@@ -626,7 +626,14 @@ bool is_ge2d_mode(struct aml_vcodec_ctx *ctx)
 {
 	if (!ctx->enable_di_post &&
 		ctx->picinfo.field != V4L2_FIELD_NONE &&
-		ctx->output_pix_fmt == V4L2_PIX_FMT_HEVC &&
+		(ctx->output_pix_fmt == V4L2_PIX_FMT_HEVC ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_H264 ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_MPEG1 ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_MPEG2 ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_MPEG4 ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_AVS ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L ||
+		ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G) &&
 		is_not_support_di_front_mode())
 		return true;
 

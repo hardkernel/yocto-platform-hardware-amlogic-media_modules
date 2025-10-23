@@ -979,7 +979,7 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 	if (aml_buf_is_dynamic_mode_inited(&ctx->bm))
 		aml_buf_get_dmabuf_ref(&ctx->bm,hw->pics[i].cma_alloc_addr, true);
 	aml_buf_get_ref(&ctx->bm, aml_buf);
-	if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+	if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
 		hw->interlace_flag) {
 		aml_buf_get_ref(&ctx->bm, aml_buf);
 	}
@@ -3070,7 +3070,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 		!hw->vf_ref[hw->refs[0]]) {
 		hw->vf_ref[hw->refs[0]]++;
 		am_buf = (struct aml_buf *)hw->pics[hw->refs[0]].v4l_ref_buf_addr;
-		if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+		if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
 			hw->interlace_flag) {
 			hw->vf_ref[hw->refs[0]]++;
 			aml_buf_put_ref(&ctx->bm, am_buf);
@@ -3086,7 +3086,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 		!hw->vf_ref[hw->refs[1]]) {
 		hw->vf_ref[hw->refs[1]]++;
 		am_buf = (struct aml_buf *)hw->pics[hw->refs[1]].v4l_ref_buf_addr;
-		if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+		if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
 			hw->interlace_flag) {
 			hw->vf_ref[hw->refs[1]]++;
 			aml_buf_put_ref(&ctx->bm, am_buf);
@@ -3667,7 +3667,7 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 	}
 
 	if (hw->interlace_flag &&
-		(v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post)) {	/* interlace */
+		(v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post || v4l2_ctx->ge2d_is_need)) {	/* interlace */
 		hw->throw_pb_flag = 0;
 
 		debug_print(hw, PRINT_FLAG_VFRAME_DETAIL,
@@ -4262,7 +4262,8 @@ void avs_buf_ref_process_for_exception(struct vdec_avs_hw_s *hw)
 
 	aml_buf_put_ref(&ctx->bm, aml_buf);
 	aml_buf_put_ref(&ctx->bm, aml_buf);
-	if ((ctx->vpp_is_need || ctx->enable_di_post) && hw->interlace_flag) {
+	if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
+		hw->interlace_flag) {
 		aml_buf_put_ref(&ctx->bm, aml_buf);
 	}
 

@@ -1985,12 +1985,12 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 	}
 
 	if ((vdec->prog_only) || (hw->report_field & V4L2_FIELD_NONE) ||
-		(!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post)) {
+		(!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post && !v4l2_ctx->ge2d_is_need)) {
 		field_num = 1;
 		type |= VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | nv_order;
 	}
 
-	if (v4l2_ctx->enable_di_post || v4l2_ctx->vpp_is_need) {
+	if (v4l2_ctx->enable_di_post || v4l2_ctx->vpp_is_need || v4l2_ctx->ge2d_is_need) {
 		if ((field_num == 2) || (field_num == 3)) {
 			aml_buf = (struct aml_buf *)hw->pics[index].v4l_ref_buf_addr;
 			aml_buf_get_ref(&v4l2_ctx->bm, aml_buf);

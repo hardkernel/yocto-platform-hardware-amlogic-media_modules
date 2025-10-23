@@ -1022,7 +1022,7 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 		aml_buf_get_dmabuf_ref(&ctx->bm, hw->pics[i].cma_alloc_addr, true);
 
 	aml_buf_get_ref(&ctx->bm, aml_buf);
-	if ((ctx->vpp_is_need || ctx->enable_di_post) &&
+	if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
 		hw->interlace_flag) {
 		aml_buf_get_ref(&ctx->bm, aml_buf);
 	}
@@ -1329,7 +1329,7 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 	}
 
 	if (hw->interlace_flag &&
-		(ctx->vpp_is_need || ctx->enable_di_post)) { /* interlace */
+		(ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need)) { /* interlace */
 		vc1_print(0, VC1_DEBUG_DETAIL, "%s: interlace reg 0x%x\n", __func__, reg);
 		hw->throw_pb_flag = 0;
 		if (kfifo_get(&newframe_q, &vf) == 0) {
@@ -1676,7 +1676,8 @@ void vc1_buf_ref_process_for_exception(struct vdec_vc1_hw_s *hw)
 
 	aml_buf_put_ref(&ctx->bm, aml_buf);
 	aml_buf_put_ref(&ctx->bm, aml_buf);
-	if ((ctx->vpp_is_need || ctx->enable_di_post) && hw->interlace_flag) {
+	if ((ctx->vpp_is_need || ctx->enable_di_post || ctx->ge2d_is_need) &&
+		hw->interlace_flag) {
 		aml_buf_put_ref(&ctx->bm, aml_buf);
 	}
 
