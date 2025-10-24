@@ -4048,6 +4048,63 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	return -EINVAL;
 }
 
+u32 check_video_format_support(u32 fourcc)
+{
+	u32 format = -1;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+		format = VFORMAT_H264;
+		break;
+	case V4L2_PIX_FMT_HEVC:
+		format = VFORMAT_HEVC;
+		break;
+	case V4L2_PIX_FMT_VP9:
+		format = VFORMAT_VP9;
+		break;
+	case V4L2_PIX_FMT_MPEG1:
+	case V4L2_PIX_FMT_MPEG2:
+		format = VFORMAT_MPEG12;
+		break;
+	case V4L2_PIX_FMT_MPEG4:
+		format = VFORMAT_MPEG4;
+		break;
+	case V4L2_PIX_FMT_MJPEG:
+		format = VFORMAT_MJPEG;
+		break;
+	case V4L2_PIX_FMT_JPEG:
+		format = VFORMAT_JPEG;
+		break;
+	case V4L2_PIX_FMT_AVS:
+		format = VFORMAT_AVS;
+		break;
+	case V4L2_PIX_FMT_AV1:
+		format = VFORMAT_AV1;
+		break;
+	case V4L2_PIX_FMT_AVS2:
+		format = VFORMAT_AVS2;
+		break;
+	case V4L2_PIX_FMT_AVS3:
+		format = VFORMAT_AVS3;
+		break;
+	case V4L2_PIX_FMT_VC1_ANNEX_L:
+	case V4L2_PIX_FMT_VC1_ANNEX_G:
+		format = VFORMAT_VC1;
+		break;
+	case V4L2_PIX_FMT_H266:
+		format = VFORMAT_H266;
+		break;
+	default:
+		pr_info("%s, Unsupport format:0x%x\n", __func__, fourcc);
+		break;
+	}
+
+	if (format < 0)
+		return false;
+
+	return is_support_format(format);
+}
+
 static int vidioc_enum_fmt(struct aml_vcodec_ctx *ctx, struct v4l2_fmtdesc *f, bool output_queue)
 {
 	struct aml_video_fmt *fmt;
@@ -4084,7 +4141,8 @@ static int vidioc_enum_fmt(struct aml_vcodec_ctx *ctx, struct v4l2_fmtdesc *f, b
 			continue;
 
 		if (j == f->index) {
-			f->pixelformat = fmt->fourcc;
+			if (!output_queue || (output_queue && check_video_format_support(fmt->fourcc)))
+				f->pixelformat = fmt->fourcc;
 			/*
 			 * if the length of fmt->name is large than f->description,
 			 * f->description will be force terminated.
@@ -4095,6 +4153,7 @@ static int vidioc_enum_fmt(struct aml_vcodec_ctx *ctx, struct v4l2_fmtdesc *f, b
 				v4l_dbg(0, V4L_DEBUG_CODEC_ERROR, "fmt name too long\n");
 				f->description[sizeof(f->description) - 1] = '\0';
 			}
+
 			return 0;
 		}
 		++j;
