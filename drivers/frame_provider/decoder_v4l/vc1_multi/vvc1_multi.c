@@ -79,6 +79,7 @@
 
 /* protocol registers */
 #define VC1_PIC_RATIO       AV_SCRATCH_0
+#define VC1_FRAME_RATE      AV_SCRATCH_1
 #define VC1_ERROR_COUNT    AV_SCRATCH_6
 #define VC1_SOS_COUNT     AV_SCRATCH_7
 #define VC1_BUFFERIN       AV_SCRATCH_8
@@ -126,12 +127,11 @@
 
 #define PUT_INTERVAL        (HZ/100)
 
-#if 1	/* /MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6 */
-/* TODO: move to register headers */
-#define VPP_VD1_POSTBLEND       (1 << 10)
 #define MEM_FIFO_CNT_BIT        16
 #define MEM_LEVEL_CNT_BIT       18
-#endif
+
+#define VC1_Numerator_Index_MAX   8
+#define VC1_Denominator_Index_MAX 3
 
 static struct vframe_s *vvc1_vf_peek(void *);
 static struct vframe_s *vvc1_vf_get(void *);
@@ -1578,6 +1578,9 @@ static void set_frame_info(struct vdec_vc1_hw_s *hw, struct vframe_s *vf)
 {
 	u32 endian_tmp;
 	u32 buffer_index = vf->index;
+	int vf_dur = vdec_get_vf_dur();
+
+	vf->duration = vf_dur ? vf_dur : hw->frame_dur;
 
 	vf->canvas0Addr = vf->canvas1Addr = -1;
 	vf->plane_num = 2;
@@ -2055,6 +2058,34 @@ void t6d_crc_print(struct vdec_vc1_hw_s *hw)
 }
 #endif
 
+static int cal_frame_dur(void)
+{
+	u32 frame_dur;
+	u32 nr_index = READ_VREG(VC1_FRAME_RATE) & 0xff;
+	u32 dr_index = (READ_VREG(VC1_FRAME_RATE) >> 8) & 0xf;
+	u32 frame_rate_exp = (READ_VREG(VC1_FRAME_RATE) >> 16) & 0xffff;
+	u32 NumeratorValue[VC1_Numerator_Index_MAX] = {
+		0, 24000, 25000, 30000,
+		50000, 60000, 48000, 72000
+	};
+	u32 DenominatorValue[VC1_Denominator_Index_MAX] = { 0, 1000, 1001 };
+
+	vc1_print(0, VC1_DEBUG_DETAIL, "%s: nr_index %d, dr_index %d, frame_rate_exp 0x%x\n",
+				__func__, nr_index, dr_index, frame_rate_exp);
+
+	if (frame_rate_exp != 0) {
+		frame_dur = 96000 * 32 / (frame_rate_exp + 1);
+	} else {
+		if ((nr_index == 0) || (nr_index >= VC1_Numerator_Index_MAX)
+			|| (dr_index == 0) || (dr_index >= VC1_Denominator_Index_MAX))
+			return 0;
+
+		frame_dur = 96000 * DenominatorValue[dr_index] / NumeratorValue[nr_index];
+	}
+
+	return frame_dur;
+}
+
 static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 {
 	struct vdec_vc1_hw_s *hw = (struct vdec_vc1_hw_s *)vdec->private;
@@ -2089,10 +2120,10 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 		hw->frame_width = READ_VREG(VC1_PIC_INFO) & 0x3fff;
 		hw->frame_height = (READ_VREG(VC1_PIC_INFO) >> 14) & 0x3fff;
 		hw->interlace_flag = (READ_VREG(VC1_PIC_INFO) >> 28) & 0x1;
+		hw->frame_dur = cal_frame_dur();
 		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
-			"%s: SEQ_HEADER_DONE frame_width %d/%d, interlace_flag %d, mb(%d/%d)\n", __func__,
-			hw->frame_width, hw->frame_height, hw->interlace_flag,
-			hw->frame_width >> 4, hw->frame_height >> 4);
+			"%s: SEQ_HEADER_DONE frame_width %d/%d, interlace_flag %d, frame_dur %d\n", __func__,
+			hw->frame_width, hw->frame_height, hw->interlace_flag, hw->frame_dur);
 
 		if (is_oversize(hw->frame_width, hw->frame_height)) {
 			vdec_v4l_post_error_frame_event(ctx);
