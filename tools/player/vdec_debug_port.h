@@ -5,6 +5,7 @@
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long ulong;
+typedef unsigned long long u64;
 
 #define LPRINT0
 #define LPRINT1(...)        printf(__VA_ARGS__)
@@ -17,20 +18,11 @@ typedef unsigned long ulong;
 } while(0)
 
 
-#define MAX_PIC_SIZE  (4096 * 2304)
+#define PR_DBG(pr_level, ...) do {             \
+    if ((pr_level & _in_debug) || (!pr_level)) \
+        printf(__VA_ARGS__);                   \
+} while(0)
 
-/* max stream buffer size */
-#define MALLOC_BUF_SIZE (1024 * 1024 * 16)
-
-#define FMT_NV12_SIZE(w, h)  ((w * h * 3) << 1)
-
-#define VDBG_POLL_TIMEOUT 1000
-
-#define DEC_DEBUG_PORT_DEV  "/sys/kernel/debug/vdec_profile/debug_port"
-
-#define DUMP_FILE_PATH "/data/tmp/"
-
-#define DEC_DEBUG_CHAR_DEV  "/dev/vdec_debug"
 
 enum vformat_e {
 	VFORMAT_MPEG12 = 0,
@@ -54,43 +46,48 @@ enum vformat_e {
 	VFORMAT_MAX
 };
 
-
-#define _VDP_  'P'
-#define VDBG_IOC_PORT_CFG      _IOW((_VDP_), 0x01, int)
-#define VDBG_IOC_GET_DATA      _IOW((_VDP_), 0x02, int)
-#define VDBG_IOC_DATA_DONE     _IOW((_VDP_), 0x03, int)
-
-#define VDBG_IOC_BUF_RESET     _IOW((_VDP_), 0x0a, int)
-#define VDBG_IOC_GET_VINFO     _IOW((_VDP_), 0x0b, int)
-
-#define CMD_DUMP_YUV   0x1
-#define CMD_DUMP_CRC   0x2
-#define CMD_DUMP_ES    0x4
-#define CMD_DUMP_AUX   0x10
-#define CMD_DUMP_SIZE  0x20
-
-struct debug_config_param {
-	int type;
+//compat with version v0.x
+struct port_data_packet_v0 {
+	int header;
 	int id;
-	u32 pic_start;  // yuv dump start pic
-	u32 pic_num;    // yuv dump pic num
-	u32 mode;       // dump es mode;
+	int type;
+	u32 data_size;
+	u32 crc;
+	u32 private_data_size;
+	char private[0];   //private to PADING_SIZE end
+};
 
-	char *buf;
-	u32 buf_size;
 
+/* version v1.0 it must be same with drivers defined */
+struct vdec_dbg_ex_usr {
+	int header;
+	int id;       //the packet count
+	int type;     //0: local buf, 1: not local buf but virt, 2: phys buf direct
+	u32 data_size;
+	u32 crc;
+	u32 offset;
+	u32 addr_h;
+	u32 addr_l;
+	char file[64];     /* store to file name */
 	u32 reserved[32];
 };
 
-#define PADING_SIZE 1024
-#define PACKET_HEADER  (0xaa55aa55)
+/* type for read data inside */
+#define DEV_READ_LOCAL  0
+#define DEV_READ_VIRT   1
+#define DEV_READ_PHYS   2
+#define DEV_READ_MMAP   3
 
-/*
-#define PORT_DATA_TYPE_YUV 1
-#define PORT_DATA_TYPE_CRC 2
-#define PORT_DATA_TYPE_ES  3
-*/
-#define MAX_INSTANCE_NUM 9
+
+#define _VDP_  'P'
+#define VDEC_EXPORT_PACKET           _IOR((_VDP_), 0x02, struct vdec_dbg_ex_usr)
+#define VDEC_EXPORT_CONFIG           _IOW((_VDP_), 0x03, int)
+#define VDEC_EXPORT_NOTIFY           _IOW((_VDP_), 0x04, int)
+#define VDEC_EXPORT_LOCAL_BUF_RST    _IOW((_VDP_), 0x0a, int)   //to compat with version 0
+#define VDEC_EXPORT_VERSION          _IOR((_VDP_), 0x0f, int)
+
+#define PACKET_HEADER  (0xaa55aa55)
+#define PADING_SIZE 1024
 
 enum data_type{
 	TYPE_INFO,
@@ -100,16 +97,6 @@ enum data_type{
 	TYPE_AUX,
 	TYPE_SIZE,
 	TYPE_MAX
-};
-
-struct port_data_packet {
-	int header;
-	int id;
-	int type;
-	u32 data_size;
-	u32 crc;
-	u32 private_data_size;
-	char private[0];   //private to PADING_SIZE end
 };
 
 struct port_vdec_info {

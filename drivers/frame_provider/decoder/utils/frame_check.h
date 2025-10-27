@@ -112,6 +112,8 @@ struct pic_check_mgr_t{
 	u32 width;
 	u32 height;
 	unsigned char interlace_flag;
+	int format;
+	char crc_file_name[32];
 };
 
 struct aux_data_check_mgr_t{

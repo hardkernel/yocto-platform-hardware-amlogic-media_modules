@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <getopt.h>
 
 #include <sys/mman.h>
 #include <poll.h>
@@ -21,8 +22,36 @@
 
 #include "vdec_debug_port.h"
 
+/* max stream buffer size */
+#define MALLOC_BUF_SIZE (1024 * 1024 * 16)
+
+#define VDBG_POLL_TIMEOUT 1000
+
+#define MAX_INSTANCE_NUM 9
 
 int dev_status;
+int _in_debug;
+
+static char file_path[128] = {0};
+
+int code_version[2];
+
+static const char short_opt[] = "c:p:d:h";
+
+static const struct option long_opt[] = {
+	{ "config", required_argument, NULL, 'c' },
+	{ "path",   required_argument, NULL, 'p' },
+	{ "debug",   no_argument,      NULL, 'd' },
+	{ "help",   no_argument,       NULL, 'h' },
+	{ 0, 0, 0, 0 }
+};
+
+
+static void signal_handler(int signum)
+{
+	dev_status = -1;
+	printf("exit signal %d\n", signum);
+}
 
 int debug_port_save_file_new(char *filename, char *buf, u32 size)
 {
@@ -59,7 +88,26 @@ int debug_port_save_file_new(char *filename, char *buf, u32 size)
 	return 0;
 }
 
-int debug_port_save_file_append(int fd, char *buf, u32 size)
+static u32 debug_port_write_append_sync(char *file, char *buf, u32 size)
+{
+	int fd, ret;
+
+	fd = open(file, O_CREAT | O_RDWR | O_APPEND, 0644);
+	if (fd < 0) {
+		printf("open %s failed\n", file);
+		return 0;
+	}
+
+	ret = write(fd, buf, size);
+	if (ret != size)
+		printf("%s, write size %d less than %d\n", __func__, ret, size);
+	close(fd);
+
+	return ret;
+}
+
+
+static int debug_port_save_file_append(int fd, char *buf, u32 size)
 {
 	int ret = 0;
 	int retry = 0;
@@ -80,80 +128,7 @@ int debug_port_save_file_append(int fd, char *buf, u32 size)
 	return 0;
 }
 
-bool is_oversize(int w, int h)
-{
-	if (w <= 0 || h <= 0)
-		return true;
-
-	if (h != 0 && (w > (MAX_PIC_SIZE / h)))
-		return true;
-
-	return false;
-}
-
-
-void port_debug_config(int fd, int cmd, int vid, int pic_start, int pic_num, int mode)
-{
-	struct debug_config_param param;
-	int ret;
-
-	if (cmd & CMD_DUMP_YUV) {
-		param.type		= TYPE_YUV;
-		param.id		= vid;
-		param.pic_start = pic_start;
-		param.pic_num	= pic_num;
-		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);   //config yuv dump
-		if (ret < 0) {
-			printf("config dump yuv failed, err %d\n", errno);
-		}
-	}
-
-	if (cmd & CMD_DUMP_CRC) {
-		param.type     = TYPE_CRC;
-		param.id       = vid;
-		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);
-		if (ret < 0) {
-			printf("config dump crc failed, err %d\n", errno);
-		}
-	}
-
-	if (cmd & CMD_DUMP_ES) {
-		param.type     = TYPE_ES;
-		param.id       = vid;
-		param.mode     = mode;
-		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);
-		if (ret < 0) {
-			printf("config dump es failed, err %d\n", errno);
-		}
-	}
-
-	if (cmd & CMD_DUMP_AUX) {
-		param.type     = TYPE_AUX;
-		param.id       = vid;
-		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);
-		if (ret < 0) {
-			printf("config dump aux failed, err %d\n", errno);
-		}
-	}
-
-	if (cmd & CMD_DUMP_SIZE) {
-		param.type     = TYPE_SIZE;
-		param.id       = vid;
-		ret = ioctl(fd, VDBG_IOC_PORT_CFG, &param);
-		if (ret < 0) {
-			printf("config dump crc failed, err %d\n", errno);
-		}
-	}
-}
-
-static void signal_handler(int signum)
-{
-	dev_status = -1;
-	printf("exit signal %d\n", signum);
-}
-
-
-int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
+int vdec_dbg_get_data_v0(int dev)
 {
 	int i, j;
 	int dump_fd[MAX_INSTANCE_NUM][TYPE_MAX];
@@ -161,12 +136,21 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 
 	char file_str[32] = "name-0-0";
 	char last_str[32] = {0};
-	char file_name[64] = {0};
+	char file_name[256] = {0};
 	const char *file_ext[TYPE_MAX] = {"info", "yuv", "crc", "es", "aux", "fsz"};
 
 	u32 no_data_wait_time = 0;
 	struct pollfd pfd;
 	int ret;
+	char *buf;
+	u32 buf_size;
+
+	buf = (char *)malloc(MALLOC_BUF_SIZE);
+	if (buf == NULL) {
+		printf("malloc failed\n");
+		return -1;
+	}
+	buf_size = MALLOC_BUF_SIZE;
 
 	memset(dump_fd, 0xff, sizeof(dump_fd));
 	memset(sum_pkt, 0, sizeof(sum_pkt));
@@ -184,7 +168,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 			break;
 		} else if (ret == 0) {
 			if (++no_data_wait_time > 10) {
-				printf("vdec debug port waiting data ready ...\n");
+				printf("vdec debug waiting data (v%d) ...\n", code_version[0]);
 				no_data_wait_time = 0;
 				//break;
 			}
@@ -195,7 +179,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 
 		ret = read(dev, buf, buf_size);
 		if (ret > 0) {
-			struct port_data_packet pkt;
+			struct port_data_packet_v0 pkt;
 
 			memcpy(&pkt, buf, sizeof(pkt));
 
@@ -204,7 +188,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 				(pkt.id >= MAX_INSTANCE_NUM) ||
 				(pkt.type >= TYPE_MAX))) {
 
-				ret = ioctl(dev, VDBG_IOC_BUF_RESET);
+				ret = ioctl(dev, VDEC_EXPORT_LOCAL_BUF_RST);
 				if (ret < 0)
 					printf("VDBG_IOC_BUF_RESET failed, message: %s\n", strerror(errno));
 				continue;
@@ -255,7 +239,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 					memset(file_name, 0, sizeof(file_name));
 					/* coverity[OVERRUN:SUPPRESS] */
 					snprintf(file_name, sizeof(file_name), "%s/%s.%s",
-						DUMP_FILE_PATH, file_str, file_ext[pkt.type]);
+						file_path, file_str, file_ext[pkt.type]);
 					memcpy(last_str, file_str, sizeof(file_str));
 
 					fd = open(file_name, O_RDWR | O_CREAT | O_APPEND, 0644); //O_TRUNC
@@ -285,31 +269,224 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 		}
 	}
 
+	free(buf);
+
 	return 0;
 }
 
-
-int main(int argc, char *argv[])
+int vdec_dbg_get_exported_data(int dev)
 {
-	char *dump_buf = NULL;
-	int dev_fd = 0;
+	char *buf;
+	struct pollfd pfd;
+	int ret, no_data = 15;
+	struct vdec_dbg_ex_usr info;
+	char ffpath[256];
+	void *vaddr;
 
-	dev_fd = open(DEC_DEBUG_PORT_DEV, O_RDWR);
-	if (dev_fd < 0) {
-		dev_fd = open(DEC_DEBUG_CHAR_DEV, O_RDWR);
-		if (dev_fd < 0) {
-			printf("open %s and %s failed, error %d\n",
-				DEC_DEBUG_PORT_DEV, DEC_DEBUG_CHAR_DEV, errno);
-			return 0;
+	buf = (char *)malloc(MALLOC_BUF_SIZE);
+	if (buf == NULL) {
+		printf("malloc failed\n");
+		return -1;
+	}
+
+	memset(ffpath, 0, sizeof(ffpath));
+
+	pfd.fd     = dev;
+	pfd.events = POLLIN | POLLERR;
+
+	do {
+		if (dev_status < 0) {
+			ret = dev_status;
+			break;
+		}
+		ret = poll(&pfd, 1, VDBG_POLL_TIMEOUT);
+		if (ret < 0) {
+			break;
+		} else if (ret == 0) {
+			if (++no_data > 15) {
+				printf("vdec debug waiting data (v%d.%d) ...\n", code_version[0], code_version[1]);
+				no_data = 0;
+			}
+			continue;
+		}
+		no_data = 0;
+
+		ret = ioctl(dev, VDEC_EXPORT_PACKET, &info);
+		if (ret < 0) {
+			printf("ioctl get data failed, errno %d\n", errno);
+			continue;
+		}
+
+		PR_DBG(1, "=> id %d, size %x, file %s\n", info.id, info.data_size, info.file);
+
+		if (!strcmp(info.file, "EXIT")) {
+			dev_status = -1;
+			printf("driver removing, exit\n");
+			break;
+		}
+
+		if (info.type == DEV_READ_MMAP && info.data_size) {
+			vaddr = mmap(NULL, info.data_size,
+				PROT_READ | PROT_WRITE, MAP_SHARED,
+				dev, 0);
+			if (vaddr == MAP_FAILED) {
+				printf("mmap failed\n");
+			} else {
+				snprintf(ffpath, sizeof(ffpath),
+					"%s/%s", file_path, info.file);
+
+				debug_port_write_append_sync(ffpath, vaddr, info.data_size);
+
+				munmap(vaddr, info.data_size);
+
+				continue;
+			}
+		}
+
+		ret = read(dev, buf, info.data_size);
+		if (ret) {
+			snprintf(ffpath, sizeof(ffpath),
+				"%s/%s", file_path, info.file);
+
+			debug_port_write_append_sync(ffpath, buf, info.data_size);
+		}
+
+	} while(1);
+
+	free(buf);
+
+	return 0;
+}
+
+void usage(void)
+{
+	printf("Usage:\n");
+	printf("vdec_debug -p <path> -d <dbg_level>\n");
+	printf("  -p, --path, create or specify the dump file path\n");
+	printf("  -d, --debug, print more log for debug\n");
+	printf("  -h, --help,  usage\n");
+	printf("\n");
+}
+
+static int mkdir_p(const char *path, mode_t mode)
+{
+	char tmp[512];
+	char *p = NULL;
+	size_t len;
+
+	if (!path) return -1;
+
+	len = strlen(path);
+	if (len >= sizeof(tmp)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	strcpy(tmp, path);
+
+	if (tmp[len - 1] == '/')
+		tmp[len - 1] = '\0';
+
+	for (p = tmp + 1; *p; p++) {
+		if (*p == '/') {
+			*p = '\0';
+			if (mkdir(tmp, mode) != 0) {
+				if (errno != EEXIST) {
+					return -1;
+				}
+			}
+			*p = '/';
 		}
 	}
 
-	dump_buf = (char *)malloc(MALLOC_BUF_SIZE);
-	if (dump_buf == NULL) {
-		printf("malloc failed\n");
-		close(dev_fd);
-		return 0;
+	if (mkdir(tmp, mode) != 0) {
+		if (errno != EEXIST) {
+			return -1;
+		}
 	}
+
+	return 0;
+}
+
+void file_path_set(void)
+{
+	if (file_path[0] == 0)
+		strcpy(file_path, "/data/tmp/");
+
+	if (access(file_path, F_OK) == 0)
+		printf("access path ok %s\n", file_path);
+	else {
+		if (mkdir_p(file_path, 0755) != 0) {
+			printf("mkdir failed %s\n", file_path);
+			return;
+		}
+		printf("create path ok %s\n", file_path);
+	}
+}
+
+static int parse_para(int argc, char *argv[])
+{
+	memset(file_path, 0, sizeof(file_path));
+
+	while (1) {
+		int idx;
+		int c;
+
+		c = getopt_long(argc, argv, short_opt, long_opt, &idx);
+
+		if (-1 == c)
+			break;
+
+		switch (c) {
+			case 0: /* getopt_long() flag */
+				break;
+			case 'c':
+				printf("todo: config\n");
+				break;
+
+			case 'p':
+				strncpy(file_path, optarg, sizeof(file_path) - 1);
+				printf("config file path %s\n", file_path);
+				break;
+			case 'd':
+				_in_debug = 1;
+				break;
+			case 'h':
+				usage();
+				return -1;
+			default:
+				usage();
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int vdec_debug_init(int *ver)
+{
+	int fd;
+	int version[2];
+	int ret;
+
+	fd = open("/dev/vdec_debug", O_RDWR);
+	if (fd < 0) {
+		fd = open("/sys/kernel/debug/vdec_profile/debug_port", O_RDWR);
+		if (fd < 0) {
+			printf("open device failed, error %d\n", errno);
+			return -1;
+		}
+	}
+
+	ret = ioctl(fd, VDEC_EXPORT_VERSION, version);
+	if (ret < 0) {
+		version[0] = 0;
+		version[1] = 0;
+		printf("ret %d, can get version, errno %d\n", ret, errno);
+	}
+	ver[0] = version[0];
+	ver[1] = version[1];
+
+	printf("VDEC_DEBUG DRIVER VERSION %d.%d\n", version[0], version[1]);
 
 	dev_status = 0;
 	signal(SIGCHLD, SIG_IGN);
@@ -322,13 +499,28 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 	signal(SIGQUIT, signal_handler);
 
-	mm_debug_port_get_data(dev_fd, dump_buf, MALLOC_BUF_SIZE);
+	return fd;
+}
 
-	if (dump_buf)
-		free(dump_buf);
+int main(int argc, char *argv[])
+{
+	int dev = -1;
 
-	if (dev_fd > 0)
-		close(dev_fd);
+	if (parse_para(argc, argv))
+		return -1;
+
+	file_path_set();
+
+	dev = vdec_debug_init(code_version);
+	if (dev < 0)
+		return -1;
+
+	if (code_version[0] == 1)
+		vdec_dbg_get_exported_data(dev);
+	else
+		vdec_dbg_get_data_v0(dev);
+
+	close(dev);
 
 	printf("exited\n");
 

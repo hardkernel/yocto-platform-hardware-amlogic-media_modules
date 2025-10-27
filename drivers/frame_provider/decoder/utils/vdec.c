@@ -129,6 +129,7 @@ static int keep_vdec_mem;
 static unsigned int debug_trace_num = 16 * 20;
 static int step_mode;
 static unsigned int clk_config;
+
 #define MAX_PRIORITY 100
 
 unsigned int fc_debug;
@@ -139,7 +140,6 @@ unsigned int checksum_start_count;
 char checksum_info[128] = "checksum info";
 char checksum_filename[128] = "checksum";
 u32 force_no_head_mode;
-
 
 u32 vdec_ge2d_debug = 0;
 uint dec_time_stat_flag;
@@ -198,6 +198,12 @@ u32 vdec_get_debug(void)
 }
 EXPORT_SYMBOL(vdec_get_debug);
 
+static int dump_es_enable;
+bool is_es_dump_enabled(int id)
+{
+	return (dump_es_enable & (1 << id));
+}
+EXPORT_SYMBOL(is_es_dump_enabled);
 
 int hevc_max_reset_count;
 EXPORT_SYMBOL(hevc_max_reset_count);
@@ -328,6 +334,7 @@ struct vdec_core_s {
 	u32 hevcb_cnt;
 	bool enable_sched_priority;
 	int max_priority;
+	u32 play_cnt;
 };
 
 struct prefix_s {
@@ -386,6 +393,11 @@ u32 count_ones(u32 n)
 	return count;
 }
 EXPORT_SYMBOL(count_ones);
+
+static u32 get_play_cnt(void)
+{
+	return vdec_core->play_cnt;
+}
 
 void register_frame_rate_uevent_func(vdec_frame_rate_event_func func)
 {
@@ -679,24 +691,66 @@ EXPORT_SYMBOL(vdec_data_release);
 
 #ifdef DEBUG_PORT
 
-dbg_data_wr debug_port_func_data_wr;
-dbg_info_up debug_port_func_info_up;
-EXPORT_SYMBOL(debug_port_func_data_wr);
-EXPORT_SYMBOL(debug_port_func_info_up);
+vdec_dbg_export vdec_dbg_export_func;
+EXPORT_SYMBOL(vdec_dbg_export_func);
 
-void vdec_debug_port_register(dbg_data_wr data_write, dbg_info_up info_update)
+void vdec_debug_port_register(vdec_dbg_export func)
 {
-	debug_port_func_data_wr = data_write;
-	debug_port_func_info_up = info_update;
+	vdec_dbg_export_func = func;
 }
 EXPORT_SYMBOL(vdec_debug_port_register);
 
 void vdec_debug_port_unregister(void)
 {
-	debug_port_func_data_wr = NULL;
-	debug_port_func_info_up = NULL;
+	vdec_dbg_export_func = NULL;
 }
 EXPORT_SYMBOL(vdec_debug_port_unregister);
+
+int vdec_dbg_phys_write(const ulong src, u32 size,
+	int vdec_id, const char *file_name_fmt, ...)
+{
+	char *file;
+	va_list args;
+	int ret = 0;
+
+	if (vdec_dbg_export_func) {
+		file = vzalloc(64);
+		if (file) {
+			va_start(args, file_name_fmt);
+			vsnprintf(file, 64, file_name_fmt, args);
+			va_end(args);
+			/* export with phys addr */
+			ret = vdec_dbg_export_func(file, (void *)src, size, 1, vdec_id);
+			vfree(file);
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(vdec_dbg_phys_write);
+
+int vdec_dbg_virt_write(const void *src, u32 size,
+	int vdec_id, const char *file_name_fmt, ...)
+{
+	char *file;
+	va_list args;
+	int ret = 0;
+
+	if (vdec_dbg_export_func) {
+		file = vzalloc(64);
+		if (file) {
+			va_start(args, file_name_fmt);
+			vsnprintf(file, 64, file_name_fmt, args);
+			va_end(args);
+			/* export with virt addr */
+			ret = vdec_dbg_export_func(file, src, size, 0, vdec_id);
+			vfree(file);
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(vdec_dbg_virt_write);
 #endif
 
 unsigned long vdec_canvas_lock(void)
@@ -2558,24 +2612,23 @@ int vdec_prepare_input(struct vdec_s *vdec, struct vframe_chunk_s **p)
 			SET_VREG_MASK(HEVC_STREAM_CONTROL, 7 << 4);
 		}
 #ifdef DEBUG_PORT
-		if (debug_port_func_data_wr) {
+		if (is_es_dump_enabled(vdec->id)) {
 			if (input->last_wp != (block->start + chunk->offset)) {
 				char *size_addr = vzalloc(64);
-				int ret = 0;
-
-				debug_port_func_data_wr((void *)(block->start + chunk->offset),
-					chunk->size, vdec->id, (1 << 16) | 3);
-
 				if (size_addr) {
-					ret = snprintf(size_addr, 64, "%d\n", chunk->size);
-					debug_port_func_data_wr(size_addr,
-						strlen(size_addr), vdec->id, 5);
+					snprintf(size_addr, 64, "%d\n", chunk->size);
+					vdec_dbg_virt_write(size_addr, strlen(size_addr), vdec->id,
+						"%d_%d_%d.sz", vdec->id, vdec->format, get_play_cnt());
 					vfree(size_addr);
 					size_addr = NULL;
 				}
+
+				vdec_dbg_phys_write((block->start + chunk->offset),
+					chunk->size, vdec->id, "%d_%d_%d_dump.es",
+					vdec->id, vdec->format, get_play_cnt());
 			}
-			input->last_wp = block->start + chunk->offset;
 		}
+		input->last_wp = block->start + chunk->offset;
 #endif
 		*p = chunk;
 		return chunk->size;
@@ -2740,18 +2793,19 @@ int vdec_prepare_input(struct vdec_s *vdec, struct vframe_chunk_s **p)
 			size = 0;
 		}
 #ifdef DEBUG_PORT
-		if (debug_port_func_data_wr) {
+		if (is_es_dump_enabled(vdec->id)) {
 			if (wp >= input->last_wp) {
-				debug_port_func_data_wr((void *)input->last_wp,
-					wp - input->last_wp,
-					vdec->id, (1 << 16) | 3);
+				vdec_dbg_phys_write(input->last_wp,
+					wp - input->last_wp, vdec->id,
+					"%d_%d_%d_dump.es", vdec->id, vdec->format, get_play_cnt());
 			} else {
-				debug_port_func_data_wr((void *)input->last_wp,
-					vdec->vbuf.buf_start + vdec->vbuf.buf_size - input->last_wp,
-					vdec->id, (1 << 16) | 3);
-				debug_port_func_data_wr((void *)vdec->vbuf.buf_start,
-					wp - vdec->vbuf.buf_start,
-					vdec->id, (1 << 16) | 3);
+				vdec_dbg_phys_write(input->last_wp,
+					(vdec->vbuf.buf_start + vdec->vbuf.buf_size - input->last_wp), vdec->id,
+					"%d_%d_%d_dump.es", vdec->id, vdec->format, get_play_cnt());
+
+				vdec_dbg_phys_write(vdec->vbuf.buf_start,
+					wp - vdec->vbuf.buf_start, vdec->id,
+					"%d_%d_%d_dump.es", vdec->id, vdec->format, get_play_cnt());
 			}
 		}
 #endif
@@ -3057,6 +3111,7 @@ void vdec_vframe_dirty(struct vdec_s *vdec, struct vframe_chunk_s *chunk)
 {
 	if (chunk) {
 		chunk->flag |= VFRAME_CHUNK_FLAG_CONSUMED;
+		vdec->input.last_wp = 0;
 	}
 	if (vdec_stream_based(vdec)) {
 		vdec->input.swap_needed = true;
@@ -3565,8 +3620,14 @@ int vdec_connect(struct vdec_s *vdec)
 			&vdec_core->connected_vdec_list);
 	}
 
+	vdec_core->play_cnt++;
+
 	vdec_core_unlock(vdec_core, flags);
 	mutex_unlock(&vdec_mutex);
+
+	if (dump_es_enable)
+		pr_info("%s, play_cnt %d\n",
+			__func__, vdec_core->play_cnt);
 
 	up(&vdec_core->sem);
 
@@ -8033,6 +8094,50 @@ static ssize_t axi_monitor_store(KV_CLASS_CONST struct class *class,
 	return size;
 }
 
+ssize_t dump_es_store(KV_CLASS_CONST struct class *class,
+		KV_CLASS_ATTR_CONST struct class_attribute *attr,
+		const char *buf, size_t size)
+{
+	int ret = -1;
+	int on_off, id;
+
+	ret = sscanf(buf, "%d %d", &id, &on_off);
+	if (ret < 0) {
+		pr_info("%s, parse failed\n", buf);
+		return size;
+	}
+	if (id >= MAX_INSTANCE_MUN) {
+		pr_info("%d out of max vdec id\n", id);
+		return size;
+	}
+	if (on_off)
+		dump_es_enable |= (1 << id);
+	else
+		dump_es_enable &= ~(1 << id);
+
+	pr_info("set vdec.%d instance es dump %s\n",
+		id, on_off ? "enable":"disable");
+
+	return size;
+}
+
+ssize_t dump_es_show(KV_CLASS_CONST struct class *class,
+		KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	int i;
+	char *pbuf = buf;
+
+	for (i = 0; i < MAX_INSTANCE_MUN; i++) {
+		pbuf += sprintf(pbuf,
+			"vdec.%d\t dump: %s\n", i,
+			(dump_es_enable & (0x01 << i))?"enabled":"--");
+	}
+	pbuf += sprintf(pbuf,
+		"\nUsage:\techo [id]  [1:on/0:off] > dump_es\n\n");
+
+	return pbuf - buf;
+}
+
 static CLASS_ATTR_RO(amrisc_regs);
 static CLASS_ATTR_RO(dump_trace);
 static CLASS_ATTR_RO(clock_level);
@@ -8066,6 +8171,7 @@ static CLASS_ATTR_RO(level_idc);
 static CLASS_ATTR_RO(version);
 static CLASS_ATTR_RO(dos_dev_info);
 static CLASS_ATTR_RW(axi_monitor);
+static CLASS_ATTR_RW(dump_es);
 
 static struct attribute *vdec_class_attrs[] = {
 	&class_attr_amrisc_regs.attr,
@@ -8101,6 +8207,7 @@ static struct attribute *vdec_class_attrs[] = {
 	&class_attr_version.attr,
 	&class_attr_dos_dev_info.attr,
 	&class_attr_axi_monitor.attr,
+	&class_attr_dump_es.attr,
 	NULL
 };
 

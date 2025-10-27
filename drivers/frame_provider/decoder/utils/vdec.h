@@ -1033,10 +1033,23 @@ void vdec_up(struct vdec_s *vdec);
 
 #define DEBUG_PORT
 #ifdef DEBUG_PORT
-void vdec_debug_port_register(dbg_data_wr data_write, dbg_info_up info_update);
+typedef int (*vdec_dbg_export)(char *, const void *, int, int, int);
+
+extern vdec_dbg_export vdec_dbg_export_func;
+
+void vdec_debug_port_register(vdec_dbg_export write);
 
 void vdec_debug_port_unregister(void);
 
+int vdec_dbg_phys_write(const ulong src, u32 size, int vdec_id, const char *fmt, ...);
+
+int vdec_dbg_virt_write(const void *src, u32 size, int vdec_id, const char *fmt, ...);
+
+#endif
+
+bool is_es_dump_enabled(int id);
+
+/* decoder debug report */
 ssize_t dump_decoder_state(char *buf);
 
 ssize_t dump_vdec_blocks(char *buf);
@@ -1045,7 +1058,7 @@ ssize_t dump_vdec_chunks(char *buf);
 
 ssize_t dump_vdec_core(char *buf);
 
-#endif
+
 
 u64 vdec_get_stream_size(struct vdec_s *vdec);
 

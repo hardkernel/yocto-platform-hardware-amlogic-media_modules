@@ -12,12 +12,13 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
-#include <linux/kallsyms.h>
 #include <linux/nmi.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/poll.h>
-#include <linux/uaccess.h>
+#include <linux/delay.h>
+#include <linux/compat.h>
+
 
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 
@@ -26,132 +27,369 @@
 #include "frame_check.h"
 #include <linux/crc32.h>
 
+/*
+before    : v1.0
+2025-10-25: v2.0
+*/
+#define VDEC_DEBUG_DRV_VERSION  (1)
+#define VDEC_DEBUG_SUB_VERSION  (0)
 
-static struct dentry *dec_debug_entry;
-static struct amvdec_debug_port_t *dec_debug_port;
+#define DEVICE_NAME "vdec_debug"
+#define CLASS_NAME  "vdec_debug"
+
+#define LPRINT0
+#define LPRINT1(...)        printk(__VA_ARGS__)
+
+#define ERRP(con, rt, p, ...) do {    \
+    if (con) {                        \
+        LPRINT##p(__VA_ARGS__);       \
+        rt;                           \
+    }                                 \
+} while(0)
 
 
-#define pr_dbg_port(port, mask, ...) do {				\
-			if ((port && (port->debug_flag & mask)) ||	\
-				(mask == PORT_VDBG_FLAG_ERR))			\
-				printk("[VDBG] "__VA_ARGS__);			\
-		} while(0)
+static struct vdec_debug_export_core *mcore;
 
+static u32 dec_debug_buf_size;
+module_param(dec_debug_buf_size, uint, 0664);
 
-static int debug_port_set_yuv_dump(struct amvdec_debug_port_t *port, int vdec_id, int pic_start, u32 pic_num)
+static u32 debug;
+module_param(debug, uint, 0664);
+
+#define PR_TEST(fmt, args...)  {if (debug) pr_info(fmt, ##args);}
+
+static bool is_vdec_releasing(void)
 {
 	struct vdec_s *vdec;
+	int id = mcore->export->vdec_id;
 
-	vdec = vdec_get_vdec_by_id(vdec_id);
+	if (id < 0)
+		return false;
+
+	vdec = vdec_get_vdec_by_id(id);
 	if (vdec) {
-		struct pic_dump_t *dmp = &vdec->vfc.pic_dump;
+		if (vdec->next_status == VDEC_STATUS_DISCONNECTED)
+			return true;
+	}
 
-		/* config created vdec dump yuv */
-		dmp->start    = pic_start;
-		dmp->num      = pic_num;
-		dmp->end      = pic_start + pic_num;
-		dmp->dump_cnt = 0;
-		dmp->yuv_fp   = NULL;   //no write file in driver
-		dmp->buf_addr = port->buf_vaddr;
-		dmp->buf_size = port->buf_size;
+	return false;
+}
 
-		vdec->vfc.id  = vdec_id;
-		vdec->vfc.enable |= 0x1;
+static void vdec_export_ready_notify(void)
+{
+	struct vdec_dbg_export_s *export = mcore->export;
+
+	if (export->cnt_ready || atomic_read(&export->ue_ready_flag))
+		wake_up_interruptible(&mcore->poll_wait);
+}
+
+static struct vdec_dbg_local_buf *local_buf_init(u32 size)
+{
+	struct vdec_dbg_local_buf *buf;
+
+	if (!size)
+		return NULL;
+
+	buf = (struct vdec_dbg_local_buf *)vzalloc(sizeof(struct vdec_dbg_local_buf));
+	if (!buf)
+		return NULL;
+
+	if (dec_debug_buf_size) {
+		size = dec_debug_buf_size;
+		pr_info("%s, force local buf 0x%x\n", __func__, size);
+	}
+
+	size = round_up(size, PAGE_SIZE);
+
+	buf->phyadr = codec_mm_alloc_for_dma(
+			"VDEC_DEBUG",
+			size / PAGE_SIZE,
+			4 + PAGE_SHIFT,
+			(CODEC_MM_FLAGS_CMA_FIRST |
+			CODEC_MM_FLAGS_DMA |
+			CODEC_MM_FLAGS_FOR_VDECODER));
+	if (!buf->phyadr)
+		pr_err("%s, alloc buf phy failed\n", __func__);
+	else
+		buf->start = codec_mm_vmap(buf->phyadr, size);
+
+	if (!buf->start) {
+		if (buf->phyadr)
+			codec_mm_free_for_dma("VDEC_DEBUG", buf->phyadr);
+		buf->phyadr = 0;
+		buf->start = (char *)vzalloc(size);
+		if (!buf->start) {
+			pr_err("%s, alloc local buf failed\n", __func__);
+			vfree(buf);
+			return NULL;
+		}
+	}
+	buf->size = size;
+	buf->rp = buf->start;
+	buf->wp = buf->start;
+	buf->last_wp = buf->wp;
+	buf->end = buf->start + size;
+	pr_info("%s, vmaped buf %px, phy %lx, size %x\n", __func__,
+		buf->start, buf->phyadr, size);
+
+	mutex_init(&buf->lock);
+	init_waitqueue_head(&buf->wqt);
+
+	return buf;
+}
+
+static void local_buf_release(struct vdec_dbg_local_buf *buf)
+{
+	if (!buf)
+		return;
+
+	if (buf->phyadr) {
+		if (buf->start) {
+			codec_mm_unmap_phyaddr(buf->start);
+			buf->start = NULL;
+		}
+		codec_mm_free_for_dma("VDEC_DEBUG", buf->phyadr);
+		buf->phyadr = 0;
 	} else {
-		char cmd_buf[64] = {0};
-
-		snprintf(cmd_buf, sizeof(cmd_buf), "%d %d %d\n", vdec_id, pic_start, pic_num);
-		dump_yuv_store(NULL, NULL, cmd_buf, sizeof(cmd_buf));
+		if (buf->start)
+			vfree(buf->start);
+		buf->start = NULL;
 	}
 
-	pr_info("%s, config dump yuv end. %d, %d, %d\n", __func__, vdec_id, pic_start, pic_num);
+	buf->size = 0;
+	buf->rp = NULL;
+	buf->wp = NULL;
+	buf->end = NULL;
 
-	return 0;
+	vfree(buf);
 }
 
-static int debug_port_set_crc_dump(struct amvdec_debug_port_t *port, int vdec_id, bool on_off)
+static void local_buf_reset(struct vdec_dbg_local_buf *buf)
 {
-	char cmd_buf[64] = {0};
+	mutex_lock(&buf->lock);
+	buf->rp = buf->start;
+	buf->wp = buf->start;
+	buf->end = buf->start + buf->size;
+	buf->last_wp = buf->start;
+	mutex_unlock(&buf->lock);
 
-	snprintf(cmd_buf, sizeof(cmd_buf), "%d %d\n", vdec_id, on_off);
-	frame_check_store(NULL, NULL, cmd_buf, sizeof(cmd_buf));
-
-	return 0;
+	pr_info("%s\n", __func__);
 }
 
-static int debug_port_set_aux_dump(struct amvdec_debug_port_t *port, int vdec_id, bool on_off)
+static u32 local_buf_remain(struct vdec_dbg_local_buf *buf)
 {
-	char cmd_buf[64] = {0};
+	int remain;
 
-	snprintf(cmd_buf, sizeof(cmd_buf), "%d %d\n", vdec_id, on_off);
-	aux_check_store(NULL, NULL, cmd_buf, sizeof(cmd_buf));
+	mutex_lock(&buf->lock);
+	if (buf->rp > buf->wp)
+		remain = buf->rp - buf->wp;
+	else
+		remain = buf->rp + buf->size - buf->wp;
+	mutex_unlock(&buf->lock);
 
-	return 0;
+	return remain;
 }
 
-
-static int debug_port_set_size_dump(struct amvdec_debug_port_t *port, int vdec_id, bool on_off)
+static int local_buf_space_wait(struct vdec_dbg_local_buf *buf, u32 size)
 {
+	u32 remain;
+	u32 timeout_cnt = 0;
 
-	return 0;
-}
-
-static int debug_port_set_es_dump(struct amvdec_debug_port_t *port, int vdec_id, int mode)
-{
-
-	return 0;
-}
-
-int debug_port_debug_config(struct amvdec_debug_port_t *port, ulong arg)
-{
-	int ret = 0;
-	struct debug_config_param param;
-
-	if (copy_from_user((void *)&param, (void *)arg,
-		sizeof(struct debug_config_param)))
-		return -EFAULT;
-
-	switch (param.type) {
-	case TYPE_YUV:
-		/* coverity[underflow] */
-		debug_port_set_yuv_dump(port, param.id, param.pic_start, param.pic_num);
-		break;
-	case TYPE_CRC:
-		debug_port_set_crc_dump(port, param.id, 1);
-		break;
-	case TYPE_ES:
-		debug_port_set_es_dump(port, param.id, param.mode);
-		break;
-	case TYPE_AUX:
-		debug_port_set_aux_dump(port, param.id, 1);
-		break;
-	case TYPE_SIZE:
-		debug_port_set_size_dump(port, param.id, 1);
-		break;
-	default:
-		pr_info("%s, can not find debug port config type\n", __func__);
-		break;
+	if (size > buf->size) {
+		pr_err("%s, buf_size %x, data %x\n",
+			__func__, buf->size, size);
+		return -ENOMEM;
 	}
 
-	return ret;
+	/* wait for buf size to write data */
+	do {
+		remain = local_buf_remain(buf);
+
+		vdec_export_ready_notify();
+
+		if (is_vdec_releasing())
+			return -EAGAIN;
+
+		if (!wait_event_interruptible_timeout(buf->wqt, (remain >= size),
+				msecs_to_jiffies(50))) {
+			if (++timeout_cnt > 2) {
+				pr_err("%s timeout, size 0x%x < 0x%x\n",
+					__func__, remain, size);
+				timeout_cnt = 0;
+				return -ENOMEM;
+			}
+		}
+	} while (remain < size);
+
+	return 0;
 }
 
-static u32 copy_phys_to_buf(char *to, ulong from, u32 size)
+static int local_buf_status(struct vdec_dbg_local_buf *buf)
+{
+	mutex_lock(&buf->lock);
+	if ((buf->wp < buf->start) || (buf->wp > buf->end) ||
+		(buf->rp < buf->start) || (buf->rp > buf->end) ) {
+			pr_err("%s err, buf start %px, end %px, rp %px, wp %px \n",
+				__func__, buf->start, buf->end, buf->rp, buf->wp);
+			mutex_unlock(&buf->lock);
+			return -EINVAL;
+	}
+	mutex_unlock(&buf->lock);
+
+	return 0;
+}
+
+/* BUF_TYPE: VIRT, PHYS USER */
+static u32 local_buf_write(struct vdec_dbg_local_buf *buf,
+	const void *data, u32 size, COPY_FUNC copy)
+{
+	u32 left, total = 0, ret = 0;
+	char *wp = buf->wp;
+	void *src = (void *)data;
+
+	if (wp < buf->rp) {
+		if (buf->rp - wp < size) {
+			pr_err("%s, over write wp %px, rp %px, size 0x%x\n",
+				__func__, wp, buf->rp, size);
+			return total;
+		}
+		ret = copy(wp, src, size);
+		ERRP(ret < size, return 0, 1, "%s failed\n", __func__);
+		wp += size;
+		total = size;
+	} else {
+		left = buf->end - wp;   // space from wp to buffer end
+
+		if (left < size) {
+			// first chunk till buffer end
+			ret = copy(wp, src, left);
+			ERRP(ret < left, return 0, 1, "%s failed\n", __func__);
+			total = left;
+
+			wp = buf->start;
+			src += left;
+			size -= left;
+
+			// second chunk from buffer start
+			ret = copy(wp, src, size);
+			ERRP(ret < size, goto wr_end, 1, "%s failed\n", __func__);
+			wp += size;
+			total += size;
+		} else {
+			ret = copy(wp, src, size);
+			ERRP(ret < size, return 0, 1, "%s failed\n", __func__);
+			wp += size;
+			total = size;
+		}
+	}
+
+wr_end:
+	buf->last_wp = buf->wp;
+	buf->wp = wp;
+
+	return total;
+}
+
+static int local_buf_rp_update(struct vdec_dbg_local_buf *buf, u32 size)
+{
+	mutex_lock(&buf->lock);
+
+	if ((buf->rp + size) > buf->end)
+		buf->rp = buf->rp + size - buf->end + buf->start;
+	else
+		buf->rp = buf->rp + size;
+
+	mutex_unlock(&buf->lock);
+
+	return 0;
+}
+
+static unsigned long vdec_export_packet_lock(struct vdec_dbg_export_s *export)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&export->lock, flags);
+
+	return flags;
+}
+
+static void vdec_export_packet_unlock(struct vdec_dbg_export_s *export, unsigned long flags)
+{
+	spin_unlock_irqrestore(&export->lock, flags);
+}
+
+static struct vdec_dbg_export_u *vdec_export_idle_unit_get(struct vdec_dbg_export_s *export)
+{
+	struct vdec_dbg_export_u *ue = NULL, *tmp;
+	ulong flags;
+
+	flags = vdec_export_packet_lock(export);
+	if (!list_empty(&export->head_recycle)) {
+		list_for_each_entry_safe(ue, tmp, &export->head_recycle, list) {
+			list_del(&ue->list);
+			break;
+		}
+		export->cnt_recycle--;
+		memset(&ue->pusr, 0, sizeof(ue->pusr));
+	}
+	vdec_export_packet_unlock(export, flags);
+
+	return ue;
+}
+
+static int vdec_export_local_buf_packet(struct vdec_dbg_export_s *export,
+	struct vdec_dbg_local_buf *buf, char *file, int size)
+{
+	struct vdec_dbg_export_u *ue;
+	struct vdec_dbg_ex_usr *pusr;
+	ulong flags;
+
+	ue = vdec_export_idle_unit_get(export);
+	if (!ue) {
+		ue = vzalloc(sizeof(struct vdec_dbg_export_u));
+		if (!ue) {
+			pr_err("%s, alloc node failed\n", __func__);
+			return -ENOMEM;
+		}
+	}
+
+	flags = vdec_export_packet_lock(export);
+	pusr = &ue->pusr;
+	pusr->header	= PACKET_HEADER;
+	pusr->id		= export->total;
+	pusr->type		= DEV_READ_LOCAL;
+	pusr->data_size = size;
+	pusr->offset	= buf->last_wp - buf->start;
+	pusr->addr_h	= 0;
+	pusr->addr_l	= 0;
+#if VDEC_EXPORT_VERIFY
+	pusr->crc		= crc32_le(0, buf->last_wp, size);
+#endif
+	memcpy(pusr->file, file, 64);
+	list_add_tail(&ue->list, &export->head_ready);
+	export->cnt_ready++;
+	export->total++;
+	vdec_export_packet_unlock(export, flags);
+
+	PR_TEST("vdec_export_non_block, id %d, size %x, offset %x, file %s\n",
+		pusr->id, size, pusr->offset, file);
+
+	return 0;
+}
+
+/* non-block mode, copy to local buf */
+static u32 copy_phys_to_buf(char *to, const void *from, u32 size)
 {
 	u8 *virt = NULL;
 	u32 map_size = SZ_1M;
 	u32 stride = SZ_1M;
 	u32 res = size;
-	dos_addr_t phy = from;
+	dos_addr_t phy = (dos_addr_t)from;
 	u32 total = 0;
 	int retry = 0;
 
 	do {
-		if (res > map_size)
-			stride = map_size;
-		else
-			stride = res;
-
+		stride = (res > map_size)? map_size : res;
 		do {
 			virt = codec_mm_vmap(phy, stride);
 			if (!virt) {
@@ -177,286 +415,434 @@ static u32 copy_phys_to_buf(char *to, ulong from, u32 size)
 	return total;
 }
 
-enum {
-	BUF_TYPE_VIRT,
-	BUF_TYPE_PHYS,
-	BUF_TYPE_USER,
-	BUF_TYPE_MAX
-};
-
-static int common_copy(void *to, const void *from, ulong n, int type)
+static u32 copy_virt_to_buf(char *to, const void *from, u32 size)
 {
-	int ret = n;
+	memcpy(to, from, size);
 
-	if (likely(type == BUF_TYPE_VIRT)) {
-		memcpy(to, from, n);
-	} else if (type == BUF_TYPE_PHYS) {
-		ret = copy_phys_to_buf(to, (ulong)from, n);
-	} else if (type == BUF_TYPE_USER) {
-		ret = n - copy_from_user(to, from, n);
-	} else
-		ret = 0;
+	return size;
+}
+
+static int vdec_export_non_block(char *file, const void *src, int size, int adr_type)
+{
+	int ret = 0;
+	int res = 0;
+	struct vdec_debug_export_core *core = mcore;
+	COPY_FUNC copy;
+
+	if ((!src) || (!size))
+		return 0;
+
+	ret = local_buf_space_wait(core->buf, size);
+	if (ret < 0)
+		return ret;
+
+	if (adr_type == PHYS_ADDR_TYPE)
+		copy = copy_phys_to_buf;
+	else if (adr_type == VIRT_ADDR_TYPE)
+		copy = copy_virt_to_buf;
+	else {
+		pr_err("%s, src addr is %s <%px>\n", __func__,
+			access_ok(src, size)? "userbuf": "unknown", src);
+		return -1;
+	}
+
+	res = local_buf_write(core->buf, src, size, copy);
+	if (!res) {
+		res = local_buf_write(core->buf, src, size, copy);
+		if (!res)
+			return -ENOMEM;
+	}
+
+	ret = local_buf_status(core->buf);
+	if (ret < 0) {
+		local_buf_reset(core->buf);
+		return -EFAULT;
+	}
+
+	vdec_export_local_buf_packet(core->export, core->buf, file, res);
+
+	vdec_export_ready_notify();
+
+	return 0;
+}
+
+
+static int vdec_export_block(char *file, const char *src, u32 size, int adr_type)
+{
+	struct vdec_dbg_export_s *export = mcore->export;
+	struct vdec_dbg_ex_usr *pusr = &export->ue_block.pusr;
+	ulong flags;
+	u64 addr = (u64)(uintptr_t)src;
+	u32 timeout_cnt = 0;
+
+	flags = vdec_export_packet_lock(export);
+	pusr->header    = PACKET_HEADER;
+	pusr->id        = export->total;
+	pusr->data_size = size;
+	pusr->offset    = 0;
+	pusr->addr_h    = upper_32_bits(addr);
+	pusr->addr_l    = lower_32_bits(addr);
+	if (adr_type == PHYS_ADDR_TYPE) {
+		pusr->type  = DEV_READ_PHYS;
+		pusr->crc   = 0;
+	} else {
+		pusr->type  = DEV_READ_VIRT;
+#if VDEC_EXPORT_VERIFY
+		pusr->crc   = crc32_le(0, src, size);
+#endif
+	}
+	memcpy(pusr->file, file, 64);
+	export->total++;
+	atomic_set(&export->ue_ready_flag, 1);
+	vdec_export_packet_unlock(export, flags);
+
+	PR_TEST("%s, id %d, size %x, addr %px, file %s\n",
+		__func__, pusr->id, size, src, file);
+
+	vdec_export_ready_notify();
+
+	while (atomic_read(&export->ue_ready_flag)) {
+		if (!wait_event_interruptible_timeout(export->wblk,
+				(!atomic_read(&export->ue_ready_flag)),
+				msecs_to_jiffies(50))) {
+
+			if ((atomic_read(&export->ue_ready_flag) < 2) &&
+				is_vdec_releasing()) {
+				atomic_set(&export->ue_ready_flag, 0);
+				timeout_cnt = 0;
+			}
+
+			if (++timeout_cnt > 100) {
+				pr_err("%s timeout, ready flag %d, dump failed\n",
+					__func__, atomic_read(&export->ue_ready_flag));
+				timeout_cnt = 50;
+				return -EBUSY;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int vdec_export_data(char *file, const void *src, int size,
+	int addr_type, int vdec_id)
+{
+	struct vdec_debug_export_core *core = mcore;
+
+	if (!core->busy_flag)
+		pr_warn("WARN: please Launch vdec_debug app\n");
+
+	core->export->vdec_id = vdec_id;
+
+	if (size < (core->buf->size >> 3))
+		vdec_export_non_block(file, src, size, addr_type);
+	else
+		vdec_export_block(file, src, size, addr_type);
+
+	return 0;
+}
+
+static ssize_t vdec_dbg_export_write(struct file *file,
+	const char __user *buf, size_t count, loff_t *offset)
+{
+	return count;
+}
+
+static __poll_t vdec_dbg_export_poll(struct file *file,
+		poll_table *wait_table)
+{
+	struct vdec_debug_export_core *core =
+		(struct vdec_debug_export_core *)file->private_data;
+	struct vdec_dbg_export_s *export = core->export;
+
+	if (core->busy_flag < 0)
+		return POLLIN | POLLRDNORM;
+
+	if (!export->cnt_ready && !atomic_read(&export->ue_ready_flag)) {
+		poll_wait(file, &core->poll_wait, wait_table);
+		return 0;
+	}
+	PR_TEST("poll wait done, packcnt %d, ue ready %d\n",
+		export->cnt_ready, atomic_read(&export->ue_ready_flag));
+
+	return POLLIN | POLLRDNORM;
+
+}
+
+static int vdec_dbg_export_unit_recycle(struct vdec_dbg_export_s *export)
+{
+	unsigned long flags;
+	struct vdec_dbg_export_u *ue = export->cur_unit;
+
+	flags = vdec_export_packet_lock(export);
+
+	list_add_tail(&ue->list, &export->head_recycle);
+	export->cnt_recycle++;
+	export->cur_unit = NULL;
+
+	vdec_export_packet_unlock(export, flags);
+
+	return 0;
+}
+
+static u32 copy_phys_to_user(char __user *to, unsigned long padr, u32 size)
+{
+	u8 *adr;
+	u32 len = size;
+	u32 retry = 0;
+	int ret;
+	u32 sum = 0;;
+
+	while (size) {
+		len = (size > SZ_1M) ? SZ_1M : size;
+
+		adr = codec_mm_vmap(padr, len);
+		if (!adr) {
+			retry++;
+			if (retry > 10)
+				break;
+			continue;
+		}
+		retry = 0;
+
+		ret = copy_to_user(to, adr, len);
+		codec_mm_unmap_phyaddr(adr);
+
+		if (ret) {
+			u32 copied = len - ret;
+			sum += copied;
+			break;
+		}
+
+		sum += len;
+		padr += len;
+		to += len;
+		size -= len;
+	}
+
+	return sum;
+}
+
+static ssize_t vdec_dbg_export_read(struct file *file,
+	char __user *usr_buf, size_t count, loff_t *offset)
+{
+	struct vdec_debug_export_core *core =
+		(struct vdec_debug_export_core *)file->private_data;
+	struct vdec_dbg_export_s *export = core->export;
+	struct vdec_dbg_ex_usr *pusr = &export->cur_unit->pusr;
+	int res, ret = 0;
+	ulong src;
+
+	if (core->busy_flag < 0)
+		return 0;
+
+	if (!pusr)
+		return -EFAULT;
+
+	src = (ulong)(((u64)pusr->addr_l) | ((u64)pusr->addr_h << 32));
+
+	if (pusr->type == DEV_READ_PHYS) {
+		atomic_set(&export->ue_ready_flag, 3);
+
+		ret = copy_phys_to_user(usr_buf, src, pusr->data_size);
+
+		PR_TEST("%s, phys %lx, id %d, size %x, copied %x\n",
+			__func__, src, pusr->id, pusr->data_size, ret);
+
+		if (ret != pusr->data_size)
+			pr_warn("%s, copied %x less than data size %x\n",
+				__func__, ret, pusr->data_size);
+
+		goto ret_copy;
+	} else if (pusr->type == DEV_READ_VIRT) {
+		atomic_set(&export->ue_ready_flag, 3);
+
+		res = copy_to_user(usr_buf, (char *)src, pusr->data_size);
+		ret = pusr->data_size - res;
+
+		PR_TEST("%s, virt %lx, id %d, size %x, copied %x\n",
+			__func__, src, pusr->id, pusr->data_size, ret);
+
+		if (res)
+			pr_warn("%s, copied %x less than size %x\n",
+				__func__, pusr->data_size - res, pusr->data_size);
+
+		goto ret_copy;
+	} else if (pusr->type == DEV_READ_LOCAL) {
+		struct vdec_dbg_local_buf *buf = core->buf;
+		char *read_pos;
+		u32 read_size;
+
+		if (pusr->offset < buf->size) {
+			read_pos = buf->start + pusr->offset;
+
+			PR_TEST("%s, id %d, count %zx, rp %px, offset %ux\n",
+				__func__, pusr->id, count, buf->rp, pusr->offset);
+
+			if (pusr->data_size > (buf->end - read_pos)) {
+				read_size = buf->end - read_pos;
+				res = copy_to_user(usr_buf, read_pos, read_size);
+				if (!res)
+					res = copy_to_user(usr_buf + read_size, buf->start, pusr->data_size - read_size);
+			} else
+				res = copy_to_user(usr_buf, buf->start + pusr->offset, pusr->data_size);
+
+			ret = pusr->data_size - res;
+		}
+		if (ret && (ret == pusr->data_size)) {
+
+			local_buf_rp_update(buf, pusr->data_size);
+
+			wake_up_interruptible(&buf->wqt);
+		} else
+			pr_warn("%s failed, recycle directly\n", __func__);
+
+		memset(pusr, 0, sizeof(struct vdec_dbg_ex_usr));
+
+		vdec_dbg_export_unit_recycle(export);
+	}
+
+	return ret;
+
+ret_copy:
+	memset(pusr, 0, sizeof(struct vdec_dbg_ex_usr));
+	export->cur_unit = NULL;
+	atomic_set(&export->ue_ready_flag, 0);
+	wake_up_interruptible(&export->wblk);
 
 	return ret;
 }
 
-static int port_packet_data_write(struct amvdec_debug_port_t *port,
-	struct port_data_packet *pkt, const void *data_buf, int buf_type)
-{
-	u32 ret;
-	u32 plen = sizeof(struct port_data_packet);
-	u32 dlen = pkt->data_size;
-	u32 pad_size = PADING_SIZE - plen;
-	char *wp = port->wp;
-
-#if 0
-	if (port->rp > port->wp) {
-		if (port->rp - port->wp < total_size)
-			return -1;
-	} else {
-		if (port->buf_vaddr + port->buf_size - port->wp < plen) {
-			if (port->rp - port->buf_vaddr < total_size)
-				return -1;
-		} else if (port->rp + port->buf_size - port->wp < total_size)
-			return -1;
-	}
-#endif
-	if (port->rp <= wp) {
-		u32 left = port->buf_vaddr + port->buf_size - wp;
-
-		if (left < (dlen + PADING_SIZE)) {
-			if (left <= plen) {
-				memset(wp, 0, left);
-				wp = port->buf_vaddr;
-			} else {
-				memcpy(wp, pkt, plen);
-				wp += plen;
-				left -= plen;
-
-				if (left >= dlen) {
-					ret = common_copy(wp, data_buf, dlen, buf_type);
-					ERRP(ret < dlen, return 0, 1, "%s failed\n", __func__);
-					left -= dlen;
-					wp += dlen;
-					if (left)
-						memset(wp, 0, left);
-
-					pad_size -= left;
-					wp = port->buf_vaddr + pad_size;
-				} else {
-					ret = common_copy(wp, data_buf, left, buf_type);
-					ERRP(ret < left, return 0, 1, "%s failed\n", __func__);
-					wp = port->buf_vaddr;   //update wp to buf start
-
-					ret = common_copy(wp, data_buf + left, dlen - left, buf_type);
-					ERRP(ret < dlen - left, return 0, 1, "%s failed\n", __func__);
-					wp += (ret + pad_size);
-				}
-				goto success_wr;
-			}
-		}
-	}
-
-	memcpy(wp, pkt, plen);
-	ret = common_copy(wp + plen, data_buf, dlen, buf_type);
-	ERRP(ret < dlen, return 0, 1, "%s failed\n", __func__);
-	wp += (dlen + PADING_SIZE);
-success_wr:
-	port->wp = wp;
-	if (pad_size)
-		memset(wp - pad_size, 0, pad_size);
-
-	port->packet_cnt++;
-	return 0;
-}
-
-static bool is_vdec_releasing(int id)
-{
-	struct vdec_s *vdec;
-
-	vdec = vdec_get_vdec_by_id(id);
-	if (vdec) {
-		if (vdec->next_status == VDEC_STATUS_DISCONNECTED)
-			return true;
-	}
-
-	return false;
-}
-
-/*
-@data_buf : data source;
-@data_size: data size to write
-@id       : vdec id
-@type     : [bit 00 ~ 15] data type;
-            [bit 16 ~ 31] dta buf type, 0 vbuf, 1 phybuf, 2 userbuf;
-*/
-static int debug_port_write_data(const void *data_buf, int data_size,
-	int id, int type)
-{
-	struct amvdec_debug_port_t *port = dec_debug_port;
-	struct port_data_packet pkt;
-	u32 port_dat_size;
-	u32 port_buf_size;
-	int ret, timeout_cnt = 0;
-	int enable_mask = (1 << (type & 0xffff));
-
-	if ((!data_buf) || (!data_size) || (id > MAX_INSTANCE_NUM - 1))
-		return 0;
-
-	if ((port->enable[id] & enable_mask) == 0)
-		return 0;
-
-	port_dat_size = data_size + PADING_SIZE;
-	if (port_dat_size > port->buf_size) {
-		pr_err("%s, data size %x > buf_size %x\n",
-			__func__, port_dat_size, port->buf_size);
-		return -ENOMEM;
-	}
-
-	do {
-		mutex_lock(&port->mlock);
-		if (port->rp > port->wp)
-			port_buf_size = port->rp - port->wp;
-		else {
-			if ((port->buf_vaddr + port->buf_size - port->wp) <= sizeof(pkt))
-				port_buf_size = port->rp - port->buf_vaddr;  //discard less bytes
-			else
-				port_buf_size = port->rp + port->buf_size - port->wp;
-		}
-		mutex_unlock(&port->mlock);
-
-		if (port->packet_cnt)
-			wake_up_interruptible(&port->poll_wait);
-
-		if (is_vdec_releasing(id)) {
-			pr_info("debug_port: vdec.%d releasing, exit\n", id);
-			return 0;
-		}
-
-		ret = wait_event_interruptible_timeout(port->wait_data_done,
-			(port_buf_size >= port_dat_size), msecs_to_jiffies(25));
-		if (!ret) {
-			if (++timeout_cnt > 10) {
-				//port->fatal_error |= DEBUG_PORT_FATAL_ERROR_NOMEM;
-				pr_err("%s, no buf to wr sz 0x%x, buf_sz 0x%x, packcnt %d\n",
-					__func__, port_dat_size, port_buf_size, port->packet_cnt);
-				timeout_cnt = 0;
-			}
-		}
-
-	} while (port_buf_size < port_dat_size);
-
-	mutex_lock(&port->mlock);
-	pkt.header    = PACKET_HEADER;
-	pkt.id        = id;
-	pkt.type      = type & 0xffff;
-	pkt.data_size = data_size;
-	pkt.crc       = 0;
-
-	port_packet_data_write(port, &pkt, data_buf, ((type >> 16) & 0xf));
-	mutex_unlock(&port->mlock);
-
-	if (port->wp > port->buf_vaddr + port->buf_size) {
-		pr_err("%s, wp error\n", __func__);
-		port->debug_flag |= PORT_VDBG_FLAG_DBG;
-	}
-
-	if (port->debug_flag & PORT_VDBG_FLAG_DBG) {
-		pr_info("write: id %d, type %x, data_size 0x%x, packcnt %d\n",
-			id, type, data_size, port->packet_cnt);
-		pr_info("write: rp %px, wp %px\n", port->rp, port->wp);
-	}
-
-	wake_up_interruptible(&port->poll_wait);
-
-	return 0;
-}
-
-static int debug_port_update_vinfo(int id, int format, struct vframe_s *vf)
-{
-	struct port_vdec_info info;
-
-	info.id = id;
-	info.format = format;
-	info.double_write = 0;
-	info.stream_w = vf->canvas0_config[0].width;
-	info.stream_h = vf->canvas0_config[0].height;
-	info.dw_w     = vf->width;
-	info.dw_h     = vf->height;
-	info.plane_num = vf->plane_num;
-	info.bitdepth = vf->bitdepth;
-	info.is_interlace = (vf->type & VIDTYPE_INTERLACE_BOTTOM) ? 1 : 0;
-
-	debug_port_write_data((const char *)&info,
-		sizeof(info), info.id, TYPE_INFO);
-
-	return 0;
-}
-
-static void debug_port_buf_status_reset(struct amvdec_debug_port_t *port)
-{
-	mutex_lock(&port->mlock);
-	port->rp = port->buf_vaddr;
-	port->wp = port->buf_vaddr;
-	port->packet_cnt = 0;
-	port->fatal_error = 0;
-	mutex_unlock(&port->mlock);
-
-	pr_info("%s\n", __func__);
-}
-
-static int vdec_dbg_port_mmap(struct file *file, struct vm_area_struct *vma)
+static int vdec_dbg_export_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	int ret = 0;
-#if 0
-	struct amvdec_debug_port_t *port =
-		(struct amvdec_debug_port_t *)file->private_data;
 
-	pr_info("%s in\n", __func__);
+#ifdef VMAP_LOCAL_BUF
+	struct vdec_debug_export_core *core =
+		(struct vdec_debug_export_core *)file->private_data;
 
-	if (port == NULL || port->buf_start) {
-		pr_info("%s port or buf null\n", __func__);
+	struct vdec_dbg_local_buf *buf = core->buf;
+
+	if (!core || !core->buf) {
+		pr_err("%s NULL buf\n", __func__);
 		return -EFAULT;
 	}
+	buf = core->buf;
 
-	if (vma->vm_pgoff > port->buf_size) {
-		pr_info("%s pgoff: %lx, bufsize 0x%x\n", __func__, vma->vm_pgoff, port->buf_size);
+	if (vma->vm_pgoff > buf->size) {
+		pr_info("%s pgoff: %lx, bufsize 0x%x\n", __func__,
+			vma->vm_pgoff, buf->size);
 		return -EFAULT;
 	}
 
 	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP | VM_IO;
-
 	ret = remap_pfn_range(vma, vma->vm_start,
-		(port->buf_start >> PAGE_SHIFT)  + vma->vm_pgoff,
+		(buf->phyadr >> PAGE_SHIFT) + vma->vm_pgoff,
 		vma->vm_end - vma->vm_start,
 		vma->vm_page_prot);
-
-	pr_info("vdec_dbg_port_mmap ret %d\n", ret);
+	pr_info("%s, ret %d, start %lx, end %lx, offset %lx\n",
+		__func__, ret, vma->vm_start, vma->vm_end, vma->vm_pgoff);
 #endif
+
+#if 0
+	struct vdec_dbg_ex_usr *pusr;
+	ulong phys;
+
+	if (!core || !core->export || !core->export->cur_unit)
+		return -EFAULT;
+	pusr = &core->export->cur_unit->pusr;
+	if ((pusr->type == DEV_READ_MMAP) && (pusr->data_size)) {
+		if (vma->vm_pgoff > pusr->data_size) {
+			pr_info("%s pgoff: %lx, data size 0x%x\n", __func__,
+				vma->vm_pgoff, pusr->data_size);
+			return -EFAULT;
+		}
+		phys = (((ulong)pusr->addr_h << 32) | (ulong)pusr->addr_l);
+		vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP | VM_IO;
+		ret = remap_pfn_range(vma, vma->vm_start,
+			(phys >> PAGE_SHIFT) + vma->vm_pgoff,
+			vma->vm_end - vma->vm_start,
+			vma->vm_page_prot);
+	}
+#endif
+
 	return ret;
 }
 
-long vdec_dbg_port_ioctl(struct file *file, unsigned int cmd, unsigned long param)
+static struct vdec_dbg_ex_usr *vdec_dbg_req_pusr_info(struct vdec_dbg_export_s *export)
+{
+	unsigned long flags;
+	struct vdec_dbg_export_u *ue, *tmp;
+
+	flags = vdec_export_packet_lock(export);
+
+	if (list_empty(&export->head_ready) || !export->cnt_ready) {
+		vdec_export_packet_unlock(export, flags);
+		return NULL;
+	}
+
+	list_for_each_entry_safe(ue, tmp, &export->head_ready, list) {
+		list_del(&ue->list);
+		break;
+	}
+	export->cnt_ready--;
+	export->cur_unit = ue;
+
+	vdec_export_packet_unlock(export, flags);
+
+	return &ue->pusr;
+}
+
+static long vdec_dbg_export_ioctl(struct file *file, unsigned int cmd, unsigned long param)
 {
 	long ret = 0;
-	struct amvdec_debug_port_t *port =
-		(struct amvdec_debug_port_t *)file->private_data;
+	struct vdec_debug_export_core *core =
+		(struct vdec_debug_export_core *)file->private_data;
+	int version[2] = {VDEC_DEBUG_DRV_VERSION, VDEC_DEBUG_SUB_VERSION};
+	struct vdec_dbg_export_s *export = core->export;
+	struct vdec_dbg_ex_usr *pusr;
 
 	switch (cmd) {
-		case VDBG_IOC_PORT_CFG:
-			ret = debug_port_debug_config(port, param);
+		case VDEC_EXPORT_VERSION:
+			if (copy_to_user((void *)param, version, sizeof(version)))
+				return -EFAULT;
+			break;
+		case VDEC_EXPORT_PACKET:
+			if (core->busy_flag < 0) {
+				pusr = &export->ue_block.pusr;
+				memset(pusr->file, 0, sizeof(pusr->file));
+				strcpy(pusr->file, "EXIT");
+				if (copy_to_user((void *)param, pusr, sizeof(struct vdec_dbg_ex_usr)))
+					return -EFAULT;
+				return ret;
+			}
+#if 0
+			if (export->cur_unit && (export->cur_unit != &export->ue_block)) {
+				pr_warn("%s, drop exported data which haven't been read\n", __func__);
+				vdec_dbg_export_unit_recycle(export);
+			}
+#endif
+			if (atomic_read(&export->ue_ready_flag)) {
+				atomic_set(&export->ue_ready_flag, 2);
+				export->cur_unit = &export->ue_block;
+				pusr = &export->cur_unit->pusr;
+			} else
+				pusr = vdec_dbg_req_pusr_info(core->export);
+			if (!pusr)
+				return -EFAULT;
+
+			if (copy_to_user((void *)param, pusr, sizeof(struct vdec_dbg_ex_usr)))
+				return -EFAULT;
+			break;
+		case VDEC_EXPORT_CONFIG:
+			break;
+		case VDEC_EXPORT_NOTIFY:
+			wake_up_interruptible(&core->buf->wqt);
+			break;
+		case VDEC_EXPORT_LOCAL_BUF_RST:
+			local_buf_reset(core->buf);
 			break;
 
-		case VDBG_IOC_GET_DATA:
-			break;
-
-		case VDBG_IOC_DATA_DONE:
-			wake_up_interruptible(&port->wait_data_done);
-			break;
-
-		case VDBG_IOC_BUF_RESET:
-			debug_port_buf_status_reset(port);
-			break;
 		default:
 			break;
 	}
@@ -464,426 +850,273 @@ long vdec_dbg_port_ioctl(struct file *file, unsigned int cmd, unsigned long para
 	return ret;
 }
 
-static __poll_t vdec_dbg_port_poll(struct file *file,
-		poll_table *wait_table)
+#ifdef CONFIG_COMPAT
+static long vdec_dbg_export_compat_ioctl(struct file *file,
+		unsigned int cmd, ulong arg)
 {
-	struct amvdec_debug_port_t *port =
-		(struct amvdec_debug_port_t *)file->private_data;
-
-	if (port->packet_cnt == 0) {
-		poll_wait(file, &port->poll_wait, wait_table);
-	}
-	pr_dbg_port(port, PORT_VDBG_FLAG_DBG,
-		"poll wait done, packcnt %d\n", port->packet_cnt);
-	if (port->packet_cnt) {
-		return POLLIN | POLLRDNORM;
-	} else
-		return 0;
+	return vdec_dbg_export_ioctl(file, cmd, (ulong)compat_ptr(arg));
 }
+#endif
 
-static ssize_t vdec_dbg_port_read(struct file *file,
-	char __user *ubuf, size_t count, loff_t *offset)
+static int vdec_dbg_export_open(struct inode *inode, struct file *file)
 {
-	struct amvdec_debug_port_t *port =
-		(struct amvdec_debug_port_t *)file->private_data;
+	struct vdec_debug_export_core *core = mcore;
 
-	struct port_data_packet pkt;
-	u32 total_size;
+	if (core->busy_flag)
+		return -EBUSY;
 
-	if (port->packet_cnt == 0)
-		return 0;
+	core->busy_flag = 1;
 
-	if (port->rp <= port->wp)
-		total_size = port->wp - port->rp;
-	else {
-		total_size = port->wp - port->rp + port->buf_size;
-	}
-	if (total_size < sizeof(pkt)) {
-		pr_err("%s, no data to copy\n", __func__);
-		debug_port_buf_status_reset(port);
-		return 0;
-	}
+	file->private_data = (void *)core;
 
-	mutex_lock(&port->mlock);
-	if (port->rp > port->wp) {
-		u32 left = port->buf_vaddr + port->buf_size - port->rp;
-
-		if (left <= sizeof(pkt)) {   //discard size less then packet header size
-			port->rp = port->buf_vaddr;
-		} else {
-			memcpy(&pkt, port->rp, sizeof(pkt));
-			if (count < pkt.data_size + PADING_SIZE) {
-				goto err_no_enough;
-			}
-
-			if (left >= pkt.data_size + PADING_SIZE) {
-				if (copy_to_user(ubuf, port->rp, pkt.data_size + PADING_SIZE)) {
-					pr_info("%s, copy failed 0\n", __func__);
-				}
-				port->rp += pkt.data_size + PADING_SIZE;
-			} else {
-				if (copy_to_user(ubuf, port->rp, left)) {
-					pr_info("%s, copy failed 1\n", __func__);
-				}
-
-				//pr_info("%s, rp %px, left %x\n", __func__, port->rp, left);
-				port->rp = port->buf_vaddr;
-				if (copy_to_user(ubuf + left, port->rp, pkt.data_size + PADING_SIZE - left))
-					pr_info("%s, copy failed 2\n", __func__);
-
-				port->rp += (pkt.data_size + PADING_SIZE - left);
-			}
-			goto read_end;
-		}
-	}
-	memcpy(&pkt, port->rp, sizeof(pkt));
-	if (count < pkt.data_size + PADING_SIZE) {
-		goto err_no_enough;
-	}
-	if (copy_to_user(ubuf, port->rp, pkt.data_size + PADING_SIZE)) {
-		pr_info("%s, copy failed\n", __func__);
-	}
-	port->rp += (pkt.data_size + PADING_SIZE);
-
-read_end:
-	port->packet_cnt--;
-	mutex_unlock(&port->mlock);
-
-	port->fatal_error &= (~DEBUG_PORT_FATAL_ERROR_NOMEM);
-	wake_up_interruptible(&port->wait_data_done);
-
-	if (port->debug_flag & PORT_VDBG_FLAG_DBG) {
-		pr_info("read: id %d, type %x, data_size 0x%x, packcnt %d\n",
-			pkt.id, pkt.type, pkt.data_size, port->packet_cnt);
-
-		pr_info("read: rp %px, wp %px\n", port->rp, port->wp);
-	}
-	return pkt.data_size + PADING_SIZE;
-
-err_no_enough:
-	pr_err("%s , count 0x%zx total data 0x%x no enough buffer\n",
-		__func__, count, pkt.data_size + PADING_SIZE);
-	mutex_unlock(&port->mlock);
-	return 0;
-}
-
-static ssize_t vdec_dbg_port_write(struct file *file,
-	const char __user *buf, size_t count, loff_t *offset)
-{
-	struct amvdec_debug_port_t *port =
-		(struct amvdec_debug_port_t *)file->private_data;
-	char *cmd;
-
-	u32 id;
-	u32 val = 0;
-	ssize_t ret;
-	char cbuf[32];
-
-	cmd = (char *)vzalloc(count + 16);
-	if (!cmd) {
-		return 0;
-	}
-	if (copy_from_user(cmd, buf, count)) {
-		vfree(cmd);
-		return 0;
-	}
-	cbuf[0] = 0;
-	ret = sscanf(cmd, "%s %x %x", cbuf, &id, &val);
-
-	if (!strncmp(cbuf, "reset", strlen("reset"))) {
-		debug_port_buf_status_reset(port);
-
-	} else if (!strncmp(cbuf, "debug", strlen("debug"))) {
-		if (id == 0) {
-			pr_info("debug off\n");
-			port->debug_flag &= (~PORT_VDBG_FLAG_DBG);
-		} else {
-			pr_info("debug on, buf range: %px ~ %px\n",
-				port->buf_vaddr, port->buf_vaddr + port->buf_size);
-			port->debug_flag |= PORT_VDBG_FLAG_DBG;
-		}
-	} else if (!strncmp(cbuf, "enable", strlen("enable"))) {
-		if (!val) {
-			vfree(cmd);
-			return count;
-		}
-		port->enable[id] = val | 0x1;
-
-		ret = 0;
-		memset(cbuf, 0, sizeof(cbuf));
-		if (val & (1 << TYPE_INFO))
-			ret += snprintf(cbuf + ret, sizeof(cbuf), "INFO ");
-
-		if (val & (1 << TYPE_YUV))
-			ret += snprintf(cbuf + ret, sizeof(cbuf), "YUV ");
-
-		if (val & (1 << TYPE_CRC))
-			/*
-			 * buffer cbuf is enough, the array will not overrun.
-			 */
-			/* coverity[overrun-buffer-arg] */
-			ret += snprintf(cbuf + ret, sizeof(cbuf), "CRC ");
-
-		if (val & (1 << TYPE_ES))
-			ret += snprintf(cbuf + ret, sizeof(cbuf), "ES ");
-
-		if (val & (1 << TYPE_SIZE))
-			ret += snprintf(cbuf + ret, sizeof(cbuf), "SIZE ");
-
-		pr_info("enable instance %d ( %s) dump\n", id, cbuf);
-
-	} else if (!strncmp(cbuf, "disable", strlen("disable"))) {
-		port->enable[id] &= (~val);
-		pr_info("disable instance %d, dump %x\n", id, val);
-	} else if (!strncmp(cbuf, "config", strlen("config"))) {
-		port->enable[id] = val;
-		pr_info("config instance %d, dump %x\n", id, val);
-	}
-
-	vfree(cmd);
-
-	return count;
-}
-
-static int vdec_dbg_port_open(struct inode *inode, struct file *file)
-{
-	file->private_data = (void*)dec_debug_port;
 	pr_info("%s\n", __func__);
+
 	return 0;
 }
 
-static int vdec_dbg_port_close(struct inode *inode, struct file *file)
+static int vdec_dbg_export_close(struct inode *inode, struct file *file)
 {
+	struct vdec_debug_export_core *core =
+		(struct vdec_debug_export_core *)file->private_data;
+
 	pr_info("%s\n", __func__);
+
+	core->busy_flag = 0;
+
+	atomic_set(&core->export->ue_ready_flag, 0);
+
 	return 0;
 }
 
-static const struct file_operations vdec_dbg_port_fops = {
-	.open    = vdec_dbg_port_open,
-	.read    = vdec_dbg_port_read,
-	.write   = vdec_dbg_port_write,
-	.unlocked_ioctl = vdec_dbg_port_ioctl,
-	.release = vdec_dbg_port_close,
-	.poll    = vdec_dbg_port_poll,
-	.mmap    = vdec_dbg_port_mmap,
+static const struct file_operations vdec_dbg_export_fops = {
+	.owner   = THIS_MODULE,
+	.open    = vdec_dbg_export_open,
+	.read    = vdec_dbg_export_read,
+	.write   = vdec_dbg_export_write,
+	//.llseek  = no_llseek,
+	.unlocked_ioctl = vdec_dbg_export_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = vdec_dbg_export_compat_ioctl,
+#endif
+	.release = vdec_dbg_export_close,
+	.poll    = vdec_dbg_export_poll,
+	.mmap    = vdec_dbg_export_mmap,
 };
 
-static u32 dec_debug_buf_size;
-module_param(dec_debug_buf_size, uint, 0664);
 
-static int vdec_debug_port_probe(struct amvdec_debug_port_t *mport)
+static void vdec_dbg_export_free(struct vdec_dbg_export_s *export)
 {
-	int flags = CODEC_MM_FLAGS_DMA;
-	u32 buf_size = SZ_1M * 16;
+	unsigned long flags;
+	struct vdec_dbg_export_u *ue, *tmp;
 
-	if (mport == NULL)
+	while (!list_empty(&export->head_ready)) {
+		flags = vdec_export_packet_lock(export);
+		list_for_each_entry_safe(ue, tmp, &export->head_ready, list) {
+			list_del(&ue->list);
+			break;
+		}
+		vdec_export_packet_unlock(export, flags);
+		vfree(ue);
+	}
+	export->cnt_ready = 0;
+
+	while (!list_empty(&export->head_recycle)) {
+		flags = vdec_export_packet_lock(export);
+		list_for_each_entry_safe(ue, tmp, &export->head_recycle, list) {
+			list_del(&ue->list);
+			break;
+		}
+		vdec_export_packet_unlock(export, flags);
+		vfree(ue);
+	}
+	export->cnt_recycle = 0;
+	vfree(export);
+}
+
+static void vdec_dbg_export_destroy(struct vdec_debug_export_core *core)
+{
+	if (!core)
+		return;
+
+	if (atomic_read(&core->export->ue_ready_flag) == 1) {
+		atomic_set(&core->export->ue_ready_flag, 0);
+		usleep_range(20000, 21000);
+	}
+
+	/* unregister decoder common interface */
+	vdec_debug_port_unregister();
+
+	if (core->busy_flag) {
+		pr_info("file port busy, force exit\n");
+		core->busy_flag = -1;
+		do {
+			wake_up_interruptible(&core->poll_wait);
+			usleep_range(10000, 15000);
+		} while (core->busy_flag != 0);
+	}
+
+	local_buf_release(core->buf);
+	core->buf = NULL;
+
+	vdec_dbg_export_free(core->export);
+	core->export = NULL;
+}
+
+static int vdec_dbg_export_init(struct vdec_debug_export_core *core)
+{
+	if (!core)
 		return -1;
 
-	INIT_LIST_HEAD(&mport->head);
-	mutex_init(&mport->mlock);
-
-	/* debug data buffer alloc */
-	flags |= CODEC_MM_FLAGS_CMA_FIRST;
-	flags |= CODEC_MM_FLAGS_FOR_VDECODER;
-
-	if (dec_debug_buf_size)
-		buf_size = dec_debug_buf_size;
-	buf_size = round_up(buf_size, PAGE_SIZE);
-
-	mport->buf_start = codec_mm_alloc_for_dma(VDEC_DEBUG_MODULE,
-			buf_size/PAGE_SIZE, 4+PAGE_SHIFT, flags);
-	if (!mport->buf_start) {
-		pr_err("%s, alloc debug buf failed\n", __func__);
-		vfree(mport);
-		return -1;
+	core->export = vzalloc(sizeof(struct vdec_dbg_export_s));
+	if (!core->export) {
+		pr_err("%s, alloc export failed\n", __func__);
+		return -ENOMEM;
 	}
-	mport->buf_vaddr = codec_mm_vmap(mport->buf_start, buf_size);
-	if (mport->buf_vaddr) {
-		pr_info("%s, vmap debug buf success %px\n", __func__, mport->buf_vaddr);
-	} else {
-		codec_mm_free_for_dma(VDEC_DEBUG_MODULE, mport->buf_start);
-		mport->buf_start = 0;
-		mport->buf_vaddr = (char *)vzalloc(buf_size);
-		if (mport->buf_vaddr == NULL)
-			return -ENOMEM;
+
+	spin_lock_init(&core->export->lock);
+
+	INIT_LIST_HEAD(&core->export->head_ready);
+	INIT_LIST_HEAD(&core->export->head_recycle);
+
+	core->export->cnt_ready = 0;
+	core->export->cnt_recycle = 0;
+	init_waitqueue_head(&core->export->wblk);
+
+	core->buf = local_buf_init(SZ_1M * 16);
+	if (!core->buf) {
+		vfree(core->export);
+		return -ENOMEM;
 	}
-	mport->buf_size = buf_size;
-	mport->rp = mport->buf_vaddr;
-	mport->wp = mport->buf_vaddr;
-	mport->fatal_error = 0;
 
-	init_waitqueue_head(&mport->poll_wait);
-	init_waitqueue_head(&mport->wait_data_done);
+	init_waitqueue_head(&core->poll_wait);
 
-	vdec_debug_port_register(debug_port_write_data,
-		debug_port_update_vinfo);
+	/* register interfaces to decoder_common */
+	vdec_debug_port_register(vdec_export_data);
 
 	return 0;
 }
 
-static void vdec_debug_port_remove(struct amvdec_debug_port_t *mport)
+static int vdec_debug_dev_register(struct vdec_debug_export_core *core)
 {
 	int ret;
+	struct dentry *entry_root;
 
-	if (mport == NULL)
-		return;
-
-	if (mport->buf_start) {
-		if (mport->buf_vaddr)
-			codec_mm_unmap_phyaddr(mport->buf_vaddr);
-		mport->buf_vaddr = NULL;
-	} else{
-		if (mport->buf_vaddr)
-			vfree(mport->buf_vaddr);
-		mport->buf_vaddr = NULL;
-	}
-
-	if (mport->buf_start) {
-		ret = codec_mm_free_for_dma(VDEC_DEBUG_MODULE, mport->buf_start);
-		if (ret < 0)
-			pr_err("%s free failed\n", __func__);
-	}
-
-	vdec_debug_port_unregister();
-}
-
-static int vdec_debug_register(struct amvdec_debug_port_t *mport)
-{
-	int ret;
-
-	if (mport == NULL)
+	if (core == NULL)
 		return -1;
 
-	ret = alloc_chrdev_region(&mport->dev_num, 0, 1, DEVICE_NAME);
+	ret = alloc_chrdev_region(&core->dev_num, 0, 1, DEVICE_NAME);
 	if (ret) {
 		pr_err("Failed to allocate char dev region\n");
 		return ret;
 	}
 
-	cdev_init(&mport->cdev, &vdec_dbg_port_fops);
-	ret = cdev_add(&mport->cdev, mport->dev_num, 1);
+	cdev_init(&core->cdev, &vdec_dbg_export_fops);
+	ret = cdev_add(&core->cdev, core->dev_num, 1);
 	if (ret) {
 		pr_err("Failed to add cdev\n");
 		goto unregister_chrdev;
 	}
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
-	mport->class = class_create(THIS_MODULE, CLASS_NAME);
+	core->class = class_create(THIS_MODULE, CLASS_NAME);
 #else
-	mport->class = class_create(CLASS_NAME);
+	core->class = class_create(CLASS_NAME);
 #endif
-	if (IS_ERR(mport->class)) {
+	if (IS_ERR(core->class)) {
 		pr_err("Failed to create class\n");
-		ret = PTR_ERR(mport->class);
+		ret = PTR_ERR(core->class);
 		goto del_cdev;
 	}
 
-	mport->device = device_create(mport->class, NULL, mport->dev_num, NULL, DEVICE_NAME);
-	if (IS_ERR(mport->device)) {
+	core->device = device_create(core->class, NULL, core->dev_num, NULL, DEVICE_NAME);
+	if (IS_ERR(core->device)) {
 		pr_err("Failed to create device\n");
-		ret = PTR_ERR(mport->device);
+		ret = PTR_ERR(core->device);
 		goto destroy_class;
 	}
 
 	pr_info("chardev initialized: /dev/%s\n", DEVICE_NAME);
+
+	/* debug fs create */
+	entry_root = debugfs_lookup("vdec_profile", NULL);
+	if (!entry_root)
+		pr_info("debugfs_lookup vdec_profile dir failed\n");
+
+	core->entry = debugfs_create_file("debug_port",
+		0666, entry_root, NULL, &vdec_dbg_export_fops);
+	if (!core->entry)
+		pr_info("%s create failed\n", __func__);
+	else
+		pr_info("vdec debugfs entry created\n");
+
 	return 0;
 
 destroy_class:
-	class_destroy(mport->class);
+	class_destroy(core->class);
 del_cdev:
-	cdev_del(&mport->cdev);
+	cdev_del(&core->cdev);
 unregister_chrdev:
-	unregister_chrdev_region(mport->dev_num, 1);
+	unregister_chrdev_region(core->dev_num, 1);
 	return ret;
 }
 
-static void vdec_debug_unregister(struct amvdec_debug_port_t *mport)
+static void vdec_debug_dev_unregister(struct vdec_debug_export_core *core)
 {
-	if (mport == NULL)
+	if (!core)
 		return;
 
-	device_destroy(mport->class, mport->dev_num);
-	class_destroy(mport->class);
-	cdev_del(&mport->cdev);
-	unregister_chrdev_region(mport->dev_num, 1);
-}
-
-static int vdec_debug_init_debugfs(struct amvdec_debug_port_t *mport)
-{
-	struct dentry *proot, *entry;
-
-	if (mport == NULL)
-		return -1;
-
-	proot = debugfs_lookup("vdec_profile", NULL);
-	if (proot == NULL) {
-		pr_info("debugfs_lookup vdec_profile dir failed\n");
-		return -1;
+	if (core->entry) {
+		debugfs_remove(core->entry);
+		pr_info("vdec debugfs entry removed\n");
 	}
 
-	entry = debugfs_create_file("debug_port", 0666, proot, NULL,
-		&vdec_dbg_port_fops);
-	if (entry == NULL) {
-		pr_info("%s create failed\n", __func__);
-		return 0;
-	}
+	device_destroy(core->class, core->dev_num);
 
-	dec_debug_entry = entry;
-	pr_info("vdec debugfs entry created\n");
+	class_destroy(core->class);
 
-	return 0;
-}
+	cdev_del(&core->cdev);
 
-static void vdec_debug_exit_debugfs(void)
-{
-	debugfs_remove(dec_debug_entry);
-
-	pr_info("vdec debugfs entry removed\n");
+	unregister_chrdev_region(core->dev_num, 1);
 }
 
 static int __init vdec_debug_module_init(void)
 {
 	int ret;
-	struct amvdec_debug_port_t *mport;
+	struct vdec_debug_export_core *core;
 
-	mport = (struct amvdec_debug_port_t *)vzalloc(sizeof(struct amvdec_debug_port_t));
-	if (mport == NULL)
-		return -1;
+	core = (struct vdec_debug_export_core *)vzalloc(
+		sizeof(struct vdec_debug_export_core));
+	if (core == NULL)
+		return -ENOMEM;
 
-	ret = vdec_debug_register(mport);
-	if (ret < 0)
-		return ret;
-
-	ret = vdec_debug_init_debugfs(mport);
+	ret = vdec_debug_dev_register(core);
 	if (ret < 0) {
-		vdec_debug_unregister(mport);
+		vfree(core);
 		return ret;
 	}
 
-	ret = vdec_debug_port_probe(mport);
+	ret = vdec_dbg_export_init(core);
 	if (ret < 0) {
-		pr_info("debug utils probe failed, ret = %d\n", ret);
-		vdec_debug_exit_debugfs();
-		vdec_debug_unregister(mport);
+		vdec_debug_dev_unregister(core);
+		vfree(core);
 		return ret;
 	}
+	mcore = core;
 
-	dec_debug_port = mport;
+	pr_info("VDEC DEBUG VERSION %d.%d\n", VDEC_DEBUG_DRV_VERSION, VDEC_DEBUG_SUB_VERSION);
 
 	return 0;
 }
 
 static void __exit vdec_debug_module_exit(void)
 {
-	if (dec_debug_port) {
-		vdec_debug_port_remove(dec_debug_port);
+	if (mcore) {
+		vdec_dbg_export_destroy(mcore);
 
-		vdec_debug_exit_debugfs();
+		vdec_debug_dev_unregister(mcore);
 
-		vdec_debug_unregister(dec_debug_port);
-
-		vfree(dec_debug_port);
-		dec_debug_port = NULL;
+		vfree(mcore);
+		mcore = NULL;
 	}
 }
 

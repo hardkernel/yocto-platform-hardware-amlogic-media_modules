@@ -700,9 +700,8 @@ static int do_yuv_dump(struct pic_check_mgr_t *mgr, struct vframe_s *vf)
 	} else {
 		int wr_size;
 
-		if (debug_port_func_data_wr) {
-			debug_port_func_data_wr(dump->buf_addr, mgr->size_pic, mgr->id, 1);
-		}
+		vdec_dbg_virt_write(dump->buf_addr, mgr->size_pic, mgr->id, "%d_%d_%dx%d.yuv",
+			mgr->id, mgr->format, vf->width, vf->height);
 
 		/* dump for dec pic not in isr */
 		if (dump->yuv_fp == NULL) {
@@ -730,14 +729,25 @@ static int crc_store(struct pic_check_mgr_t *mgr, struct vframe_s *vf,
 	int comp_frame = 0, comp_crc_y, comp_crc_uv;
 	struct pic_check_t *check = &mgr->pic_check;
 
-	if (debug_port_func_data_wr) {
+	if (vdec_dbg_export_func) {
 		crc_addr = vzalloc(SIZE_CRC);
 
 		if (crc_addr) {
 			ret = snprintf(crc_addr, SIZE_CRC,
 				"%08d: %08x %08x\n", mgr->frame_cnt, crc_y, crc_uv);
 
-			debug_port_func_data_wr(crc_addr, strlen(crc_addr), mgr->id, 2);
+			if (!mgr->frame_cnt) {
+				/* compatibility with auto test crc file name when resolution changes */
+				memset(mgr->crc_file_name, 0, sizeof(mgr->crc_file_name));
+				snprintf(mgr->crc_file_name, sizeof(mgr->crc_file_name), "%d_%d_%dx%d.crc",
+					mgr->id, mgr->format, vf->width, vf->height);
+			}
+
+			if (mgr->crc_file_name[0])
+				vdec_dbg_virt_write(crc_addr, strlen(crc_addr), mgr->id, "%s", mgr->crc_file_name);
+			else
+				vdec_dbg_virt_write(crc_addr, strlen(crc_addr), mgr->id, "name-0-0.crc");
+
 			vfree(crc_addr);
 			crc_addr = NULL;
 		}
@@ -804,14 +814,15 @@ static int aux_data_crc_store(struct aux_data_check_mgr_t *mgr,int crc, int poc)
 	int comp_frame = 0, comp_crc, comp_poc;
 	struct aux_data_check_t *check = &mgr->aux_data_check;
 
-	if (debug_port_func_data_wr) {
+	if (vdec_dbg_export_func) {
 		crc_addr = vzalloc(SIZE_CRC);
 
 		if (crc_addr) {
 			ret = snprintf(crc_addr, SIZE_CRC,
 				"%08d: %08x %08x\n", mgr->frame_cnt, crc, poc);
 
-			debug_port_func_data_wr(crc_addr, strlen(crc_addr), mgr->id, 4);
+			vdec_dbg_virt_write(crc_addr, strlen(crc_addr), mgr->id, "name-%d-0.aux", mgr->id);
+
 			vfree(crc_addr);
 			crc_addr = NULL;
 		}
@@ -1152,9 +1163,7 @@ int __nocfi decoder_do_frame_check(struct vdec_s *vdec, struct vframe_s *vf)
 		dbg_print(0, "size changed, %x-->%x [%d x %d]\n",
 			mgr->last_size_pic, mgr->size_pic,
 			vf->width, vf->height);
-		if (debug_port_func_info_up) {
-			debug_port_func_info_up(mgr->id, vdec->format, vf);
-		}
+		mgr->format = vdec->format;
 
 		/* for slt, if no compare crc file, use the
 		 * cmp crc from amstream ioctl write */
@@ -1309,6 +1318,7 @@ int frame_check_init(struct pic_check_mgr_t *mgr, int id)
 	dump->yuv_fp = NULL;
 	check->check_pos = 0;
 	check->compare_pos = 0;
+	memset(mgr->crc_file_name, 0, sizeof(mgr->crc_file_name));
 
 	if (!atomic_read(&mgr->work_inited)) {
 		INIT_WORK(&mgr->frame_check_work, do_check_work);
@@ -1692,8 +1702,6 @@ ssize_t dump_yuv_store(KV_CLASS_CONST struct class *class,
 
 	return size;
 }
-EXPORT_SYMBOL(dump_yuv_store);
-
 
 ssize_t dump_yuv_show(KV_CLASS_CONST struct class *class,
 		KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
@@ -1734,7 +1742,6 @@ ssize_t frame_check_store(KV_CLASS_CONST struct class *class,
 
 	return size;
 }
-EXPORT_SYMBOL(frame_check_store);
 
 ssize_t frame_check_show(KV_CLASS_CONST struct class *class,
 		KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
@@ -1785,7 +1792,6 @@ ssize_t aux_check_store(KV_CLASS_CONST struct class *class,
 
 	return size;
 }
-EXPORT_SYMBOL(aux_check_store);
 
 ssize_t aux_check_show(KV_CLASS_CONST struct class *class,
 		KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
