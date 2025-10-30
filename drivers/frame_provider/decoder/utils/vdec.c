@@ -6165,7 +6165,7 @@ void vdec_reset_core(struct vdec_s *vdec)
 	 * 13: ddr
 	 * 14: afifo
 	 */
-	WRITE_VREG(DOS_SW_RESET0, (1<<3)|(1<<4)|(1<<5)|(1<<7)|(1<<8)|(1<<9));
+	WRITE_VREG(DOS_SW_RESET0, (1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7)|(1<<8)|(1<<9));
 	WRITE_VREG(DOS_SW_RESET0, 0);
 
 	// clear mmu config
