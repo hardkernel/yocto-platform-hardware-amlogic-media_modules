@@ -547,6 +547,7 @@ struct buffer_spec_s {
 	bool buffer_attached;
 	struct userdata_param_t ud_param[2];
 	ulong idmabuf;
+	u32 pic_field;
 };
 
 #define AUX_DATA_SIZE(pic) (hw->buffer_spec[pic->buf_spec_num].aux_data_size)
@@ -2565,6 +2566,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 	int pic_struct = -1, structure = -1;
 	struct aml_vcodec_ctx * v4l = hw->v4l2_ctx;
 	struct buffer_spec_s *pic = NULL;
+	struct vdec_pic_info *picinfo = &v4l->picinfo;
 	int i, idx = INVALID_IDX;
 	ulong flags;
 	p_H264_Dpb->cur_idx = INVALID_IDX;
@@ -2661,6 +2663,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 				pic->idmabuf = aml_buf->dma->dmabuf;
 		}
 		hw->aml_buf = NULL;
+		pic->pic_field = picinfo->field;
 
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 		"%s buf_spec_num %d cma_alloc_addr 0x%lx pic_struct %d, structure %d\n",
@@ -3735,7 +3738,6 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 	int buffer_index = frame->buf_spec_num;
 	struct aml_vcodec_ctx * v4l2_ctx = hw->v4l2_ctx;
-	struct vdec_pic_info *picinfo = &v4l2_ctx->picinfo;
 	struct aml_buf *aml_buf = NULL;
 	ulong nv_order = VIDTYPE_VIU_NV21;
 	int bForceInterlace = 0;
@@ -3754,14 +3756,14 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		(v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12M))
 		nv_order = VIDTYPE_VIU_NV12;
 
-	if (!is_interlace(frame) || (picinfo->field == V4L2_FIELD_NONE))
+	if (!is_interlace(frame) || (pic->pic_field == V4L2_FIELD_NONE))
 		vf_count = 1;
 	else
 		vf_count = 2;
 
 	bForceInterlace = check_force_interlace(hw, hw->frame_width, hw->frame_height);
 	if (aml_buf_is_dynamic_mode_inited(&v4l2_ctx->bm) ||
-		(v4l2_ctx->vpp_is_need && (picinfo->field == V4L2_FIELD_INTERLACED))) {
+		(v4l2_ctx->vpp_is_need && (pic->pic_field == V4L2_FIELD_INTERLACED))) {
 		bForceInterlace = 1;
 	}
 	if (bForceInterlace)
@@ -3781,7 +3783,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 
 	if (((vdec->prog_only) || (!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post)))
 		vf_count = 1;
-	if (v4l2_ctx->vpp_is_need && (vf_count == 1) && (picinfo->field != V4L2_FIELD_NONE)) {
+	if (v4l2_ctx->vpp_is_need && (vf_count == 1) && (pic->pic_field != V4L2_FIELD_NONE)) {
 		struct StorablePicture *valid_pic = frame->top_field ? frame->top_field : frame->bottom_field;
 
 		aml_buf = (struct aml_buf *)hw->buffer_spec[buffer_index].cma_alloc_addr;
@@ -3836,7 +3838,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				vf->timestamp = frame->last_field_timestamp;
 			else
 				vf->timestamp = frame->timestamp;
-			if ((picinfo->field == V4L2_FIELD_INTERLACED) &&
+			if ((pic->pic_field == V4L2_FIELD_INTERLACED) &&
 				!v4l2_ctx->vpp_is_need && vf_count == 1 &&
 				frame->last_field_timestamp != frame->timestamp) {
 				if (input_frame_based(vdec)) {
@@ -3987,7 +3989,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				frame->frame->coded_frame, frame->frame->frame_mbs_only_flag, frame->frame->structure);
 		}
 
-		if ((picinfo->field != V4L2_FIELD_NONE)
+		if ((pic->pic_field != V4L2_FIELD_NONE)
 			&& ((bForceInterlace || (is_interlace(frame))
 			|| (!p_H264_Dpb->mSPS.frame_mbs_only_flag)))) {
 			vf->type =
