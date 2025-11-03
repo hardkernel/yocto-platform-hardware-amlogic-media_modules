@@ -51,6 +51,8 @@ void show_axi_mon_reg(void);
 
 void hw_axi_monitor_config(void);
 
+void axi_monitor_start(char *mon_type);
+
 #define AMRISC_LMEM_WRITE     0x08
 #define SWAP_WRITE            0x12
 #define VP9_PROCESS_WRITE     0x15
@@ -87,4 +89,5 @@ void hw_axi_monitor_config(void);
 #define CPI_WRITE0            0x90
 #define CPI_WRITE1            0x91
 #define EVAN_WRITE            0xa0
+
 #endif

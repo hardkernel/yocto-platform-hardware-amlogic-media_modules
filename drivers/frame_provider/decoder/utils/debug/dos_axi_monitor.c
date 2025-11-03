@@ -10,6 +10,20 @@
 #include "../../../../common/register/register.h"
 #include "../../../../include/regs/dos_registers.h"
 
+#include <linux/mm.h>
+#include <linux/amlogic/media/codec_mm/codec_mm.h>
+#include <linux/platform_device.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#include <linux/dma-map-ops.h>
+#else
+#include <linux/dma-contiguous.h>
+#endif
+#include <linux/cma.h>
+#include <linux/gfp.h>
+#include <linux/slab.h>
+#include <linux/sizes.h>
+#include <linux/memblock.h>
 
 struct dos_axi_monitor_t dos_axi_monitor;
 
@@ -87,8 +101,6 @@ static int protect_mem_config(ulong addr, ulong size, ulong res, u32 res_size)
 	mon->res_size      = res_size;
 	mon->axi_monitor_ctl |= ENABLE_PROTECT;
 
-	pr_info("enable protect range: %lx ~ %lx, res %lx\n", addr, addr + size, res);
-
 	return 0;
 }
 
@@ -100,8 +112,6 @@ static int monitor_mem_config(ulong addr, ulong size, u32 port_id)
 	mon->monitor_size = size;
 	mon->monitor_id = port_id & 0xff;
 	mon->axi_monitor_ctl |= ENABLE_MONITOR;
-
-	pr_info("enable monitor range: %lx ~ %lx, id %x\n", addr, addr + size, mon->monitor_id);
 
 	return 0;
 }
@@ -115,7 +125,8 @@ static int monitor_ign_config(ulong *port, u32 num)
 		return -1;
 
 	if (num > (MAX_HW_IGN + MAX_SW_IGN))
-		pr_warn("no enough ignore id config(%d > %d)\n", num, (MAX_HW_IGN + MAX_SW_IGN));
+		pr_warn("no enough ignore id config(%d > %d)\n",
+			num, (MAX_HW_IGN + MAX_SW_IGN));
 
 	for (i = 0; i < MAX_HW_IGN; i++) {
 		if (i >= num)
@@ -124,26 +135,16 @@ static int monitor_ign_config(ulong *port, u32 num)
 			mon->monitor_ign_id[i] = port[i];
 	}
 
-	pr_info("hw ignore: 0x%x, 0x%x, 0x%x, 0x%x\n",
-		mon->monitor_ign_id[0],
-		mon->monitor_ign_id[1],
-		mon->monitor_ign_id[2],
-		mon->monitor_ign_id[3]);
-
 	if (num <= MAX_HW_IGN)
 		return 0;
 	num -= MAX_HW_IGN;
 
-	pr_cont("sw ignore : ");
 	for (i = 0; i < MAX_SW_IGN; i++) {
 		if (i >= num)
 			mon->sw_ign_id[i] = 0;
 		else
 			mon->sw_ign_id[i] = port[i + MAX_HW_IGN];
-
-		pr_cont("0x%x ", mon->sw_ign_id[i]);
 	}
-	pr_cont("\n");
 
 	return 0;
 }
@@ -255,6 +256,7 @@ ssize_t axi_monitor_config_setup(const char *buf, size_t size)
 	int ret;
 	char *str, *token, *tmp;
 	ulong para[MAX_HW_IGN + MAX_SW_IGN];
+	struct dos_axi_monitor_t *mon = get_dos_axi_mon();
 
 	if (!is_support_axi_monitor()) {
 		pr_err("no axi monitor in this chip\n");
@@ -269,22 +271,43 @@ ssize_t axi_monitor_config_setup(const char *buf, size_t size)
 	str = tmp;
 	token = strsep(&str, " ");
 
-	ret = sscanf(str, "%lx %lx %lx %lx %lx %lx %lx %lx",
-		&para[0], &para[1], &para[2], &para[3],
-		&para[4], &para[5], &para[6], &para[7]);
+	if (str)
+		ret = sscanf(str, "%lx %lx %lx %lx %lx %lx %lx %lx",
+			&para[0], &para[1], &para[2], &para[3],
+			&para[4], &para[5], &para[6], &para[7]);
 
 	if (!strncmp(token, "protect", strlen("protect"))) {
 		protect_mem_config(para[0], para[1], para[2], para[3]);
 
+		pr_info("enable protect range: %lx ~ %lx, res %lx\n",
+			mon->protect_start,
+			mon->protect_start + mon->protect_size,
+			mon->res_start);
+
 	} else if (!strncmp(token, "monitor", strlen("monitor"))) {
 		monitor_mem_config(para[0], para[1], para[2]);
 
+		pr_info("enable monitor range: %lx ~ %lx, id %x\n",
+			mon->monitor_start,
+			mon->monitor_start + mon->monitor_size,
+			mon->monitor_id);
+
 	} else if (!strncmp(token, "ignore", strlen("ignore"))) {
+		u32 i;
+
 		monitor_ign_config(&para[0], (MAX_HW_IGN + MAX_SW_IGN));
 
-	} else if (!strncmp(token, "disable", strlen("disable"))) {
-		struct dos_axi_monitor_t *mon = get_dos_axi_mon();
+		pr_info("hw ignore: 0x%x, 0x%x, 0x%x, 0x%x\n",
+			mon->monitor_ign_id[0],
+			mon->monitor_ign_id[1],
+			mon->monitor_ign_id[2],
+			mon->monitor_ign_id[3]);
+		pr_cont("sw ignore: ");
+		for (i = 0; i < MAX_SW_IGN; i++)
+			pr_cont("0x%x ", mon->sw_ign_id[i]);
+		pr_cont("\n");
 
+	} else if (!strncmp(token, "disable", strlen("disable"))) {
 		if (para[0] == 0) {
 			protect_mem_config(0, 0, 0, 0);
 			mon->axi_monitor_ctl &= ~(ENABLE_PROTECT);
@@ -304,4 +327,56 @@ ssize_t axi_monitor_config_setup(const char *buf, size_t size)
 
 	return 0;
 }
+
+struct cma {
+	unsigned long   base_pfn;
+	unsigned long   count;
+	unsigned long   *bitmap;
+	unsigned int order_per_bit; /* Order of pages represented by one bit */
+	spinlock_t	lock;
+};
+
+void axi_monitor_start(char *mon_type)
+{
+	ulong ignore_id[4] = {COMPRESS_BODY_WRITE, 0, 0, 0};
+	phys_addr_t base;
+	unsigned long size;
+	static struct dos_axi_monitor_t *mon;
+
+	if (!is_support_axi_monitor())
+		return;
+
+	mon = get_dos_axi_mon();
+	if (!mon->res_size && !mon->res_start) {
+		struct page *page;
+
+		page = alloc_pages(GFP_KERNEL, 0);
+		if (!page) {
+			pr_err("%s: failed to alloc lmem buffer\n", __func__);
+			return;
+		} else
+			mon->res_start = page_to_phys(page);
+
+		mon->res_size = PAGE_SIZE;
+		pr_info("%s, alloc reserved addr %lx, size 0x%x\n", __func__, mon->res_start, mon->res_size);
+	}
+
+	if (!strcmp(mon_type, "codec_mm")) {
+		struct cma *cma = dev_get_cma_area(v4l_get_dev_from_codec_mm());
+
+		base = PFN_PHYS(cma->base_pfn);
+		size = cma->count << PAGE_SHIFT;
+	} else {
+		/* protect 0 ~ 1MB */
+		base = (phys_addr_t)0UL + SZ_1M;
+		size = memblock_end_of_DRAM() - base;
+
+		memset(ignore_id, 0, sizeof(ignore_id));
+	}
+
+	monitor_mem_config(base, size, 0);
+	protect_mem_config(base, size, mon->res_start, PAGE_SIZE);
+	monitor_ign_config(ignore_id, 1);
+}
+EXPORT_SYMBOL(axi_monitor_start);
 
