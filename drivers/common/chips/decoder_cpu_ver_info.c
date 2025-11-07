@@ -60,6 +60,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVBCD,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_GXL - MAJOR_ID_START] = {
@@ -77,6 +78,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9 | FMT_AVBCD,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_G12A - MAJOR_ID_START] = {
@@ -94,6 +96,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_G12B - MAJOR_ID_START] = {
@@ -111,6 +114,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_GXLX2 - MAJOR_ID_START] = {
@@ -128,6 +132,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_SM1 - MAJOR_ID_START] = {
@@ -145,6 +150,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,  //support 8kp24
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_TL1 - MAJOR_ID_START] = {
@@ -162,6 +168,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K, //support 8kp24
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_TM2 - MAJOR_ID_START] = {
@@ -179,6 +186,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_C1 - MAJOR_ID_START] = {
@@ -207,6 +215,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T5 - MAJOR_ID_START] = {
@@ -224,6 +233,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K, //unsupport vp9 & av1
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVS2 | FMT_AVBCD,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T5D - MAJOR_ID_START] = {
@@ -243,6 +253,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,	//unsupport 4k and avs2
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T7 - MAJOR_ID_START] = {
@@ -263,6 +274,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4_8 |  AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S4 - MAJOR_ID_START] = {
@@ -283,6 +295,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T3 - MAJOR_ID_START] = {
@@ -304,6 +317,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,	//8kp30, rdma, mmu copy
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4_8 | AVBC_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S4D - MAJOR_ID_START] = {
@@ -324,6 +338,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T5W - MAJOR_ID_START] = {
@@ -344,6 +359,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S5 - MAJOR_ID_START] = {
@@ -368,6 +384,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3,
 		.is_amrisc_imem_size_6k = true,
+		.dos_dw_capability = YUV_1_2_4_8 | AVBC_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T5M - MAJOR_ID_START] = {
@@ -389,6 +406,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T3X - MAJOR_ID_START] = {
@@ -415,6 +433,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3,
+		.dos_dw_capability = YUV_1_2_4_8 | AVBC_1_2_4 | P010_1_2_4_8,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_TXHD2 - MAJOR_ID_START] = {
@@ -432,6 +451,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_4K,	//unsupport avs2,av1
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_VP9 | FMT_AVBCD,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S1A - MAJOR_ID_START] = {
@@ -473,6 +493,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_NO_AVS | FMT_HEVC_VP9_AV1,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S7D - MAJOR_ID_START] = {
@@ -497,6 +518,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_S6 - MAJOR_ID_START] = {
@@ -526,6 +548,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3 | FMT_H266,
 		.is_support_34bit = true,
 		.is_amrisc_imem_size_6k = true,
+		.dos_dw_capability = YUV_1_2_4 | P010_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T6D - MAJOR_ID_START] = {
@@ -554,6 +577,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AV1,
+		.dos_dw_capability = YUV_1_2_4 | P010_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_GXLX4 - MAJOR_ID_START] = {
@@ -579,6 +603,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC | FMT_AVS2,
+		.dos_dw_capability = YUV_1_2_4 | P010_1_2_4,
 	},
 
 	[AM_MESON_CPU_MAJOR_ID_T6W - MAJOR_ID_START] = {
@@ -606,7 +631,9 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3 | FMT_H266,
 		.is_support_34bit = true,
 		.is_amrisc_imem_size_6k = true,
+		.dos_dw_capability = YUV_1_2_4 | P010_1_2_4 | AV1_H266_YUV_ONLY,
 	},
+
 	[AM_MESON_CPU_MAJOR_ID_T6X - MAJOR_ID_START] = {
 		.chip_id = AM_MESON_CPU_MAJOR_ID_T6X,
 		.reg_compat = NULL,
@@ -630,6 +657,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1_AVS3 | FMT_H266,
 		.is_support_34bit = true,
 		.is_amrisc_imem_size_6k = true,
+		.dos_dw_capability = YUV_1_2_4 | P010_1_2_4 | AV1_H266_YUV_ONLY,
 	},
 };
 
@@ -650,6 +678,7 @@ static struct dos_of_dev_s dos_dev_sub_table[] = {
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 
 	{	/* tm2 revb */
@@ -667,6 +696,7 @@ static struct dos_of_dev_s dos_dev_sub_table[] = {
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	{
@@ -687,6 +717,7 @@ static struct dos_of_dev_s dos_dev_sub_table[] = {
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	{
@@ -708,6 +739,7 @@ static struct dos_of_dev_s dos_dev_sub_table[] = {
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_8K,  //fixed endian issue
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AVS2_AV1,
+		.dos_dw_capability = YUV_1_2_4 | AVBC_1_1,
 	},
 
 	{
@@ -731,6 +763,7 @@ static struct dos_of_dev_s dos_dev_sub_table[] = {
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_NO_AVS | FMT_HEVC_VP9_AV1,
+		.dos_dw_capability = YUV_1_2_4,
 	},
 };
 
@@ -1685,6 +1718,12 @@ inline bool is_amrisc_imem_size_6k(void)
 	return platform_dos_dev->is_amrisc_imem_size_6k;
 }
 EXPORT_SYMBOL(is_amrisc_imem_size_6k);
+
+inline u32 get_dos_dw_capability(void)
+{
+	return platform_dos_dev->dos_dw_capability;
+}
+EXPORT_SYMBOL(get_dos_dw_capability);
 
 void pr_dos_infos(void)
 {

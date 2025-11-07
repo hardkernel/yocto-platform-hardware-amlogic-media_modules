@@ -161,6 +161,7 @@ struct dos_of_dev_s {
 
 	/* resolution. necessary!! */
 	u32 fmt_support_flags;
+	u32 dos_dw_capability;
 	u32 vdec_max_resolution;	//just for h264
 	u32 hevc_max_resolution;
 
@@ -333,6 +334,8 @@ inline bool is_use_ipp_dyn_cache(void);
 inline bool is_amrisc_imem_size_6k(void);
 
 inline bool is_support_axi_monitor(void);
+
+inline u32 get_dos_dw_capability(void);
 
 void pr_dos_infos(void);
 

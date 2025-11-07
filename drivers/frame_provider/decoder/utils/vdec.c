@@ -116,6 +116,7 @@ int ionvideo_assign_map(char **receiver_name, int *inst)
 #include <linux/amlogic/media/frame_sync/timestamp.h>
 #include "firmware.h"
 #include "debug/dos_axi_monitor.h"
+#include "vdec_dw.h"
 
 /* resourcemanage */
 #include "vdec_res/vdec_res.h"
@@ -8209,6 +8210,14 @@ ssize_t dump_es_show(KV_CLASS_CONST struct class *class,
 	return pbuf - buf;
 }
 
+static ssize_t dos_dw_info_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	pr_dw_infos();
+
+	return 0;
+}
+
 static CLASS_ATTR_RO(amrisc_regs);
 static CLASS_ATTR_RO(dump_trace);
 static CLASS_ATTR_RO(clock_level);
@@ -8243,6 +8252,7 @@ static CLASS_ATTR_RO(version);
 static CLASS_ATTR_RO(dos_dev_info);
 static CLASS_ATTR_RW(axi_monitor);
 static CLASS_ATTR_RW(dump_es);
+static CLASS_ATTR_RO(dos_dw_info);
 
 static struct attribute *vdec_class_attrs[] = {
 	&class_attr_amrisc_regs.attr,
@@ -8279,6 +8289,7 @@ static struct attribute *vdec_class_attrs[] = {
 	&class_attr_dos_dev_info.attr,
 	&class_attr_axi_monitor.attr,
 	&class_attr_dump_es.attr,
+	&class_attr_dos_dw_info.attr,
 	NULL
 };
 
@@ -8552,6 +8563,9 @@ static int vdec_probe(struct platform_device *pdev)
 
 	vdec_data_core_init();
 	resman_register_query_ops_by_name("vdec", query_decoder_resource);
+
+	vdec_dos_dw_mode_init();
+
 	/* power manager init. */
 	vdec_core->pm = (struct power_manager_s *)
 		of_device_get_match_data(&pdev->dev);

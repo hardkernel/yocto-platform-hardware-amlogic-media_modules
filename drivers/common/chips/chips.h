@@ -62,6 +62,33 @@ bool check_efuse_chip(int vformat);
 #define FMT_HEVC_VP9_AVS2_AV1      (FMT_AV1  | FMT_HEVC_VP9_AVS2)
 #define FMT_HEVC_VP9_AVS2_AV1_AVS3 (FMT_AVS3 | FMT_HEVC_VP9_AVS2_AV1)
 
+//dw
+#define YUV_1_1         BIT(0)
+#define YUV_1_2         BIT(1)
+#define YUV_1_4         BIT(2)
+#define YUV_1_8         BIT(3)
+
+#define AVBC_1_1        BIT(8)
+#define AVBC_1_2        BIT(9)
+#define AVBC_1_4        BIT(10)
+
+#define P010_1_1        BIT(16)
+#define P010_1_2        BIT(17)
+#define P010_1_4        BIT(18)
+#define P010_1_8        BIT(19)
+
+#define AV1_YUV_ONLY    BIT(24)
+#define H266_YUV_ONLY   BIT(25)
+
+#define YUV_1_2_4          (YUV_1_1 | YUV_1_2 | YUV_1_4)
+#define YUV_1_2_4_8        (YUV_1_2_4 | YUV_1_8)
+#define AVBC_1_2_4         (AVBC_1_1 | AVBC_1_2 | AVBC_1_4)
+#define P010_1_2_4         (P010_1_1 | P010_1_2 | P010_1_4)
+#define P010_1_2_4_8       (P010_1_2_4 | P010_1_8)
+#define AV1_H266_YUV_ONLY  (AV1_YUV_ONLY | H266_YUV_ONLY)
+#define YUV_BIT_MASK        0xff
+#define AVBC_BIT_MASK       0xff00
+#define P010_BIT_MASK       0xff0000
 
 /* profile & level description */
 #define PRO_LEVEL_LEN  64
