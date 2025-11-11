@@ -1223,6 +1223,10 @@ COM_PIC * com_picman_out_pic(COM_PM * pm, int * err, int cur_pic_doi, int state)
 			if (ps[i] != NULL && ps[i]->need_for_out) {
 				any_need_for_out = 1;
 				if ((ps[i]->dtr + ps[i]->picture_output_delay <= cur_pic_doi)) {
+					if (ps[i]->buf_cfg.poc == 0) {
+						ps[i]->need_for_out = 0;
+						continue;
+					}
 					exist_pic = 1;
 					if (temp_smallest_poc >= ps[i]->ptr)
 					{

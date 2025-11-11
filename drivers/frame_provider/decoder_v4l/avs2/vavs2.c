@@ -4712,6 +4712,11 @@ static struct avs2_frame_s *get_disp_pic(struct AVS2Decoder_s *dec)
 		if (avs2_dec->fref[j]->to_prepare_disp &&
 			avs2_dec->fref[j]->to_prepare_disp <
 			pre_disp_count_min) {
+
+			if (avs2_dec->fref[j]->decode_idx == 1) {
+				avs2_dec->fref[j]->to_prepare_disp = 0;
+				continue;
+			}
 			pre_disp_count_min =
 				avs2_dec->fref[j]->to_prepare_disp;
 			pic = avs2_dec->fref[j];
@@ -5106,7 +5111,7 @@ static void avs2_report_err_timestamp_for_decoded_frames(struct aml_vcodec_ctx *
 	v4l2_ctx->current_timestamp = timestamp_bak;
 }
 
-static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
+static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec, struct avs2_frame_s *first_pic)
 {
 	struct vframe_s *vf = NULL;
 	/*unsigned short slice_type;*/
@@ -5115,7 +5120,11 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 	struct aml_vcodec_ctx * v4l2_ctx = dec->v4l2_ctx;
 	struct aml_buf *aml_buf = NULL;
 	while (1) {
-		pic = get_disp_pic(dec);
+		if (first_pic) {
+			pic = first_pic;
+		} else {
+			pic = get_disp_pic(dec);
+		}
 		if (pic == NULL) {
 			break;
 		}
@@ -5139,6 +5148,10 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 
 		if (pic->error_drop_flag ||
 			((dec->error_proc_policy & 0x2) && pic->error_mark)) {
+
+			if (first_pic) {
+				break;		// do not output 1st frame when it has error
+			}
 			avs2_print(dec, AVS2_DBG_BUFMGR_DETAIL, "!!!error pic poc(%d), skip\n",
 				pic->poc);
 			v4l2_ctx->decoder_status_info.decoder_error_count++;
@@ -5151,6 +5164,10 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 		if (dec->start_decoding_flag != 0) {
 			if (dec->skip_PB_before_I &&
 				pic->slice_type != I_IMG) {
+
+				if (first_pic) {
+					break;
+				}
 				avs2_print(dec, AVS2_DBG_BUFMGR_DETAIL,
 					"!!!slice type %d (not I) skip\n",
 					0, pic->slice_type);
@@ -5225,6 +5242,8 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 			} else
 				vavs2_vf_put(vavs2_vf_get(pvdec), pvdec);
 		}
+		if (first_pic)
+			break;			// output 1st frame, and jump out of loop
 	}
 	return 0;
 }
@@ -6143,7 +6162,7 @@ static int v4l_res_change(struct AVS2Decoder_s *dec)
 			dec->v4l_params_parsed = false;
 			dec->res_ch_flag = 1;
 			ctx->v4l_resolution_change = 1;
-			avs2_prepare_display_buf(dec);
+			avs2_prepare_display_buf(dec, NULL);
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 			notify_v4l_eos(hw_to_vdec(dec));
 			vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
@@ -6330,6 +6349,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			set_cuva_data(dec);
 			update_decoded_pic(dec);
 			check_pic_error(dec, dec->avs2_dec.hc.cur_pic);
+			if (dec->avs2_dec.hc.cur_pic && dec->avs2_dec.hc.cur_pic->decode_idx == 1) {
+				avs2_prepare_display_buf(dec, dec->avs2_dec.hc.cur_pic);
+			}
+
 #ifdef AVS2_10B_MMU
 			avs2_recycle_mmu_buf_tail(dec);
 #endif
@@ -6417,7 +6440,7 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			if (debug & AVS2_DBG_PRINT_PIC_LIST)
 				dump_pic_list(dec);
 			if (!efficiency_mode)
-				avs2_prepare_display_buf(dec);
+				avs2_prepare_display_buf(dec, NULL);
 			dec->avs2_dec.hc.cur_pic = NULL;
 		}
 	}
@@ -6871,7 +6894,7 @@ decode_slice:
 				|| (start_code == SEQUENCE_END_CODE)
 				|| (start_code == VIDEO_EDIT_CODE)) {
 
-			avs2_prepare_display_buf(dec);
+			avs2_prepare_display_buf(dec, NULL);
 			complete(&dec->complete);
 		}
 	}
@@ -7647,7 +7670,7 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 		avs2_print(dec, 0, "%s: end of stream\n", __func__);
 		if ( dec->avs2_dec.hc.cur_pic != NULL) {
 			avs2_post_process(&dec->avs2_dec);
-			avs2_prepare_display_buf(dec);
+			avs2_prepare_display_buf(dec, NULL);
 		}
 		vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, __LINE__);
 		notify_v4l_eos(hw_to_vdec(dec));

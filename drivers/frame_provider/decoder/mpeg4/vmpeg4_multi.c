@@ -726,11 +726,12 @@ static int update_ref(struct vdec_mpeg4_hw_s *hw, int index)
 
 	if (hw->refs[1] == -1) {
 		hw->refs[1] = index;
-		index = -1;
+		/* first pic need output to show */
 	} else if (hw->refs[0] == -1) {
 		hw->refs[0] = hw->refs[1];
 		hw->refs[1] = index;
-		index = hw->refs[0];
+		/* second pic do not output */
+		index = -1;
 	} else {
 		hw->vfbuf_use[hw->refs[0]]--;
 		hw->refs[0] = hw->refs[1];

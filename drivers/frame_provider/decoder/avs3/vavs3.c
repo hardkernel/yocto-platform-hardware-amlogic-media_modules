@@ -6404,20 +6404,24 @@ static inline void dec_update_gvs(struct AVS3Decoder_s *dec)
 	dec->gvs->status = dec->stat | dec->fatal_error;
 }
 
-static int avs3_prepare_display_buf(struct AVS3Decoder_s *dec)
+static int avs3_prepare_display_buf(struct AVS3Decoder_s *dec, struct avs3_frame_s *first_pic)
 {
 #ifndef NO_DISPLAY
 	struct vframe_s *vf = NULL;
 	/*unsigned short slice_type;*/
 	struct avs3_frame_s *pic;
+	COM_PIC *com_pic = NULL;
 	struct vdec_s *pvdec = hw_to_vdec(dec);
 
 	while (1) {
-		COM_PIC *com_pic = dec_pull_frm(&dec->avs3_dec.ctx, 0);
-
-		if (com_pic == NULL)
-			break;
-		pic = &com_pic->buf_cfg;
+		if (first_pic) {
+			pic = first_pic;
+		} else {
+			com_pic = dec_pull_frm(&dec->avs3_dec.ctx, 0);
+			if (com_pic == NULL)
+				break;
+			pic = &com_pic->buf_cfg;
+		}
 		if (force_disp_pic_index & 0x100) {
 			/*recycle directly*/
 			continue;
@@ -6435,6 +6439,10 @@ static int avs3_prepare_display_buf(struct AVS3Decoder_s *dec)
 
 		if (pic->drop_flag ||
 			((dec->error_handle_policy & 0x4) && pic->error_mark)) {
+
+			if (first_pic) {
+				break;		// do not output 1st frame when it has error
+			}
 			avs3_print(dec, AVS3_DBG_BUFMGR, "!!!error pic poc(%d), skip\n",
 				pic->poc);
 			continue;
@@ -6443,6 +6451,10 @@ static int avs3_prepare_display_buf(struct AVS3Decoder_s *dec)
 		if (dec->start_decoding_flag != 0) {
 			if (dec->skip_PB_before_I &&
 				pic->slice_type != I_IMG) {
+
+				if (first_pic) {
+					break;
+				}
 				avs3_print(dec, AVS3_DBG_BUFMGR_DETAIL,
 					"!!!slice type %d (not I) skip\n",
 					0, pic->slice_type);
@@ -6497,6 +6509,8 @@ static int avs3_prepare_display_buf(struct AVS3Decoder_s *dec)
 			} else
 				vavs3_vf_put(vavs3_vf_get(dec), dec);
 		}
+		if (first_pic)
+			break;		// output 1st frame, and jump out of loop
 	}
 /*!NO_DISPLAY*/
 #endif
@@ -7729,6 +7743,9 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 			set_cuva_data(dec);
 			update_decoded_pic(dec);
 			check_pic_error(dec, pic);
+			if (pic && dec->avs3_dec.ctx.pic_cnt == 1) {
+				avs3_prepare_display_buf(dec, pic);
+			}
 
 			if ((dec->front_back_mode == 0) && (pic->need_mmu_copy == 0)) {
 				avs3_recycle_mmu_buf_tail(dec);
@@ -7855,7 +7872,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 				print_pic_pool(&dec->avs3_dec, "after post_process");
 
 			if ((dec->front_back_mode != 1) || !efficiency_mode) {
-				avs3_prepare_display_buf(dec);
+				avs3_prepare_display_buf(dec, NULL);
 				release_free_mmu_buffers(dec);
 			}
 			dec->avs3_dec.cur_pic = NULL;
@@ -8621,7 +8638,7 @@ decode_slice:
 			|| (start_code == PB_PICTURE_START_CODE)
 			|| (start_code == SEQUENCE_END_CODE)
 			|| (start_code == VIDEO_EDIT_CODE)) {
-			avs3_prepare_display_buf(dec);
+			avs3_prepare_display_buf(dec, NULL);
 			release_free_mmu_buffers(dec);
 			complete(&dec->complete);
 		}
@@ -10016,7 +10033,7 @@ static void avs3_work_implement(struct AVS3Decoder_s *dec)
 		//output all pic;
 		avs3_ctx->info.pic_header.decode_order_index =
 			avs3_ctx->info.pic_header.decode_order_index + DOI_CYCLE_LENGTH;
-		avs3_prepare_display_buf(dec);
+		avs3_prepare_display_buf(dec, NULL);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
 		vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 	} else if (dec->dec_result == DEC_RESULT_FORCE_EXIT) {

@@ -5120,6 +5120,10 @@ static struct PIC_s *output_pic(struct hevc_state_s *hevc,
 				(pic->BUF_index == -1) ||
 				(pic->POC == INVALID_POC))
 				continue;
+			if ((flush_flag != 1) && (!input_stream_based(vdec)) && (hevc->interlace_flag == 1) && (pic->decode_idx < 2)) {
+				pic->output_mark = 0;
+				continue;
+			}
 			if (pic->output_mark)
 				num_pic_not_yet_display++;
 			if (pic->slice_type == 2 &&
@@ -5141,6 +5145,10 @@ static struct PIC_s *output_pic(struct hevc_state_s *hevc,
 				(pic->BUF_index == -1) ||
 				(pic->POC == INVALID_POC))
 				continue;
+			if ((flush_flag != 1) && (!input_stream_based(vdec)) && (hevc->interlace_flag == 1) && (pic->decode_idx < 2)) {
+				pic->output_mark = 0;
+				continue;
+			}
 			if (pic->output_mark) {
 				if (pic_display) {
 					if (pic->POC < pic_display->POC)
@@ -12933,7 +12941,9 @@ muti_output:
 			}
 
 			if ((!input_stream_based(vdec) &&
-					hevc->vf_pre_count == 0) || hevc->ip_mode) {
+					hevc->vf_pre_count == 0) || hevc->ip_mode ||
+					(!input_stream_based(vdec) && (hevc->interlace_flag) &&
+					hevc->vf_pre_count < 2)) {
 				decoded_poc = hevc->curr_POC;
 				pic = get_pic_by_POC(hevc, decoded_poc);
 				if (pic && (pic->POC != INVALID_POC)) {

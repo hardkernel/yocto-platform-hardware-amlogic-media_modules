@@ -8260,7 +8260,9 @@ static irqreturn_t avbcd_isr_thread_fn(int irq, void *data)
 			hevc->data_offset = 0;
 			hevc->dec_result = DEC_RESULT_DONE;
 			if ((!input_stream_based(vdec) &&
-					hevc->vf_pre_count == 0) || hevc->ip_mode) {
+					hevc->vf_pre_count == 0) || hevc->ip_mode ||
+					(!input_stream_based(vdec) && (hevc->interlace_flag) &&
+					hevc->vf_pre_count < 2)) {
 				decoded_poc = hevc->curr_POC;
 				pic = get_pic_by_POC(hevc, decoded_poc);
 				if (pic && (pic->POC != INVALID_POC)) {
