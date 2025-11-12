@@ -334,6 +334,8 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 		dst_fmt |= GE2D_LITTLE_ENDIAN;
 	else
 		dst_fmt |= GE2D_BIG_ENDIAN;
+	if (vdec_ge2d_debug)
+		pr_info("%s src_fmt(0x%x), dst_fmt(0x%x)\n", __func__, src_fmt, dst_fmt);
 
 	if ((dst_fmt & GE2D_COLOR_MAP_MASK) == GE2D_COLOR_MAP_NV12) {
 		ge2d_info->dst_vf->type |= VIDTYPE_VIU_NV12;
@@ -385,6 +387,11 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 			ge2d_info->src_canvas0_config[2].width;
 		ge2d_config.src_planes[2].h =
 			ge2d_info->src_canvas0_config[2].height;
+		if (vdec_ge2d_debug)
+			pr_info("src_planes[0](0x%lx, %d, %d), src_planes[1](0x%lx, %d, %d)\n",
+			ge2d_config.src_planes[0].addr, ge2d_config.src_planes[0].w,
+			ge2d_config.src_planes[0].h, ge2d_config.src_planes[1].addr,
+			ge2d_config.src_planes[1].w, ge2d_config.src_planes[1].h);
 	} else {
 		ge2d_config.src_para.canvas_index = ge2d_info->src_canvas0Addr;
 	}
@@ -397,11 +404,14 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 	ge2d_config.src_para.color	= 0xffffffff;
 	ge2d_config.src_para.top	= 0;
 	ge2d_config.src_para.left	= 0;
-	ge2d_config.src_para.width	= ge2d_info->dst_vf->width;
+	ge2d_config.src_para.width	= ge2d_info->src_canvas0_config[0].width;
 	if (ge2d_info->dst_vf->type & VIDTYPE_INTERLACE)
-		ge2d_config.src_para.height = ge2d_info->dst_vf->height >> 1;
+		ge2d_config.src_para.height = ge2d_info->src_canvas0_config[0].height >> 1;
 	else
-		ge2d_config.src_para.height = ge2d_info->dst_vf->height;
+		ge2d_config.src_para.height = ge2d_info->src_canvas0_config[0].height;
+	if (vdec_ge2d_debug)
+		pr_info("src_para(%d, %d)\n",
+			ge2d_config.src_para.width, ge2d_config.src_para.height);
 
 	/* dst canvas configure. */
 	if (ge2d->work_mode & GE2D_MODE_CONVERT_RGBA) {
@@ -435,6 +445,12 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 	ge2d_config.dst_planes[1].w	= cd.width;
 	ge2d_config.dst_planes[1].h	= cd.height;
 
+	if (vdec_ge2d_debug)
+		pr_info("dst_planes[0](0x%lx, %d, %d), dst_planes[1](0x%lx, %d, %d)\n",
+			ge2d_config.dst_planes[0].addr, ge2d_config.dst_planes[0].w,
+			ge2d_config.dst_planes[0].h, ge2d_config.dst_planes[1].addr,
+			ge2d_config.dst_planes[1].w, ge2d_config.dst_planes[1].h);
+
 	ge2d_config.dst_para.format	=  dst_fmt;
 	ge2d_config.dst_para.width	= ge2d_info->dst_vf->width;
 	ge2d_config.dst_para.height	= ge2d_info->dst_vf->height;
@@ -446,6 +462,10 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 	ge2d_config.dst_para.color	= 0;
 	ge2d_config.dst_para.top	= 0;
 	ge2d_config.dst_para.left	= 0;
+
+	if (vdec_ge2d_debug)
+		pr_info("dst_para(%d, %d)\n",
+			ge2d_config.dst_para.width, ge2d_config.dst_para.height);
 
 	/* other ge2d parameters configure. */
 	ge2d_config.src_key.key_enable	= 0;
@@ -471,8 +491,8 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 				0, 0, ge2d_info->dst_vf->width, ge2d_info->dst_vf->height);
 		} else {
 			stretchblt_noalpha(ge2d->ge2d_context,
-				0, 0, ge2d_info->dst_vf->width, ge2d_info->dst_vf->height,
-				0, 0, ge2d_info->dst_vf->width, ge2d_info->dst_vf->height);
+				0, 0, ge2d_config.src_para.width, ge2d_config.src_para.height,
+				0, 0, ge2d_config.dst_para.width, ge2d_config.dst_para.height);
 		}
 	}
 	mutex_unlock(&ge2d->cache.lock);

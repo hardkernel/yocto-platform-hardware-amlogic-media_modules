@@ -3953,7 +3953,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 	vdec_core->parallel_dec = parallel_decode;
 
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
-	if (vdec->avbc_mode & (AVBCD_SOFT_KERNEL_MODE | AVBCD_SOFT_USER_MODE))
+	if (vdec->avbc_mode & (AVBCD_SOFT_KERNEL_MODE | AVBCD_SOFT_USER_MODE | AVBCD_VICP_MODE))
 		goto skip;
 	else {
 		r = vdec_avbc_frame_pool_create(vdec);

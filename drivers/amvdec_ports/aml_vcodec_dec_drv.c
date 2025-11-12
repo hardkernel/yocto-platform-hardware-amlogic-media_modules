@@ -919,6 +919,10 @@ int dump_avbcd_frame;
 EXPORT_SYMBOL(dump_avbcd_frame);
 MEDIA_PARAM(dump_avbcd_frame, int, 0644);
 
+int ge2d_copy;
+EXPORT_SYMBOL(ge2d_copy);
+MEDIA_PARAM(ge2d_copy, int, 0644);
+
 int dec_i_frame_once = 1;
 EXPORT_SYMBOL(dec_i_frame_once);
 MEDIA_PARAM(dec_i_frame_once, int, 0644);
@@ -988,6 +992,7 @@ static struct param_entry amvdec_ports_params[] = {
 	PARAM_INT(avbcd_work_mode),
 	PARAM_INT(crc_dump),
 	PARAM_INT(scatter_prealloc_size),
+	PARAM_INT(ge2d_copy),
 	{ /* sentinel */ }
 };
 module_param_cb(amvdec_ports, &key_value_param_ops, &amvdec_ports_params, 0644);

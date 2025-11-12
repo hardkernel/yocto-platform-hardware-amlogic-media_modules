@@ -11,6 +11,9 @@
 #include <linux/highmem.h>
 #include <linux/version.h>
 #include <linux/amlogic/media/canvas/canvas_mgr.h>
+#ifdef CONFIG_AMLOGIC_MEDIA_VICP
+#include <linux/amlogic/media/vicp/vicp.h>
+#endif
 #include <linux/amlogic/media/codec_mm/dmabuf_manage.h>
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
@@ -35,6 +38,7 @@
 #include "../frame_provider/decoder/utils/vdec.h"
 #include "../frame_provider/aml_dhp/aml_dhp_if.h"
 #include "../common/chips/decoder_cpu_ver_info.h"
+#include "../frame_provider/decoder/utils/vdec_ge2d_utils.h"
 
 
 #define MAX_SIZE_8K (8192 * 4608)
@@ -153,6 +157,7 @@ struct aml_avbc_wrapper_s {
 	ulong 				id;
 	atomic_t			ref;
 	struct mutex			mutex_lock;
+	struct mutex			copy_lock;
 	struct list_head		avbc_queue;
 	struct stream_port_s 		port;
 	int 				format;
@@ -169,10 +174,12 @@ struct aml_avbc_wrapper_s {
 	DECLARE_KFIFO(out, struct avbc_output *, AVBCD_FRAME_SIZE);
 	struct workqueue_struct		*avbc_workqueue;
 	struct work_struct 		avbc_work;
+	struct work_struct 		copy_work;
 	int				dec_result;
 	struct completion 		avbc_done;
 	struct completion 		seq_header_done;
 	int				hard_mode;
+	int				vicp_mode;
 	u32				frame_count;
 	u32				stop_flag;
 	u32				width;
@@ -182,9 +189,13 @@ struct aml_avbc_wrapper_s {
 	struct aml_avbc_hw_buf		hw_buf;
 	struct timeval 			start;
 	struct timeval 			end;
+	u32				wait_complete;
+	struct vdec_ge2d 		*ge2d;
 };
 
 static DEFINE_MUTEX(avbc_mutex);
+static DEFINE_MUTEX(task_mutex);
+
 struct aml_avbc_wrapper_s *g_wrapper;
 
 extern int avbcd_work_mode;
@@ -192,7 +203,82 @@ extern int crc_dump;
 extern int dump_avbcd_frame;
 extern char dump_path[32];
 extern int dec_i_frame_once;
+extern int ge2d_copy;
 
+static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out)
+{
+	u32 src_w_stride, src_h_stride, dst_w_stride, dst_h_stride;
+	struct vframe_s *vf = vzalloc(sizeof(struct vframe_s));
+	struct canvas_config_s src_canvas_config[2], dst_canvas_config[2];
+	struct vdec_ge2d_info ge2d_info = { 0 };
+
+	src_w_stride = ALIGN(wrapper->vdec->avbc_info.avbc_width, 64);
+	if (wrapper->vdec->avbc_info.bitdepth == 10)
+		src_w_stride = src_w_stride * 2;
+	src_h_stride = ALIGN(wrapper->vdec->avbc_info.avbc_height, 64);
+
+	dst_w_stride = out->img.rect.width;
+	dst_h_stride = out->img.rect.height;
+
+	src_canvas_config[0].phy_addr = wrapper->hw_buf.phy_addr;
+	src_canvas_config[0].width = src_w_stride;
+	src_canvas_config[0].height = src_h_stride;
+	src_canvas_config[0].block_mode = 0;
+	src_canvas_config[0].endian = 0;
+	src_canvas_config[0].bit_depth = 0;
+
+	src_canvas_config[1].phy_addr = wrapper->hw_buf.phy_addr + src_w_stride * src_h_stride;
+	src_canvas_config[1].width = src_w_stride;
+	src_canvas_config[1].height = src_h_stride;
+	src_canvas_config[1].block_mode = 0;
+	src_canvas_config[1].endian = 0;
+	src_canvas_config[1].bit_depth = 0;
+
+	dst_canvas_config[0] = src_canvas_config[0];
+	dst_canvas_config[0].width = dst_w_stride;
+	dst_canvas_config[0].height = dst_h_stride;
+	dst_canvas_config[0].phy_addr = out->img.data;
+
+	dst_canvas_config[1] = src_canvas_config[1];
+	dst_canvas_config[1].width = dst_w_stride;
+	dst_canvas_config[1].height = dst_h_stride;
+	dst_canvas_config[1].phy_addr = out->img.data + dst_w_stride * dst_h_stride;
+
+	vf->width = dst_w_stride;
+	vf->height = dst_h_stride;
+	vf->type = (out->img.format == AML_PIX_FMT_NV21) ?
+			VIDTYPE_VIU_NV21 : VIDTYPE_VIU_NV12;
+	vf->canvas0Addr = vf->canvas1Addr = -1;
+	vf->plane_num = 2;
+	vf->canvas0_config[0] = dst_canvas_config[0];
+	vf->canvas0_config[1] = dst_canvas_config[1];
+	vf->canvas1_config[0] = dst_canvas_config[0];
+	vf->canvas1_config[1] = dst_canvas_config[1];
+	ge2d_info.src_canvas0Addr = ge2d_info.src_canvas1Addr = -1;
+	ge2d_info.dst_vf = vf;
+
+	ge2d_info.src_canvas0_config[0] = src_canvas_config[0];
+	ge2d_info.src_canvas0_config[1] = src_canvas_config[1];
+	ge2d_info.src_canvas1_config[0] = src_canvas_config[0];
+	ge2d_info.src_canvas1_config[1] = src_canvas_config[1];
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
+		"data 0x%llx size %d, dst_addr(0x%lx, 0x%lx), src_addr(0x%lx, 0x%lx), src_stride(%ux%u), dst_stride(%ux%u)\n",
+		out->img.data, out->img.size,
+		src_canvas_config[0].phy_addr, src_canvas_config[1].phy_addr,
+		dst_canvas_config[0].phy_addr, dst_canvas_config[1].phy_addr,
+		src_w_stride, src_h_stride,
+		dst_w_stride, dst_h_stride);
+	if (!wrapper->ge2d) {
+		int mode = (out->img.format == AML_PIX_FMT_NV21) ?
+				GE2D_MODE_CONVERT_NV21 : GE2D_MODE_CONVERT_NV12;
+		mode |= GE2D_MODE_CONVERT_LE;
+		vdec_ge2d_init(&wrapper->ge2d, mode);
+	}
+	vdec_ge2d_copy_data(wrapper->ge2d, &ge2d_info);
+
+	vfree(vf);
+}
 
 static void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out)
 {
@@ -587,6 +673,143 @@ int aml_avbcd_submit_one_frame(struct avbc_input *input, struct avbc_output *out
 	return ret;
 }
 
+#ifdef CONFIG_AMLOGIC_MEDIA_VICP
+int config_vicp_input_data(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out,
+				struct vframe_s *vf, struct vicp_data_config_s *data_config)
+{
+	struct input_data_param_s *input_data = &data_config->input_data;
+	struct canvas_config_s src_canvas_config[2];
+
+	memset(input_data, 0, sizeof(struct input_data_param_s));
+
+	src_canvas_config[0].width = ALIGN(wrapper->in.img.rect.width, 64);
+	src_canvas_config[0].height = wrapper->in.img.rect.height;
+	src_canvas_config[0].block_mode = 0;
+	src_canvas_config[0].endian = 0;
+	src_canvas_config[0].bit_depth = 0;
+
+	src_canvas_config[1].width = ALIGN(wrapper->in.img.rect.width, 64);
+	src_canvas_config[1].height = wrapper->in.img.rect.height;
+	src_canvas_config[1].block_mode = 0;
+	src_canvas_config[1].endian = 0;
+	src_canvas_config[1].bit_depth = 0;
+
+	vf->compBodyAddr = 0;
+	vf->compHeadAddr = wrapper->in.img.data;
+
+	vf->width = wrapper->in.img.rect.width;//dst_w_stride;
+	vf->height = wrapper->in.img.rect.height;//dst_h_stride;
+
+	vf->compWidth = wrapper->in.img.rect.width;
+	vf->compHeight = wrapper->in.img.rect.height;
+	vf->flag |= VFRAME_FLAG_VIDEO_LINEAR; //todo
+
+	if (wrapper->in.img.bitdep == 10)
+		vf->bitdepth = BITDEPTH_Y10 | BITDEPTH_U10 | BITDEPTH_V10;
+	if (wrapper->in.img.bitdep == 10 && out->img.bitdep == 8)
+		vf->bitdepth |= BITDEPTH_SAVING_MODE;
+
+	vf->type = (out->img.format == AML_PIX_FMT_NV21) ?
+			VIDTYPE_VIU_NV21 : VIDTYPE_VIU_NV12;
+	vf->type |= VIDTYPE_PROGRESSIVE |
+		VIDTYPE_VIU_FIELD |
+		VIDTYPE_COMPRESS |
+		VIDTYPE_SCATTER;
+	vf->canvas0Addr = vf->canvas1Addr = -1;
+	vf->plane_num = 2;
+	vf->canvas0_config[0] = src_canvas_config[0];
+	vf->canvas0_config[1] = src_canvas_config[1];
+	vf->canvas1_config[0] = src_canvas_config[0];
+	vf->canvas1_config[1] = src_canvas_config[1];
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
+				"%s wxh(%d x %d), flag(0x%x), bitdepth(0x%x), type(0x%x)\n",
+				__func__,
+				vf->compWidth,
+				vf->compHeight,
+				vf->flag,
+				vf->bitdepth,
+				vf->type);
+
+	input_data->is_vframe = true;
+	input_data->data_vf = vf;
+
+	return 0;
+}
+
+int config_vicp_output_data(struct aml_avbc_wrapper_s *wrapper,
+			struct avbc_output *out, struct vicp_data_config_s *data_config)
+{
+	struct output_data_param_s *output_data = &data_config->output_data;
+	struct data_option_s *data_option = &data_config->data_option;
+	memset(output_data, 0, sizeof(struct output_data_param_s));
+
+	output_data->width = out->img.rect.width;
+	output_data->height = out->img.rect.height;
+	output_data->phy_addr[0] = out->img.data;
+	output_data->stride[0] = out->img.rect.width;
+	output_data->mif_out_en = 1;
+	output_data->endian = 1;
+	output_data->need_swap_cbcr = 1;
+	output_data->out_sig_fmt = 0;
+
+	output_data->mif_color_fmt = VICP_COLOR_FORMAT_YUV420;
+	output_data->mif_color_dep = out->img.bitdep;
+
+	data_option->rotation_mode = 0;
+	data_option->crop_info.left = 0;
+	data_option->crop_info.top = 0;
+	data_option->crop_info.width = ALIGN(wrapper->in.img.rect.width, 64);
+	data_option->crop_info.height = ALIGN(wrapper->in.img.rect.height, 64);
+	data_option->output_axis.left = 0;
+	data_option->output_axis.top = 0;
+	data_option->output_axis.width = ALIGN(wrapper->in.img.rect.width, 64);
+	data_option->output_axis.height = ALIGN(wrapper->in.img.rect.height, 64);
+	data_option->shrink_mode = 0;
+	data_option->rdma_enable = false;
+	data_option->input_source_count = 1;
+	data_option->input_source_number = 0;
+	data_option->security_enable = 0;
+	data_option->skip_mode = 0;
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
+				"%s output(%d x %d), crop(%d x %d), addr(0x%lx), bitdepth(0x%x), stride(%d)\n",
+				__func__,
+				output_data->width,
+				output_data->height,
+				data_option->crop_info.width,
+				data_option->crop_info.height,
+				output_data->phy_addr[0],
+				output_data->mif_color_dep,
+				output_data->stride[0]);
+
+	return 0;
+}
+
+void aml_avbcd_vicp_process(struct aml_avbc_wrapper_s *wrapper,
+					struct avbc_output *out)
+{
+	int ret;
+	struct vicp_data_config_s *data_config = vzalloc(sizeof(struct vicp_data_config_s));
+	struct vframe_s *src_vf = vzalloc(sizeof(struct vframe_s));
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s start!\n", __func__);
+
+	config_vicp_input_data(wrapper, out, src_vf, data_config);
+
+	config_vicp_output_data(wrapper, out, data_config);
+
+	ret = vicp_process(data_config);
+	if (ret < 0)
+		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "vicp_process failed\n");
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s end!\n", __func__);
+
+	vfree(data_config);
+	vfree(src_vf);
+}
+#endif
+
 static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 {
 	struct vframe_chunk_s *chunk = NULL;
@@ -639,6 +862,16 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		wrapper->in.img.rect.width,
 		wrapper->in.img.rect.height,
 		wrapper->in.img.bitdep);
+
+#ifdef CONFIG_AMLOGIC_MEDIA_VICP
+	if (!wrapper->stop_flag &&
+		wrapper->vicp_mode &&
+		kfifo_peek(&wrapper->out, &out)) {
+		aml_avbcd_vicp_process(wrapper, out);
+
+		goto out;
+	}
+#endif
 
 	if (!wrapper->stop_flag && wrapper->hard_mode) {
 		if (dec_i_frame_once && wrapper->frame_count &&
@@ -722,11 +955,12 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		}
 	}
 
+out:
 	if (wrapper->stop_flag) {
 		wrapper->dec_result = DEC_RESULT_ERROR;
 		queue_work(wrapper->avbc_workqueue, &wrapper->avbc_work);
 	} else {
-		if (wrapper->hard_mode && wrapper->in.img.data) {
+		if (!(vdec->avbc_mode & 0x100) && wrapper->hard_mode && wrapper->in.img.data) {
 			vdec->run_avbc(vdec, mask, wrapper->vdec_cb, wrapper->vdec_cb_arg);
 			if (vdec->avbc_mode & 0x8) {
 				wrapper->dec_result = DEC_RESULT_DONE;
@@ -799,6 +1033,7 @@ void aml_avbc_wrapper_stop(void *priv)
 }
 EXPORT_SYMBOL(aml_avbc_wrapper_stop);
 
+
 static void aml_buf_avbcd_worker(struct work_struct *work)
 {
 	struct aml_avbc_wrapper_s *wrapper =
@@ -813,7 +1048,12 @@ static void aml_buf_avbcd_worker(struct work_struct *work)
 		goto out;
 
 	if (wrapper->dec_result == DEC_RESULT_DONE) {
-		if (kfifo_get(&wrapper->out, &out) && !wrapper->hard_mode) {
+		if (kfifo_peek(&wrapper->out, &out) && wrapper->vicp_mode) {
+			if (!kfifo_get(&wrapper->out, &out))
+				goto out;
+		} else if (!wrapper->hard_mode && !wrapper->vicp_mode) {
+			if (!kfifo_get(&wrapper->out, &out))
+				goto out;
 			if (avbcd_work_mode & AVBCD_SOFT_KERNEL_MODE)
 				aml_avbcd_process_one_frame(&wrapper->in, out);
 			else {
@@ -822,7 +1062,8 @@ static void aml_buf_avbcd_worker(struct work_struct *work)
 					wrapper->dec_result = DEC_RESULT_ERROR;
 			}
 		} else if (wrapper->hard_mode && (wrapper->flag & AVBC_FLAG_IO_BLOCKING)) {
-			copy_yuv(wrapper, out);
+			wrapper->wait_complete = true;
+			queue_work(wrapper->avbc_workqueue, &wrapper->copy_work);;
 		} else if (!wrapper->hard_mode) {
 			v4l_dbg_avbcd(0, V4L_DEBUG_CODEC_ERROR, "%s Get out fifo fail!\n", __func__);
 			goto out;
@@ -842,16 +1083,8 @@ static void aml_buf_avbcd_worker(struct work_struct *work)
 	}
 
 out:
-	if (wrapper->hw_buf.mem_handle) {
-		codec_mm_dma_free_coherent(wrapper->hw_buf.mem_handle);
-		wrapper->hw_buf.phy_addr = 0;
-		wrapper->hw_buf.virt_addr = 0;
-		wrapper->hw_buf.size = 0;
-		wrapper->hw_buf.mem_handle = 0;
-	}
 	vdec_vframe_dirty(wrapper->vdec, wrapper->chunk);
 	wrapper->chunk = NULL;
-	complete(&wrapper->avbc_done);
 
 	if (wrapper->hard_mode)
 		vdec_core_finish_run(wrapper->vdec, CORE_MASK_HEVC);
@@ -860,6 +1093,41 @@ out:
 
 	if (wrapper->vdec_cb)
 		wrapper->vdec_cb(wrapper->vdec, wrapper->vdec_cb_arg, CORE_MASK_HEVC);
+
+	mutex_lock(&wrapper->copy_lock);
+	if (!wrapper->wait_complete)
+		complete(&wrapper->avbc_done);
+	mutex_unlock(&wrapper->copy_lock);
+}
+
+static void aml_buf_copy_worker(struct work_struct *work)
+{
+	struct aml_avbc_wrapper_s *wrapper =
+		container_of(work, struct aml_avbc_wrapper_s, copy_work);
+	struct avbc_output *out;
+
+	mutex_lock(&wrapper->copy_lock);
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s start!\n", __func__);
+
+	if (kfifo_get(&wrapper->out, &out)) {
+		if (ge2d_copy)
+			copy_ge2d(wrapper, out);
+		else
+			copy_yuv(wrapper, out);
+	}
+
+	if (wrapper->hw_buf.mem_handle) {
+		codec_mm_dma_free_coherent(wrapper->hw_buf.mem_handle);
+		wrapper->hw_buf.phy_addr = 0;
+		wrapper->hw_buf.virt_addr = 0;
+		wrapper->hw_buf.size = 0;
+		wrapper->hw_buf.mem_handle = 0;
+	}
+	wrapper->wait_complete = false;
+	complete(&wrapper->avbc_done);
+
+	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR, "%s end!\n", __func__);
+	mutex_unlock(&wrapper->copy_lock);
 }
 
 static irqreturn_t avbc_irq_cb(struct vdec_s *vdec, int irq)
@@ -1055,8 +1323,10 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 
 	if (!(avbcd_work_mode & 0x8000)) {
 		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6) ||
-			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6D) ||
+			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S5) ||
 			(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X))
+			avbcd_work_mode = AVBCD_VICP_MODE;
+		else if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6D)
 			avbcd_work_mode |= 0x10;
 		else if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W)
 			avbcd_work_mode = 0xc;
@@ -1072,6 +1342,7 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 
 	init_completion(&wrapper->avbc_done);
 	atomic_set(&wrapper->ref, 1);
+	mutex_init(&wrapper->copy_lock);
 	wrapper->avbc_workqueue =
 		alloc_ordered_workqueue("avbcd-worker",
 			__WQ_LEGACY | WQ_MEM_RECLAIM | WQ_HIGHPRI);
@@ -1111,6 +1382,8 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 	vdec->avbc_mode = avbcd_work_mode;
 	if (vdec->avbc_mode & AVBCD_HARDWARE_MODE)
 		wrapper->hard_mode = 1;
+	else if (vdec->avbc_mode & AVBCD_VICP_MODE)
+		wrapper->vicp_mode = 1;
 	aml_avbc_enable_hardware(&wrapper->port);
 	vdec_init(vdec, 0, 0);
 	avbcd_wrapper_probe(vdec);
@@ -1119,6 +1392,7 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 	vdec_connect(vdec);
 
 	INIT_WORK(&wrapper->avbc_work, aml_buf_avbcd_worker);
+	INIT_WORK(&wrapper->copy_work, aml_buf_copy_worker);
 
 	INIT_KFIFO(wrapper->input);
 	INIT_KFIFO(wrapper->in_done_q);
@@ -1181,6 +1455,9 @@ void aml_avbc_wrapper_destroy(void *priv)
 	}
 	vdec = wrapper->vdec;
 
+	if (wrapper->ge2d)
+		vdec_ge2d_destroy(wrapper->ge2d);
+
 	flush_workqueue(wrapper->avbc_workqueue);
 	destroy_workqueue(wrapper->avbc_workqueue);
 
@@ -1203,6 +1480,7 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 	struct aml_avbc_wrapper_s *wrapper;
 	int ret = -1;
 
+	mutex_lock(&task_mutex);
 	if (!is_support_avbc_wrapper() && !(avbcd_work_mode & 0x8000))
 		goto out;
 
@@ -1245,6 +1523,8 @@ int aml_avbc_decode(struct avbc_output *out, struct avbc_input *in, u32 flag)
 		ret = -1;
 
 out:
+	mutex_unlock(&task_mutex);
+
 	return ret;
 }
 EXPORT_SYMBOL(aml_avbc_decode);

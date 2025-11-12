@@ -28,6 +28,8 @@
 #define AVBCD_SOFT_KERNEL_MODE	(1 << 0)
 #define AVBCD_SOFT_USER_MODE	(1 << 1)
 #define AVBCD_HARDWARE_MODE	(1 << 2)
+#define AVBCD_VICP_MODE		(1 << 3)
+
 
 /*
  * aml_avbc_wrapper_init() - AVBC Wrapper context init.
