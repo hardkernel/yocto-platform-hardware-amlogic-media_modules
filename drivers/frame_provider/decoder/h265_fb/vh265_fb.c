@@ -17721,14 +17721,12 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	}
 	ATRACE_COUNTER(hevc->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END);
 
-	if (vdec_frame_based(vdec))
-		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
-
 	vdec_enable_input(vdec);
 
 	WRITE_VREG(HEVC_DEC_STATUS_REG, HEVC_ACTION_DONE);
 
 	if (vdec_frame_based(vdec)) {
+		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 		r = hevc->data_size +
 			(hevc->data_offset & (VDEC_FIFO_ALIGN - 1));
 		hevc->decode_size = r;

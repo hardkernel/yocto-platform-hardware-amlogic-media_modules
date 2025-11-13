@@ -14056,7 +14056,7 @@ static void run_front(struct vdec_s *vdec)
 		pbi->data_offset -= (pbi->data_invalid - pbi->consume_byte);
 		pbi->data_size += (pbi->data_invalid - pbi->consume_byte);
 		size = pbi->data_size;
-		WRITE_VREG(HEVC_ASSIST_SCRATCH_C, pbi->data_invalid + get_hevc_stream_extra_shift_bytes());
+		WRITE_VREG(HEVC_ASSIST_SCRATCH_C, pbi->data_invalid);
 
 		vp9_print(pbi, VP9_DEBUG_BUFMGR,
 			"%s after, consume 0x%x, size 0x%x, offset 0x%x, invalid 0x%x, res 0x%x\n", __func__,
@@ -14292,9 +14292,6 @@ static void run_front(struct vdec_s *vdec)
 		return;
 	}
 
-	if (vdec_frame_based(vdec))
-		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
-
 	vdec_enable_input(vdec);
 
 #ifdef NEW_FRONT_BACK_CODE
@@ -14312,6 +14309,7 @@ static void run_front(struct vdec_s *vdec)
 		if (debug & PRINT_FLAG_VDEC_DATA)
 			dump_data(pbi, pbi->data_size);
 
+		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 		size = pbi->data_size +
 			(pbi->data_offset & (VDEC_FIFO_ALIGN - 1));
 		if (vdec->mvfrm)

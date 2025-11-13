@@ -10798,9 +10798,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	}
 	decoder_trace(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END, TRACE_BASIC);
 
-	if (vdec_frame_based(vdec))
-		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
-
 	vdec_enable_input(vdec);
 
 	//WRITE_VREG(HEVC_DEC_STATUS_REG, AVS3_SEARCH_NEW_PIC);
@@ -10809,6 +10806,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		if (debug & PRINT_FLAG_VDEC_DATA)
 			dump_data(dec, dec->chunk->size);
 
+		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 		r = dec->chunk->size +
 			(dec->chunk->offset & (VDEC_FIFO_ALIGN - 1));
 		if (vdec->mvfrm)

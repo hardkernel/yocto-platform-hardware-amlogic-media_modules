@@ -15375,8 +15375,6 @@ static void run_front(struct vdec_s *vdec)
 		vdec_schedule_work(&pbi->work);
 		return;
 	}
-	if (vdec_frame_based(vdec))
-		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 
 	vdec_enable_input(vdec);
 
@@ -15395,6 +15393,7 @@ static void run_front(struct vdec_s *vdec)
 		if (debug & PRINT_FLAG_VDEC_DATA)
 			dump_data(pbi, pbi->data_size);
 
+		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 		size = pbi->data_size +
 			(pbi->data_offset & (VDEC_FIFO_ALIGN - 1));
 		if (vdec->mvfrm)

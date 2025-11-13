@@ -9456,9 +9456,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			hw->frame_decoded &&
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT) < hw->data_size) {
 				if (enable_single_slice == 1) {
-					//.hevc_stream_extra_shift = 8 t3x, s6
-					hw->consume_byte =
-						READ_VREG(HEVC_SHIFT_BYTE_COUNT) - get_hevc_stream_extra_shift_bytes() - 4;
+					hw->consume_byte = READ_VREG(HEVC_SHIFT_BYTE_COUNT) - 4;
 					hw->dec_result = DEC_RESULT_UNFINISH;
 					amhevc_stop();
 #ifdef MCRCC_ENABLE

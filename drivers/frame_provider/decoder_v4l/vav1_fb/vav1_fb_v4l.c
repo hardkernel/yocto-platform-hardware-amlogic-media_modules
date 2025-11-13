@@ -9651,8 +9651,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 					if (hw->no_head) {
 						hw->consume_byte = shift_byte;
 					} else {
-						hw->consume_byte =
-							shift_byte - get_hevc_stream_extra_shift_bytes() - 4;
+						hw->consume_byte = shift_byte - 4;
 					}
 					hw->dec_result = DEC_RESULT_UNFINISH;
 					if (hw->consume_byte == 0)
@@ -12118,9 +12117,6 @@ static void run_front(struct vdec_s *vdec)
 	}
 	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END);
 
-	if (vdec_frame_based(vdec))
-		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
-
 	vdec_enable_input(vdec);
 
 	WRITE_VREG(HEVC_DEC_STATUS_REG, HEVC_ACTION_DONE);
@@ -12129,6 +12125,7 @@ static void run_front(struct vdec_s *vdec)
 		if (debug & PRINT_FLAG_VDEC_DATA)
 			dump_data(hw, hw->data_size);
 
+		WRITE_VREG(HEVC_SHIFT_BYTE_COUNT, 0);
 		size = hw->data_size +
 			(hw->data_offset & (VDEC_FIFO_ALIGN - 1));
 		if (vdec->mvfrm)

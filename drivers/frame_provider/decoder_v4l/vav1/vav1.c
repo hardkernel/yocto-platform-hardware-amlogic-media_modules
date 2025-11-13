@@ -9693,12 +9693,10 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			hw->frame_decoded &&
 			shift_byte + 2 < hw->data_size) { //obu head 1 byte, obu payload 1 byte
 				if (enable_single_slice == 1) {
-					//.hevc_stream_extra_shift = 8, t3x, s6
 					if (hw->no_head) {
 						hw->consume_byte = shift_byte;
 					} else {
-						hw->consume_byte =
-							shift_byte - get_hevc_stream_extra_shift_bytes() - 4;
+						hw->consume_byte = shift_byte - 4;
 					}
 					hw->dec_result = DEC_RESULT_UNFINISH;
 					amhevc_stop();
