@@ -278,6 +278,7 @@ struct vdec_mjpeg_hw_s {
 	struct vdec_ge2d *ge2d;
 	struct buffer_spec_s jpeg_buffer;
 	int hv_subsample;
+	u32 last_dur;
 };
 
 static void reset_process_time(struct vdec_mjpeg_hw_s *hw);
@@ -302,6 +303,56 @@ static u32 mjpeg_get_endian(struct vdec_mjpeg_hw_s *hw)
 	return endian;
 }
 
+static void v4l_mjpeg_collect_stream_info(struct vdec_s *vdec,
+	struct vdec_mjpeg_hw_s *hw, struct aml_vdec_ps_infos *ps)
+{
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
+	struct dec_stream_info_s *str_info = NULL;
+	int hv_subsample = READ_VREG(AV_SCRATCH_M)  & 0xff;
+
+	if (ctx == NULL) {
+		pr_info("param invalid\n");
+		return;
+	}
+	str_info = &ctx->dec_intf.dec_stream;
+
+	snprintf(str_info->vdec_name, sizeof(str_info->vdec_name),
+		"%s", DRIVER_NAME);
+
+	str_info->vdec_type = input_frame_based(vdec);
+	str_info->dual_core_flag = vdec_dual(vdec);
+	str_info->is_secure = vdec_secure(vdec);
+	str_info->profile_idc = hv_subsample;
+	str_info->level_idc = 0;
+	str_info->filed_flag = 0;
+	if (ps != NULL) {
+		str_info->frame_width= ps->visible_width;
+		str_info->frame_height = ps->visible_height;
+		str_info->dpb_num = ps->dpb_frames;
+		str_info->margin_num = ps->dpb_margin;
+	}
+	str_info->crop_top = 0;
+	str_info->crop_bottom = 0;
+	str_info->crop_left= 0;
+	str_info->crop_right = 0;
+	str_info->double_write_mode = 0;
+	str_info->error_handle_policy = 0;
+	str_info->bit_depth = 8;
+
+	str_info->ratio_size.dar_width = -1;
+	str_info->ratio_size.dar_height = -1;
+	str_info->ratio_size.sar_width = -1;
+	str_info->ratio_size.sar_height = -1;
+	str_info->trick_mode = 0;
+	str_info->frame_dur = hw->last_dur;
+	if (str_info->frame_dur != 0)
+		str_info->frame_rate = ((96000 * 10 / str_info->frame_dur) % 10) < 5 ?
+				96000 / str_info->frame_dur : (96000 / str_info->frame_dur +1);
+	else
+		str_info->frame_rate = -1;
+	ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STREAM, NULL);
+}
+
 static void set_frame_info(struct vdec_mjpeg_hw_s *hw, struct vframe_s *vf)
 {
 	u32 width, height;
@@ -321,6 +372,13 @@ static void set_frame_info(struct vdec_mjpeg_hw_s *hw, struct vframe_s *vf)
 	if (hw->jpeg_flag) {
 		vf->width = hw->out_width;
 		vf->height = hw->out_height;
+	}
+
+	if (hw->last_dur != hw->frame_dur) {
+		mmjpeg_debug_print(DECODE_ID(hw), PRINT_FLAG_V4L_DETAIL,
+			"decoder duration change old: %d new: %d\n", hw->last_dur, hw->frame_dur);
+		hw->last_dur = hw->frame_dur;
+		v4l_mjpeg_collect_stream_info(hw_to_vdec(hw), hw, NULL);
 	}
 
 	vf->duration = vf_dur ? vf_dur : hw->frame_dur;
@@ -535,6 +593,7 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 				vdec_v4l_set_ps_infos(ctx, &ps);
 				ctx->decoder_status_info.frame_height = ps.visible_height;
 				ctx->decoder_status_info.frame_width = ps.visible_width;
+				v4l_mjpeg_collect_stream_info(vdec, hw, &ps);
 				reset_process_time(hw);
 				hw->dec_result = DEC_RESULT_AGAIN;
 				vdec_schedule_work(&hw->work);

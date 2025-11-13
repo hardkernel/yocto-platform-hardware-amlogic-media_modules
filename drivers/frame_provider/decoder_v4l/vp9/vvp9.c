@@ -8714,7 +8714,7 @@ static void fill_frame_info(struct VP9Decoder_s *pbi,
 }
 
 static void v4l_vp9_collect_stream_info(struct vdec_s *vdec,
-	struct VP9Decoder_s *pbi)
+	struct VP9Decoder_s *pbi, struct aml_vdec_ps_infos *ps)
 {
 	struct aml_vcodec_ctx *ctx = pbi->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
@@ -8743,6 +8743,11 @@ static void v4l_vp9_collect_stream_info(struct vdec_s *vdec,
 	str_info->error_handle_policy = error_handle_policy;
 	str_info->bit_depth = pbi->param.p.bit_depth;
 	str_info->fence_enable = pbi->enable_fence;
+	if (ps != NULL) {
+		str_info->dpb_num = ps->dpb_frames;
+		str_info->margin_num = ps->dpb_margin;
+	}
+
 	str_info->ratio_size.sar_width = -1;
 	str_info->ratio_size.sar_height = -1;
 	str_info->ratio_size.dar_width = -1;
@@ -9830,7 +9835,7 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 				}
 				ctx->decoder_status_info.frame_height = ps.visible_height;
 				ctx->decoder_status_info.frame_width = ps.visible_width;
-				v4l_vp9_collect_stream_info(vdec, pbi);
+				v4l_vp9_collect_stream_info(vdec, pbi, &ps);
 				ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 			}
 			pbi->v4l_params_parsed	= true;

@@ -3,6 +3,11 @@
 
 #include "aml_vcodec_drv.h"
 
+#define DECINFO_VER(major,minor,revision)\
+	(((major) << 16) + ((minor) << 8) + (revision))
+
+#define DECINFO_DRV_VER		DECINFO_VER(0, 0, 2)
+
 void aml_vcodec_decinfo_event_handler(struct aml_vcodec_ctx *ctx,
 	int sub_cmd, void *data);
 void aml_vcodec_dec_info_init(struct aml_vcodec_ctx *ctx);

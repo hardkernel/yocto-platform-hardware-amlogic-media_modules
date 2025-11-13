@@ -207,7 +207,9 @@ struct dec_stream_info_s {
 	struct aspect_ratio_size ratio_size;   /* sar width/height, dar width/height */
 	__u32 frame_dur;
 	__u32 decode_status;
-	char reserved[60];
+	u8 dpb_num;
+	u8 margin_num;
+	char reserved[58];
 };
 
 struct dec_frame_info_s {

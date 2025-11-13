@@ -371,6 +371,7 @@ struct vdec_vc1_hw_s {
 
 	u32 report_width;
 	u32 report_height;
+	u32 last_dur;
 };
 
 static struct task_ops_s task_dec_ops;
@@ -1577,6 +1578,52 @@ static int find_free_buffer(struct vdec_vc1_hw_s *hw)
 	return i;
 }
 
+static void v4l_vc1_collect_stream_info(struct vdec_s *vdec,
+	struct vdec_vc1_hw_s *hw)
+{
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
+	struct dec_stream_info_s *str_info = NULL;
+
+	if (ctx == NULL) {
+		pr_info("param invalid\n");
+		return;
+	}
+	str_info = &ctx->dec_intf.dec_stream;
+
+	snprintf(str_info->vdec_name, sizeof(str_info->vdec_name),
+		"%s", DRIVER_NAME);
+
+	str_info->vdec_type = input_frame_based(vdec);
+	str_info->dual_core_flag = vdec_dual(vdec);
+	str_info->is_secure = vdec_secure(vdec);
+	str_info->profile_idc = 3;//Advanced profile
+	str_info->level_idc = 3;//1920x1080
+	str_info->filed_flag = hw->interlace_flag;
+	str_info->frame_height = hw->frame_height;
+	str_info->frame_width = hw->frame_width;
+	str_info->crop_top = 0;
+	str_info->crop_bottom = 0;
+	str_info->crop_left= 0;
+	str_info->crop_right = 0;
+	str_info->double_write_mode = 0;
+	str_info->error_handle_policy = 0;
+	str_info->bit_depth = 8;
+	str_info->dpb_num = DECODE_BUFFER_NUM_MAX;
+	str_info->margin_num = hw->dynamic_buf_num_margin;
+
+	str_info->ratio_size.dar_width = -1;
+	str_info->ratio_size.dar_height = -1;
+	str_info->ratio_size.sar_width = -1;
+	str_info->ratio_size.sar_height = -1;
+	str_info->trick_mode = 0;
+	str_info->frame_dur = hw->last_dur;
+	if (str_info->frame_dur != 0)
+		str_info->frame_rate = ((96000 * 10 / str_info->frame_dur) % 10) < 5 ?
+				96000 / str_info->frame_dur : (96000 / str_info->frame_dur +1);
+	else
+		str_info->frame_rate = -1;
+	ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STREAM, NULL);
+}
 
 static void set_frame_info(struct vdec_vc1_hw_s *hw, struct vframe_s *vf)
 {
@@ -1585,6 +1632,13 @@ static void set_frame_info(struct vdec_vc1_hw_s *hw, struct vframe_s *vf)
 	int vf_dur = vdec_get_vf_dur();
 
 	vf->duration = vf_dur ? vf_dur : hw->frame_dur;
+
+	if (hw->last_dur != hw->frame_dur) {
+		vc1_print(DECODE_ID(hw), VC1_DEBUG_DETAIL,
+			"decoder duration change old: %d new: %d\n", hw->last_dur, hw->frame_dur);
+		hw->last_dur = hw->frame_dur;
+		v4l_vc1_collect_stream_info(hw_to_vdec(hw), hw);
+	}
 
 	vf->canvas0Addr = vf->canvas1Addr = -1;
 	vf->plane_num = 2;
@@ -2200,6 +2254,7 @@ static irqreturn_t vmvc1_isr_thread_handler(struct vdec_s *vdec, int irq)
 					hw->v4l_params_parsed = true;
 					ctx->decoder_status_info.frame_height = ps.visible_height;
 					ctx->decoder_status_info.frame_width = ps.visible_width;
+					v4l_vc1_collect_stream_info(vdec, hw);
 
 					if (hw->frame_width && hw->frame_width <= 4096
 						&& (hw->frame_width != hw->vvc1_amstream_dec_info.width)) {

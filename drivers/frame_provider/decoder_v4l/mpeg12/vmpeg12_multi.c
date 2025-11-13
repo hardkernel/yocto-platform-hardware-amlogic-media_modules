@@ -1805,6 +1805,12 @@ static void v4l_mpeg12_collect_stream_info(struct vdec_s *vdec,
 	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
 	u32 pixel_ratio;
+	int info = READ_VREG(MREG_SEQ_INFO);
+	bool frame_prog = true;
+
+	if ((info & SEQINFO_EXT_AVAILABLE) &&
+		((info & SEQINFO_PROG) == 0))
+		frame_prog = false;
 
 	if (ctx == NULL) {
 		pr_info("param invalid\n");
@@ -1820,7 +1826,7 @@ static void v4l_mpeg12_collect_stream_info(struct vdec_s *vdec,
 	str_info->is_secure = vdec_secure(vdec);
 	str_info->profile_idc = hw->profile_idc;
 	str_info->level_idc = hw->level_idc;
-	str_info->filed_flag = hw->report_field;
+	str_info->filed_flag =  (hw->force_prog_only || frame_prog) ? 0 : 1;
 	str_info->frame_height = hw->frame_height;
 	str_info->frame_width = hw->frame_width;
 	str_info->crop_top = 0;
@@ -1830,6 +1836,9 @@ static void v4l_mpeg12_collect_stream_info(struct vdec_s *vdec,
 	str_info->double_write_mode = 0;
 	str_info->error_handle_policy = error_proc_policy;
 	str_info->bit_depth = 8;
+	str_info->dpb_num = DECODE_BUFFER_NUM_DEF;
+	str_info->margin_num = hw->dynamic_buf_num_margin;
+
 	pixel_ratio = READ_VREG(MREG_SEQ_INFO) & 0xf;;
 
 	if (pixel_ratio == 0) {

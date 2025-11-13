@@ -1097,7 +1097,7 @@ static int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags);
 static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 	struct vdec_s *vdec, int from);
 static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
-	struct vdec_h264_hw_s *hw);
+				struct vdec_h264_hw_s *hw, struct aml_vdec_ps_infos *ps);
 
 
 #define		H265_PUT_SAO_4K_SET			0x03
@@ -6023,7 +6023,7 @@ static void set_frame_info(struct vdec_h264_hw_s *hw, struct vframe_s *vf,
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", hw->last_dur, hw->frame_dur);
 		hw->last_dur = hw->frame_dur;
-		v4l_vmh264_collect_stream_info(hw_to_vdec(hw), hw);
+		v4l_vmh264_collect_stream_info(hw_to_vdec(hw), hw, NULL);
 	}
 
 	if (hw->h264_ar == 0x3ff)
@@ -11830,7 +11830,7 @@ static int clear_mmu_config(struct vdec_h264_hw_s *hw, struct vdec_s *vdec)
 }
 
 static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
-	struct vdec_h264_hw_s *hw)
+	struct vdec_h264_hw_s *hw, struct aml_vdec_ps_infos *ps)
 {
 	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
@@ -11850,7 +11850,6 @@ static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
 	str_info->is_secure = vdec_secure(vdec);
 	str_info->profile_idc = p_H264_Dpb->mSPS.profile_idc;
 	str_info->level_idc = p_H264_Dpb->mSPS.level_idc;
-	str_info->filed_flag = !(p_H264_Dpb->mSPS.frame_mbs_only_flag);
 	str_info->frame_height = hw->frame_height;
 	str_info->frame_width = hw->frame_width;
 	str_info->crop_top = 0;
@@ -11861,6 +11860,12 @@ static void v4l_vmh264_collect_stream_info(struct vdec_s *vdec,
 	str_info->error_handle_policy = hw->error_proc_policy;
 	str_info->bit_depth = 8;
 	str_info->fence_enable = hw->enable_fence;
+	if (ps != NULL) {
+		str_info->filed_flag = (ps->field == V4L2_FIELD_NONE) ? 0 : 1;
+		str_info->dpb_num = ps->dpb_frames;
+		str_info->margin_num = ps->dpb_margin;
+	}
+
 	str_info->ratio_size.sar_width = hw->width_aspect_ratio;
 	str_info->ratio_size.sar_height = hw->height_aspect_ratio;
 	str_info->ratio_size.dar_width = -1;
@@ -12555,7 +12560,7 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 
 						hw->frame_width = ps.visible_width;
 						hw->frame_height = ps.visible_height;
-						v4l_vmh264_collect_stream_info(vdec, hw);
+						v4l_vmh264_collect_stream_info(vdec, hw, &ps);
 						if (hw->res_ch_flag) {
 							hw->res_ch_flag = 0;
 							dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL, "%s %d param1:%px param2:%px param3:%px param4:%px\n",

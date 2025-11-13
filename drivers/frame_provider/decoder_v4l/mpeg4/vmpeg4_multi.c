@@ -1227,6 +1227,9 @@ static void v4l_vmpeg4_collect_stream_info(struct vdec_s *vdec,
 	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
 	u32 vos_info = READ_VREG(MP4_VOS_INFO);
+	int frame_width = READ_VREG(MP4_PIC_WH)>> 16;
+	int frame_height = READ_VREG(MP4_PIC_WH) & 0xffff;
+	int interlace = (READ_VREG(MP4_PIC_RATIO) & 0x80000000) >> 31;
 
 	if (ctx == NULL) {
 		pr_info("param invalid\n");
@@ -1242,9 +1245,9 @@ static void v4l_vmpeg4_collect_stream_info(struct vdec_s *vdec,
 	str_info->is_secure = vdec_secure(vdec);
 	str_info->profile_idc = vos_info >> 4 & 0xf;
 	str_info->level_idc = vos_info & 0xf;
-	str_info->filed_flag = hw->report_field;
-	str_info->frame_height = hw->frame_height;
-	str_info->frame_width = hw->frame_width;
+	str_info->filed_flag = interlace ? 1 : 0;
+	str_info->frame_width = frame_width;
+	str_info->frame_height = frame_height;
 	str_info->crop_top = 0;
 	str_info->crop_bottom = 0;
 	str_info->crop_left= 0;
@@ -1256,6 +1259,8 @@ static void v4l_vmpeg4_collect_stream_info(struct vdec_s *vdec,
 	str_info->ratio_size.sar_width = 0;
 	str_info->error_handle_policy = error_proc_policy;
 	str_info->bit_depth = 8;
+	str_info->dpb_num = DECODE_BUFFER_NUM_DEF;
+	str_info->margin_num = hw->dynamic_buf_num_margin;
 
 	str_info->trick_mode = hw->i_only;
 	str_info->frame_dur = hw->last_dur;

@@ -1020,7 +1020,8 @@ static int avs3_mmu_page_num(struct AVS3Decoder_s *dec,
 	int pic_width, int pic_height, int is_bit_depth_10);
 
 static void avs3_work_implement(struct AVS3Decoder_s *dec);
-static void v4l_avs3_collect_stream_info(struct vdec_s *vdec,	struct AVS3Decoder_s *dec);
+static void v4l_avs3_collect_stream_info(struct vdec_s *vdec,
+				struct AVS3Decoder_s *dec, struct aml_vdec_ps_infos *ps);
 
 #undef pr_info
 #define pr_info printk
@@ -5118,7 +5119,7 @@ static void set_frame_info(struct AVS3Decoder_s *dec, struct vframe_s *vf)
 		avs3_print(dec, PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", dec->last_dur, dec->frame_dur);
 		dec->last_dur = dec->frame_dur;
-		v4l_avs3_collect_stream_info(hw_to_vdec(dec), dec);
+		v4l_avs3_collect_stream_info(hw_to_vdec(dec), dec, NULL);
 	}
 
 	vf->prop.master_display_colour = dec->vf_dp;
@@ -7180,7 +7181,7 @@ static void vavs3_get_comp_buf_info(struct AVS3Decoder_s *dec,
 }
 
 static void v4l_avs3_collect_stream_info(struct vdec_s *vdec,
-	struct AVS3Decoder_s *dec)
+	struct AVS3Decoder_s *dec, struct aml_vdec_ps_infos *ps)
 {
 	struct aml_vcodec_ctx *ctx = dec->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
@@ -7210,7 +7211,10 @@ static void v4l_avs3_collect_stream_info(struct vdec_s *vdec,
 	str_info->error_handle_policy = dec->error_handle_policy;
 	str_info->bit_depth = 8;
 	str_info->fence_enable = 0;
-
+	if (ps != NULL) {
+		str_info->dpb_num = ps->dpb_frames;
+		str_info->margin_num = ps->dpb_margin;
+	}
 
 	if (dec->avs3_dec.param.p.sqh_aspect_ratio == 0) {
 		str_info->ratio_size.dar_width = -1;
@@ -7972,7 +7976,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 					dec->init_pic_h = dec->frame_height;
 					dec->last_width = dec->frame_width;
 					dec->last_height = dec->frame_height;
-					v4l_avs3_collect_stream_info(vdec, dec);
+					v4l_avs3_collect_stream_info(vdec, dec, &ps);
 					v4l2_ctx->dec_intf.decinfo_event_report(v4l2_ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 					dec->v4l_params_parsed = true;
 					dec->process_busy = 0;

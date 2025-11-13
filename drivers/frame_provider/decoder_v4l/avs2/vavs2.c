@@ -888,7 +888,8 @@ static int  compute_losless_comp_body_size(
 		bool is_bit_depth_10);
 
 static void put_un_used_mv_bufs(struct AVS2Decoder_s *dec);
-static void v4l_avs2_collect_stream_info(struct vdec_s * vdec,	struct AVS2Decoder_s *dec);
+static void v4l_avs2_collect_stream_info(struct vdec_s * vdec,
+				struct AVS2Decoder_s *dec,struct aml_vdec_ps_infos *ps);
 
 static int avs2_debug(struct AVS2Decoder_s *dec,
 	int flag, const char *fmt, ...)
@@ -4473,7 +4474,7 @@ static void set_frame_info(struct AVS2Decoder_s *dec, struct vframe_s *vf)
 		avs2_print(dec, PRINT_FLAG_VDEC_DETAIL,
 			"decoder duration change old: %d new: %d\n", dec->last_dur, dec->frame_dur);
 		dec->last_dur = dec->frame_dur;
-		v4l_avs2_collect_stream_info(hw_to_vdec(dec), dec);
+		v4l_avs2_collect_stream_info(hw_to_vdec(dec), dec, NULL);
 	}
 
 	vf->prop.master_display_colour = dec->vf_dp;
@@ -5938,7 +5939,7 @@ static int avs2_mmu_page_num(struct AVS2Decoder_s *dec,
 }
 
 static void v4l_avs2_collect_stream_info(struct vdec_s * vdec,
-	struct AVS2Decoder_s *dec)
+	struct AVS2Decoder_s *dec, struct aml_vdec_ps_infos *ps)
 {
 	struct aml_vcodec_ctx *ctx = dec->v4l2_ctx;
 	struct dec_stream_info_s *str_info = NULL;
@@ -5968,6 +5969,10 @@ static void v4l_avs2_collect_stream_info(struct vdec_s * vdec,
 	str_info->error_handle_policy = error_handle_policy;
 	str_info->bit_depth = 8;
 	str_info->fence_enable = 0;
+	if (ps != NULL) {
+		str_info->dpb_num = ps->dpb_frames;
+		str_info->margin_num = ps->dpb_margin;
+	}
 
 	if (dec->avs2_dec.param.p.aspect_ratio_information == 0) {
 		str_info->ratio_size.dar_width = -1;
@@ -6650,7 +6655,7 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 				ctx->decoder_status_info.frame_width = ps.visible_width;
 				dec->v4l_params_parsed = true;
 				dec->process_busy = 0;
-				v4l_avs2_collect_stream_info(vdec, dec);
+				v4l_avs2_collect_stream_info(vdec, dec, &ps);
 				ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 				dec_again_process(dec);
 				return IRQ_HANDLED;

@@ -1788,6 +1788,7 @@ struct hevc_state_s {
 	u32 crop_bottom;
 	u32 crop_left;
 	u32 crop_right;
+	u32 last_dur;
 } /*hevc_stru_t */;
 
 static void vvc_prefix_config(int dma_prefix, int bmmu_prefix)
@@ -6182,6 +6183,63 @@ static void vh266_userdata_fill_vpts(struct hevc_state_s *hevc,
 
 #endif
 
+static int v4l_parser_work_pic_num(struct hevc_state_s *hevc)
+{
+	int used_buf_num = dec_get_dpb_size(hevc, &hevc->vvc_dec->param);
+
+	if (used_buf_num > max_buf_num)
+		used_buf_num = max_buf_num;
+	return used_buf_num;
+}
+
+static void v4l_h266_collect_stream_info(struct vdec_s *vdec,
+	struct hevc_state_s *hevc)
+{
+	struct aml_vcodec_ctx *ctx = hevc->v4l2_ctx;
+	struct dec_stream_info_s *str_info = NULL;
+
+	if (ctx == NULL) {
+		pr_info("param invalid\n");
+		return;
+	}
+	str_info = &ctx->dec_intf.dec_stream;
+
+	snprintf(str_info->vdec_name, sizeof(str_info->vdec_name),
+		"%s", DRIVER_NAME);
+
+	str_info->vdec_type = input_frame_based(vdec);
+	str_info->dual_core_flag = vdec_dual(vdec);
+	str_info->is_secure = vdec_secure(vdec);
+	str_info->profile_idc = 0;//hevc->param.p.profile_etc;
+	str_info->filed_flag = hevc->interlace_flag;
+	str_info->frame_width = hevc->vvc_dec->param.p.pic_width_in_luma_samples;
+	str_info->frame_height = hevc->vvc_dec->param.p.pic_height_in_luma_samples;
+	str_info->crop_top = 0;//hevc->param.p.conf_win_top_offset;
+	str_info->crop_bottom = 0;//hevc->param.p.conf_win_bottom_offset;
+	str_info->crop_left= 0;//hevc->param.p.conf_win_left_offset;
+	str_info->crop_right = 0;//hevc->param.p.conf_win_right_offset;
+	str_info->double_write_mode = hevc->double_write_mode;
+	str_info->error_handle_policy = error_handle_policy;
+	str_info->bit_depth = hevc->bit_depth_luma;
+	str_info->fence_enable = hevc->enable_fence;
+	str_info->dpb_num = v4l_parser_work_pic_num(hevc);
+	str_info->margin_num = get_dynamic_buf_num_margin(hevc);
+
+	str_info->ratio_size.sar_width = ctx->width_aspect_ratio;
+	str_info->ratio_size.sar_height = ctx->height_aspect_ratio;
+	str_info->ratio_size.dar_width = -1;
+	str_info->ratio_size.dar_height = -1;
+	str_info->trick_mode = hevc->i_only;
+	str_info->frame_dur = hevc->last_dur;
+	if (str_info->frame_dur != 0)
+		str_info->frame_rate = ((96000 * 10 / str_info->frame_dur) % 10) < 5 ?
+				96000 / str_info->frame_dur : (96000 / str_info->frame_dur +1);
+	else
+		str_info->frame_rate = -1;
+
+	ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STREAM, NULL);
+}
+
 static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 			struct PIC_s *pic)
 {
@@ -6202,6 +6260,13 @@ static void set_frame_info(struct hevc_state_s *hevc, struct vframe_s *vf,
 	vf->duration = vf_dur ? vf_dur : hevc->frame_dur;
 	vf->duration_pulldown = 0;
 	vf->flag = 0;
+
+	if (hevc->last_dur != hevc->frame_dur) {
+		hevc_print(hevc, H266_DEBUG_BUFMGR,
+			"decoder duration change old: %d new: %d\n", hevc->last_dur, hevc->frame_dur);
+		hevc->last_dur = hevc->frame_dur;
+		v4l_h266_collect_stream_info(hw_to_vdec(hevc), hevc);
+	}
 
 	ar = min_t(u32, hevc->frame_ar, DISP_RATIO_ASPECT_RATIO_MAX);
 	vf->ratio_control = (ar << DISP_RATIO_ASPECT_RATIO_BIT);
@@ -8056,15 +8121,6 @@ static void hevc_interlace_check(struct hevc_state_s *hevc,
 #endif
 }
 
-static int v4l_parser_work_pic_num(struct hevc_state_s *hevc)
-{
-	int used_buf_num = dec_get_dpb_size(hevc, &hevc->vvc_dec->param);
-
-	if (used_buf_num > max_buf_num)
-		used_buf_num = max_buf_num;
-	return used_buf_num;
-}
-
 static int vh266_get_ps_info(struct hevc_state_s *hevc,
 			     union param_u *rpm_param,
 			     struct aml_vdec_ps_infos *ps)
@@ -8602,7 +8658,7 @@ muti_output:
 				vdec_v4l_set_ps_infos(v4l2_ctx, &ps);
 				v4l2_ctx->decoder_status_info.frame_height = ps.visible_height;
 				v4l2_ctx->decoder_status_info.frame_width = ps.visible_width;
-				//v4l_hevc_collect_stream_info(vdec, hevc);
+				v4l_h266_collect_stream_info(vdec, hevc);
 				//ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 				hevc->v4l_params_parsed = true;
 				hevc->dec_result = DEC_RESULT_AGAIN;

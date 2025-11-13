@@ -1136,6 +1136,8 @@ static void v4l_avs_collect_stream_info(struct vdec_s *vdec,
 	str_info->double_write_mode = 0;
 	str_info->error_handle_policy = error_handle_policy;
 	str_info->bit_depth = 8;
+	str_info->dpb_num = vf_buf_num;
+	str_info->margin_num = hw->dynamic_buf_num_margin;
 
 	pixel_ratio = READ_VREG(AVS_PIC_RATIO);
 	if (pixel_ratio == 0) {

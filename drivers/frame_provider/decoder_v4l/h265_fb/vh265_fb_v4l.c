@@ -7615,6 +7615,9 @@ static void v4l_hevc_collect_stream_info(struct vdec_s *vdec,
 	str_info->error_handle_policy = error_handle_policy;
 	str_info->bit_depth = hevc->bit_depth_luma;
 	str_info->fence_enable = hevc->enable_fence;
+	str_info->dpb_num = v4l_parser_work_pic_num(hevc);
+	str_info->margin_num = get_dynamic_buf_num_margin(hevc);
+
 	str_info->ratio_size.sar_width = ctx->width_aspect_ratio;
 	str_info->ratio_size.sar_height = ctx->height_aspect_ratio;
 	str_info->ratio_size.dar_width = -1;
