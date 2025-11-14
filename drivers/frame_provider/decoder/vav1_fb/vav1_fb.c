@@ -11239,7 +11239,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 	av1_print(hw, AOM_DEBUG_HW_MORE, "%s %d\n", __func__, __LINE__);
 #ifdef NEW_FRONT_BACK_CODE
 	if (hw->front_back_mode == 1) {
-		ret = get_firmware_data(VIDEO_DEC_AV1_FRONT, fw->data);
+		size = get_firmware_data(VIDEO_DEC_AV1_FRONT, fw->data);
 		hw->is_swap = true;
 	} else
 #endif
@@ -11264,7 +11264,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 			hw->is_swap = false;
 		}
 	}
-	if (ret < 0) {
+	if (size < 0) {
 		pr_err("get firmware fail.\n");
 		printk("%s %d\n", __func__, __LINE__);
 		vfree(fw);
