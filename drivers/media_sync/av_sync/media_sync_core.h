@@ -559,4 +559,5 @@ long mediasync_ins_set_default_threshold(MediaSyncManager *p_sync_manage, medias
 long mediasync_ins_get_default_threshold(MediaSyncManager *p_sync_manage, mediasync_default_threshold *threshold);
 long mediasync_ins_set_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync threshold);
 long mediasync_ins_get_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasync_preplay_slowsync *threshold);
+bool mediasync_ins_check_syncid_used_by_static_binder(s32 syncInsId);
 #endif

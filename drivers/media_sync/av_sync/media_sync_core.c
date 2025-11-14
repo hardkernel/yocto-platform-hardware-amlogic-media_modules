@@ -861,7 +861,6 @@ long mediasync_init(void) {
 	return 0;
 }
 
-
 long mediasync_ins_alloc(s32 sDemuxId,
 			s32 sPcrPid,
 			s32 *sSyncInsId,
@@ -879,6 +878,9 @@ long mediasync_ins_alloc(s32 sDemuxId,
 
 	for (tried = 0; tried < MAX_DYNAMIC_INSTANCE_NUM; tried++) {
 		index = (start + tried) % MAX_DYNAMIC_INSTANCE_NUM;
+		if (mediasync_ins_check_syncid_used_by_static_binder(index)) {
+			continue;
+		}
 		spin_lock_irqsave(&(vMediaSyncInsList[index].m_lock),flags);
 		if (vMediaSyncInsList[index].pInstance == NULL) {
 			vMediaSyncInsList[index].pInstance = pInstance;
@@ -4830,6 +4832,25 @@ long mediasync_ins_get_preplay_slowsync(MediaSyncManager *p_sync_manage, mediasy
 	spin_unlock_irqrestore(&(p_sync_manage->m_lock),flags);
 
 	return 0;
+}
+
+bool mediasync_ins_check_syncid_used_by_static_binder(s32 syncInsId) {
+	s32 temp_ins;
+	mediasync_ins* pInstance = NULL;
+	bool ret = false;
+	unsigned long flags = 0;
+	for (temp_ins = MAX_DYNAMIC_INSTANCE_NUM; temp_ins < MAX_INSTANCE_NUM; temp_ins++) {
+		spin_lock_irqsave(&(vMediaSyncInsList[temp_ins].m_lock),flags);
+		pInstance = vMediaSyncInsList[temp_ins].pInstance;
+		if ((pInstance != NULL) && (pInstance->mSyncId == syncInsId)) {
+			ret = true;
+			spin_unlock_irqrestore(&(vMediaSyncInsList[temp_ins].m_lock),flags);
+			break;
+		}
+		spin_unlock_irqrestore(&(vMediaSyncInsList[temp_ins].m_lock),flags);
+	}
+
+	return ret;
 }
 
 int register_mediasync_video_hold_set_cb(void* pfunc) {
