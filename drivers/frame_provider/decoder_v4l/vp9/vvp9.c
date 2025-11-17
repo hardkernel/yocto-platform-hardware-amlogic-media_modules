@@ -6069,7 +6069,18 @@ void vp9_loop_filter_init(struct VP9Decoder_s *pbi)
 	}
 
 	/*video format is VP9*/
-	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
+	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_S6) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6W)) {
+		data32 =
+			(0x0 << 13) |  //EVAN ddr data force uncompress
+			(0x1 << 12) |  //APS read cmd mode 0:no last mode 1:last mode
+			(0x0 << 11) |  //EVAN pipe buf number force to 1
+			(0x1 << 10) |  //PU merge mode, 1:merge as possible 0:only merge back INTRA single TREE_D
+			(0x3 << 8) | // 1st/2nd write both enable
+			(0x1 << 0); // vp9 video format
+		if (get_double_write_mode(pbi) == 0x10)
+			data32 &= (~0x100);
+	} else if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
 		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TXHD2)) {
 		data32 = (0x3 << 14) | // (dw fifo thres r and b)
 		(0x3 << 12) | // (dw fifo thres r or b)
