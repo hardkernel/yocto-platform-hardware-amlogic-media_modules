@@ -11964,7 +11964,8 @@ static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 				height,
 				interlace_flag);
 
-			release_prealloc_job(ctx->id);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_MV_TYPE);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_AVBC_HEADER_TYPE);
 
 			if (get_valid_double_write_mode(hevc) != 16) {
 				struct vdec_comp_buf_info info;

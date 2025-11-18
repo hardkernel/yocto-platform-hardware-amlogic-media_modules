@@ -9212,7 +9212,8 @@ static int v4l_res_change(struct AV1HW_s *hw)
 			hw->frame_width = hw->common.seq_params.max_frame_width;
 			hw->frame_height = hw->common.seq_params.max_frame_height;
 
-			release_prealloc_job(ctx->id);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_MV_TYPE);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_AVBC_HEADER_TYPE);
 			if (get_valid_double_write_mode(hw) != 16) {
 				vav1_get_comp_buf_info(hw, &comp);
 				vdec_v4l_set_comp_buf_info(ctx, &comp);

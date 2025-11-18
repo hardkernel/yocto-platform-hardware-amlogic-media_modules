@@ -9340,7 +9340,8 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 			vp9_print(pbi, 0, "%s (%d,%d)=>(%d,%d)\r\n", __func__, pbi->last_width,
 				pbi->last_height, pbi->frame_width, pbi->frame_height);
 
-			release_prealloc_job(ctx->id);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_MV_TYPE);
+			release_prealloc_job_with_type(ctx->id, PREALLOC_AVBC_HEADER_TYPE);
 			if (get_valid_double_write_mode(pbi) != 16) {
 				vvp9_get_comp_buf_info(pbi, &comp);
 				vdec_v4l_set_comp_buf_info(ctx, &comp);
