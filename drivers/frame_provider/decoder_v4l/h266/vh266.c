@@ -1784,6 +1784,10 @@ struct hevc_state_s {
 	s32 cur_idx;
 	struct aml_buf *aml_buf;
 	struct afbc_buf afbc_buf_table[BUF_FBC_NUM_MAX];
+	u32 crop_top;
+	u32 crop_bottom;
+	u32 crop_left;
+	u32 crop_right;
 } /*hevc_stru_t */;
 
 static void vvc_prefix_config(int dma_prefix, int bmmu_prefix)
@@ -4675,13 +4679,13 @@ void config_aux_buf(struct hevc_state_s *hevc)
 
 static void v4l_crop_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 {
-	int crop_w, crop_h;
+	int crop_w, crop_h, crop_l, crop_t, crop_r, crop_b;
+
 	hevc->crop_w = pic->width;
 	hevc->crop_h = pic->height;
 
 	if (pic->conformance_window_flag &&
-	(get_dbg_flag(hevc) &
-	H266_DEBUG_IGNORE_CONFORMANCE_WINDOW) == 0) {
+		(get_dbg_flag(hevc) & H266_DEBUG_IGNORE_CONFORMANCE_WINDOW) == 0) {
 		unsigned int SubWidthC, SubHeightC;
 
 		switch (pic->chroma_format_idc) {
@@ -4698,30 +4702,44 @@ static void v4l_crop_pic(struct hevc_state_s *hevc, struct PIC_s *pic)
 			SubHeightC = 1;
 			break;
 		}
-		crop_w = SubWidthC * (pic->conf_win_left_offset + pic->conf_win_right_offset);
-		crop_h = SubHeightC * (pic->conf_win_top_offset + pic->conf_win_bottom_offset);
 
-		if (crop_w < 0 || crop_h < 0 || pic->width <= crop_w || pic->height <= crop_h) {
+		crop_l = SubWidthC * pic->conf_win_left_offset;
+		crop_t = SubHeightC * pic->conf_win_top_offset;
+		crop_r = SubWidthC * pic->conf_win_right_offset;
+		crop_b = SubHeightC * pic->conf_win_bottom_offset;
+
+		crop_w = crop_l + crop_r;
+		crop_h = crop_t + crop_b;
+
+		if (crop_l < 0 || crop_t < 0 || crop_r < 0 || crop_b < 0 ||
+			pic->width <= crop_w || pic->height <= crop_h) {
 			hevc_print(hevc, H266_DEBUG_BUFMGR,
-				"%s invalid crop, crop_w:%d, crop_h:%d\n", __func__,crop_w, crop_h);
+				"%s invalid crop, crop_l:%d, crop_t:%d, crop_r:%d, crop_b:%d\n", __func__, crop_l, crop_t, crop_r, crop_b);
 			pic->crop_w = pic->width;
 			pic->crop_h = pic->height;
 			return;
 		}
 
-		hevc->crop_w -= crop_w;
-		hevc->crop_h -= crop_h;
+		hevc->crop_left = crop_l;
+		hevc->crop_top = crop_t;
+		hevc->crop_right = crop_r;
+		hevc->crop_bottom = crop_b;
+
+		hevc->crop_w -= crop_r; // decoder crop right, and then display crop left
+		hevc->crop_h -= crop_b; // decoder crop bottom, and then display crop top
 
 		if (get_dbg_flag(hevc) & H266_DEBUG_BUFMGR)
 			hevc_print(hevc, 0,
-			"conformance_window %d, %d, %d, %d, %d => cropped width %d, height %d, com_w %d com_h %d\n",
-			pic->chroma_format_idc,
-			pic->conf_win_left_offset,
-			pic->conf_win_right_offset,
-			pic->conf_win_top_offset,
-			pic->conf_win_bottom_offset,
-			hevc->crop_w, hevc->crop_h, pic->width, pic->height);
+				"conformance_window %d, %d, %d, %d, %d => cropped width %d, height %d, com_w %d com_h %d, crop %d/%d/%d/%d\n",
+				pic->chroma_format_idc,
+				pic->conf_win_left_offset,
+				pic->conf_win_right_offset,
+				pic->conf_win_top_offset,
+				pic->conf_win_bottom_offset,
+				hevc->crop_w, hevc->crop_h, pic->width, pic->height,
+				hevc->crop_right, hevc->crop_bottom, hevc->crop_left,hevc->crop_top);
 	}
+
 	pic->crop_w = hevc->crop_w;
 	pic->crop_h = hevc->crop_h;
 }
@@ -5515,20 +5533,28 @@ static struct PIC_s *v4l_get_new_pic(struct hevc_state_s *hevc,
 	new_pic->bit_depth_luma = hevc->bit_depth_luma;
 	new_pic->bit_depth_chroma = hevc->bit_depth_chroma;
 	new_pic->video_signal_type = hevc->video_signal_type;
-#if 0
+
 	new_pic->conformance_window_flag =
-	hevc->param.p.conformance_window_flag;
+		rpm_param->p.conformance_window_flag;
 	new_pic->conf_win_left_offset =
-	hevc->param.p.conf_win_left_offset;
+		rpm_param->p.conf_win_left_offset;
 	new_pic->conf_win_right_offset =
-	hevc->param.p.conf_win_right_offset;
+		rpm_param->p.conf_win_right_offset;
 	new_pic->conf_win_top_offset =
-	hevc->param.p.conf_win_top_offset;
+		rpm_param->p.conf_win_top_offset;
 	new_pic->conf_win_bottom_offset =
-	hevc->param.p.conf_win_bottom_offset;
+		rpm_param->p.conf_win_bottom_offset;
 	new_pic->chroma_format_idc =
-	hevc->param.p.chroma_format_idc;
-#endif
+		rpm_param->p.sps_chroma_format_idc;
+
+	hevc_print(hevc, H266_DEBUG_BUFMGR,
+		"%s: conformance_window_flag %d, crop %d %d %d %d, chroma_format_idc %d\n",
+		__func__, new_pic->conformance_window_flag,
+		new_pic->conf_win_left_offset,
+		new_pic->conf_win_right_offset,
+		new_pic->conf_win_top_offset,
+		new_pic->conf_win_bottom_offset,
+		new_pic->chroma_format_idc);
 
 	if (new_pic) {
 		struct aml_buf *aml_buf =
@@ -7059,14 +7085,15 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 				vf->type |= VIDTYPE_SCATTER;
 		}
 
-		if (hevc->mmu_enable &&
-			(pic->width != pic->crop_w || pic->height != pic->crop_h)) {
-			vf->src_crop.magic_code = SRC_CROP_MAGIC_CODE;
-			vf->src_crop.bottom = pic->height - pic->crop_h;
-			vf->src_crop.right = pic->width - pic->crop_w;
-			vf->src_crop.top = 0;
-			vf->src_crop.left = 0;
-		}
+		vf->src_crop.magic_code = SRC_CROP_MAGIC_CODE;
+		vf->src_crop.bottom = hevc->crop_bottom;
+		vf->src_crop.right = hevc->crop_right;
+		vf->src_crop.top = hevc->crop_top;
+		vf->src_crop.left = hevc->crop_left;
+		hevc_print(hevc, H266_DEBUG_BUFMGR,
+			"original(%d, %d), crop(%d, %d), vf crop val(%d/%d/%d/%d)\n",
+			pic->width, pic->height, pic->crop_w, pic->crop_h,
+			vf->src_crop.top, vf->src_crop.bottom, vf->src_crop.left, vf->src_crop.right);
 
 		vf->compWidth = pic->width;
 		vf->compHeight = pic->height;
@@ -8042,14 +8069,13 @@ static int vh266_get_ps_info(struct hevc_state_s *hevc,
 			     union param_u *rpm_param,
 			     struct aml_vdec_ps_infos *ps)
 {
-	//u32 SubWidthC, SubHeightC;
+	u32 SubWidthC, SubHeightC;
 	u32 width = rpm_param->p.pic_width_in_luma_samples;
 	u32 height = rpm_param->p.pic_height_in_luma_samples;
 	u32 coded_width = width;
 	u32 coded_height = height;
 
-#if 0
-	switch (rpm_param->p.chroma_format_idc) {
+	switch (rpm_param->p.sps_chroma_format_idc) {
 	case 1:
 		SubWidthC = 2;
 		SubHeightC = 2;
@@ -8070,7 +8096,6 @@ static int vh266_get_ps_info(struct hevc_state_s *hevc,
 	height -= SubHeightC *
 		(rpm_param->p.conf_win_top_offset +
 		rpm_param->p.conf_win_bottom_offset);
-#endif
 
 	hevc->last_width = rpm_param->p.pic_width_in_luma_samples;
 	hevc->last_height = rpm_param->p.pic_height_in_luma_samples;

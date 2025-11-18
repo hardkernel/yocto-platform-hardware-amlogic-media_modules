@@ -233,11 +233,11 @@
             unsigned short reserved_dd;
             unsigned short reserved_de;
             unsigned short reserved_df;
-            unsigned short reserved_e0;
-            unsigned short reserved_e1;
-            unsigned short reserved_e2;
-            unsigned short reserved_e3;
-            unsigned short reserved_e4;
+            unsigned short conformance_window_flag;
+            unsigned short conf_win_left_offset;
+            unsigned short conf_win_right_offset;
+            unsigned short conf_win_top_offset;
+            unsigned short conf_win_bottom_offset;
             unsigned short reserved_e5;
             unsigned short reserved_e6;
             unsigned short reserved_e7;
