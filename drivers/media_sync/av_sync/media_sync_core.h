@@ -167,6 +167,12 @@ typedef struct frameinfo{
 	int64_t framePts;
 	int64_t frameSystemTime;
 } mediasync_frameinfo;
+typedef struct framepacketinfo{
+	int64_t framePts;
+	int64_t frameSystemTime;
+	int64_t framepacketTime;
+	int64_t reserved[3];
+} mediasync_framepacketinfo;
 
 typedef struct frameinfo_inner{
 	int64_t framePts;
@@ -220,6 +226,8 @@ typedef struct syncinfo {
 	mediasync_frameinfo pauseAudioInfo;
 	mediasync_video_packets_info videoPacketsInfo;
 	mediasync_audio_packets_info audioPacketsInfo;
+	mediasync_frameinfo curAudiopacketInfo;
+	mediasync_frameinfo curVideopacketInfo;
 } mediasync_syncinfo;
 
 typedef struct audioinfo{
@@ -489,6 +497,10 @@ long mediasync_ins_set_curaudioframeinfo(MediaSyncManager* pSyncManage, mediasyn
 long mediasync_ins_get_curaudioframeinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo* info);
 long mediasync_ins_set_curvideoframeinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo info);
 long mediasync_ins_get_curvideoframeinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo* info);
+long mediasync_ins_set_curaudiopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo info);
+long mediasync_ins_get_curaudiopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo* info);
+long mediasync_ins_set_curvideopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo info);
+long mediasync_ins_get_curvideopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo* info);
 long mediasync_ins_set_curdmxpcrinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo info);
 long mediasync_ins_get_curdmxpcrinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo* info);
 long mediasync_ins_set_clockstate(MediaSyncManager* pSyncManage, mediasync_clockprovider_state state);

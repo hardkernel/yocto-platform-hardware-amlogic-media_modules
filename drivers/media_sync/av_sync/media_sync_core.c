@@ -721,6 +721,8 @@ static long mediasync_ins_init_videoinfo(mediasync_ins* pInstance) {
 	pInstance->mSyncInfo.firstVframeInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.curVideoInfo.framePts = -1;
 	pInstance->mSyncInfo.curVideoInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.curVideopacketInfo.framePts = -1;
+	pInstance->mSyncInfo.curVideopacketInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.queueVideoInfo.framePts = -1;
 	pInstance->mSyncInfo.queueVideoInfo.frameSystemTime = -1;
 
@@ -750,6 +752,8 @@ static long mediasync_ins_init_audioinfo(mediasync_ins* pInstance) {
 	pInstance->mSyncInfo.firstAframeInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.curAudioInfo.framePts = -1;
 	pInstance->mSyncInfo.curAudioInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.curAudiopacketInfo.framePts = -1;
+	pInstance->mSyncInfo.curAudiopacketInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.queueAudioInfo.framePts = -1;
 	pInstance->mSyncInfo.queueAudioInfo.frameSystemTime = -1;
 
@@ -1967,6 +1971,52 @@ long mediasync_ins_get_curaudioframeinfo(MediaSyncManager* pSyncManage, mediasyn
 	return 0;
 }
 
+long mediasync_ins_set_curaudiopacketinfo(MediaSyncManager* pSyncManage,mediasync_framepacketinfo info) {
+	mediasync_ins* pInstance = NULL;
+	unsigned long flags = 0;
+	if (pSyncManage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
+	pInstance = pSyncManage->pInstance;
+	if (pInstance == NULL) {
+		spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+		return -1;
+	}
+
+	ATRACE_COUNTER(pInstance->atrace_audio, info.framePts);
+	pInstance->mSyncInfo.curAudioInfo.framePts = info.framePts;
+	pInstance->mSyncInfo.curAudioInfo.frameSystemTime = info.frameSystemTime;
+	pInstance->mSyncInfo.curAudiopacketInfo.framePts = info.framepacketTime;
+
+	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+
+	return 0;
+}
+
+long mediasync_ins_get_curaudiopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo* info) {
+	mediasync_ins* pInstance = NULL;
+	unsigned long flags = 0;
+	if (pSyncManage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
+	pInstance = pSyncManage->pInstance;
+	if (pInstance == NULL) {
+		spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+		return -1;
+	}
+
+	info->framePts = pInstance->mSyncInfo.curAudioInfo.framePts;
+	info->frameSystemTime = pInstance->mSyncInfo.curAudioInfo.frameSystemTime;
+	info->framepacketTime = pInstance->mSyncInfo.curAudiopacketInfo.framePts;
+	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+
+	return 0;
+}
+
 long mediasync_ins_set_curvideoframeinfo(MediaSyncManager* pSyncManage, mediasync_frameinfo info) {
 	mediasync_ins* pInstance = NULL;
 	unsigned long flags = 0;
@@ -2015,6 +2065,61 @@ long mediasync_ins_get_curvideoframeinfo(MediaSyncManager* pSyncManage, mediasyn
 
 	info->framePts = pInstance->mSyncInfo.curVideoInfo.framePts;
 	info->frameSystemTime = pInstance->mSyncInfo.curVideoInfo.frameSystemTime;
+	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+
+	return 0;
+}
+
+long mediasync_ins_set_curvideopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo info) {
+		mediasync_ins* pInstance = NULL;
+	unsigned long flags = 0;
+	if (pSyncManage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
+	pInstance = pSyncManage->pInstance;
+	if (pInstance == NULL) {
+		spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+		return -1;
+	}
+
+	ATRACE_COUNTER(pInstance->atrace_video, info.framePts);
+	pInstance->mSyncInfo.curVideoInfo.framePts = info.framePts;
+	pInstance->mSyncInfo.curVideoInfo.frameSystemTime = info.frameSystemTime;
+	pInstance->mSyncInfo.curVideopacketInfo.framePts = info.framepacketTime;
+	pInstance->mTrackMediaTime = div_s64(info.framePts * 100 , 9);
+	pInstance->mVideoCacheUpdateCount++;
+	if (media_sync_calculate_cache_enable) {
+		pInstance->frame_table[PTS_TYPE_VIDEO].mLastProcessedPts = info.framePts;
+		if (pInstance->mCacheFrames) {
+			if (info.framePts != -1) {
+				update_video_cache(pInstance,info.framePts,0);
+			}
+		}
+	}
+	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+
+	return 0;
+}
+
+long mediasync_ins_get_curvideopacketinfo(MediaSyncManager* pSyncManage, mediasync_framepacketinfo* info) {
+	mediasync_ins* pInstance = NULL;
+	unsigned long flags = 0;
+	if (pSyncManage == NULL) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&(pSyncManage->m_lock),flags);
+	pInstance = pSyncManage->pInstance;
+	if (pInstance == NULL) {
+		spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
+		return -1;
+	}
+
+	info->framePts = pInstance->mSyncInfo.curVideoInfo.framePts;
+	info->frameSystemTime = pInstance->mSyncInfo.curVideoInfo.frameSystemTime;
+	info->framepacketTime = pInstance->mSyncInfo.curVideopacketInfo.framePts;
 	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
 
 	return 0;

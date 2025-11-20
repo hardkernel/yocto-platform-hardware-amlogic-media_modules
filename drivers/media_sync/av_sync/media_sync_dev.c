@@ -100,6 +100,7 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 	mediasync_speed SyncSpeed = {0};
 	mediasync_speed PcrSlope = {0};
 	mediasync_frameinfo FrameInfo = {-1, -1};
+	mediasync_framepacketinfo FramePacketInfo = {-1, -1, -1, {-1, -1, -1}};
 	mediasync_video_packets_info videoPacketsInfo = {-1, -1};
 	mediasync_audio_packets_info audioPacketsInfo = {-1,-1,1,0,-1};
 	mediasync_audioinfo AudioInfo = {0, 0};
@@ -516,6 +517,33 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 			}
 		break;
 
+		case MEDIASYNC_IOC_SET_CUR_AFRAME_PACKET_INFO:
+			if (copy_from_user((void *)&FramePacketInfo,
+					(void *)arg,
+					sizeof(FramePacketInfo)))
+				return -EFAULT;
+
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_set_curaudiopacketinfo(priv->mSyncIns,
+								FramePacketInfo);
+		break;
+
+		case MEDIASYNC_IOC_GET_CUR_AFRAME_PACKET_INFO:
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_get_curaudiopacketinfo(priv->mSyncIns,
+								&FramePacketInfo);
+			if (ret == 0) {
+				if (copy_to_user((void *)arg,
+						&FramePacketInfo,
+						sizeof(FramePacketInfo)))
+					return -EFAULT;
+			}
+		break;
+
 		case MEDIASYNC_IOC_SET_CUR_VFRAME_INFO:
 			if (copy_from_user((void *)&FrameInfo,
 					(void *)arg,
@@ -539,6 +567,33 @@ static long mediasync_ioctl_inner(struct file *file, unsigned int cmd, ulong arg
 				if (copy_to_user((void *)arg,
 						&FrameInfo,
 						sizeof(FrameInfo)))
+					return -EFAULT;
+			}
+		break;
+
+		case MEDIASYNC_IOC_SET_CUR_VFRAME_PACKET_INFO:
+			if (copy_from_user((void *)&FramePacketInfo,
+					(void *)arg,
+					sizeof(FramePacketInfo)))
+				return -EFAULT;
+
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_set_curvideopacketinfo(priv->mSyncIns,
+								FramePacketInfo);
+		break;
+
+		case MEDIASYNC_IOC_GET_CUR_VFRAME_PACKET_INFO:
+			if (priv->mSyncIns == NULL)
+				return -EFAULT;
+
+			ret = mediasync_ins_get_curvideopacketinfo(priv->mSyncIns,
+								&FramePacketInfo);
+			if (ret == 0) {
+				if (copy_to_user((void *)arg,
+						&FramePacketInfo,
+						sizeof(FramePacketInfo)))
 					return -EFAULT;
 			}
 		break;
@@ -1667,6 +1722,10 @@ static long mediasync_compat_ioctl(struct file *file, unsigned int cmd, ulong ar
 		case MEDIASYNC_IOC_GET_DEFAULT_THRESHOLD:
 		case MEDIASYNC_IOC_SET_PREPLAY_SLOWSYNC:
 		case MEDIASYNC_IOC_GET_PREPLAY_SLOWSYNC:
+		case MEDIASYNC_IOC_SET_CUR_VFRAME_PACKET_INFO:
+		case MEDIASYNC_IOC_GET_CUR_VFRAME_PACKET_INFO:
+		case MEDIASYNC_IOC_SET_CUR_AFRAME_PACKET_INFO:
+		case MEDIASYNC_IOC_GET_CUR_AFRAME_PACKET_INFO:
 			return mediasync_ioctl_inner(file, cmd,(ulong)compat_ptr(arg),1);
 		default:
 			return -EINVAL;
