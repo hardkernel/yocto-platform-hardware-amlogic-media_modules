@@ -919,7 +919,7 @@ int dump_avbcd_frame;
 EXPORT_SYMBOL(dump_avbcd_frame);
 MEDIA_PARAM(dump_avbcd_frame, int, 0644);
 
-int ge2d_copy;
+int ge2d_copy = 1;
 EXPORT_SYMBOL(ge2d_copy);
 MEDIA_PARAM(ge2d_copy, int, 0644);
 

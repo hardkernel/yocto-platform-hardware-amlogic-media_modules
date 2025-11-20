@@ -263,7 +263,7 @@ static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *ou
 	ge2d_info.src_canvas1_config[1] = src_canvas_config[1];
 
 	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
-		"data 0x%llx size %d, dst_addr(0x%lx, 0x%lx), src_addr(0x%lx, 0x%lx), src_stride(%ux%u), dst_stride(%ux%u)\n",
+		"data 0x%llx size %d, src_addr(0x%lx, 0x%lx), dst_addr(0x%lx, 0x%lx), src_stride(%ux%u), dst_stride(%ux%u)\n",
 		out->img.data, out->img.size,
 		src_canvas_config[0].phy_addr, src_canvas_config[1].phy_addr,
 		dst_canvas_config[0].phy_addr, dst_canvas_config[1].phy_addr,
@@ -276,6 +276,9 @@ static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *ou
 		vdec_ge2d_init(&wrapper->ge2d, mode);
 	}
 	vdec_ge2d_copy_data(wrapper->ge2d, &ge2d_info);
+
+	if (wrapper->ge2d)
+		vdec_ge2d_destroy(wrapper->ge2d);
 
 	vfree(vf);
 }
@@ -863,15 +866,15 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		wrapper->in.img.rect.height,
 		wrapper->in.img.bitdep);
 
-#ifdef CONFIG_AMLOGIC_MEDIA_VICP
+
 	if (!wrapper->stop_flag &&
 		wrapper->vicp_mode &&
 		kfifo_peek(&wrapper->out, &out)) {
+#ifdef CONFIG_AMLOGIC_MEDIA_VICP
 		aml_avbcd_vicp_process(wrapper, out);
-
+#endif
 		goto out;
 	}
-#endif
 
 	if (!wrapper->stop_flag && wrapper->hard_mode) {
 		if (dec_i_frame_once && wrapper->frame_count &&
@@ -960,7 +963,7 @@ out:
 		wrapper->dec_result = DEC_RESULT_ERROR;
 		queue_work(wrapper->avbc_workqueue, &wrapper->avbc_work);
 	} else {
-		if (!(vdec->avbc_mode & 0x100) && wrapper->hard_mode && wrapper->in.img.data) {
+		if (wrapper->hard_mode && wrapper->in.img.data) {
 			vdec->run_avbc(vdec, mask, wrapper->vdec_cb, wrapper->vdec_cb_arg);
 			if (vdec->avbc_mode & 0x8) {
 				wrapper->dec_result = DEC_RESULT_DONE;
@@ -1454,9 +1457,6 @@ void aml_avbc_wrapper_destroy(void *priv)
 		return;
 	}
 	vdec = wrapper->vdec;
-
-	if (wrapper->ge2d)
-		vdec_ge2d_destroy(wrapper->ge2d);
 
 	flush_workqueue(wrapper->avbc_workqueue);
 	destroy_workqueue(wrapper->avbc_workqueue);
