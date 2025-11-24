@@ -164,7 +164,7 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	dmabuf_set_vframe(buf->planes[0].dbuf, &buf->vframe, VF_SRC_DECODER);
 
 	if (buf->dma && bc->is_dynamic_mode_init(bc)) {
-		dmabuf = (struct dma_buf *)buf->dma->dmabuf;
+		dmabuf = (struct dma_buf *)buf->dma->dmabuf[PLANE_Y];
 		file = dmabuf->file;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 		buffer = (struct ion_buffer *)dmabuf->priv;

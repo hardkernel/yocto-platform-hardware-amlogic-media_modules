@@ -283,9 +283,13 @@ static void buf_core_deinit_dma(struct buf_core_mgr_s *bc)
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		if (bc->dma[i]) {
-			if (bc->dma[i]->sgt) {
-				sg_free_table(bc->dma[i]->sgt);
-				kfree(bc->dma[i]->sgt);
+			if (bc->dma[i]->sgt[PLANE_Y]) {
+				sg_free_table(bc->dma[i]->sgt[PLANE_Y]);
+				kfree(bc->dma[i]->sgt[PLANE_Y]);
+			}
+			if (bc->dma[i]->sgt[PLANE_UV]) {
+				sg_free_table(bc->dma[i]->sgt[PLANE_UV]);
+				kfree(bc->dma[i]->sgt[PLANE_UV]);
 			}
 			vfree(bc->dma[i]);
 		}
@@ -309,7 +313,7 @@ static bool buf_core_check_uvm_dma_recycled(struct buf_core_mgr_s *bc, ulong dma
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
-		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf[PLANE_Y] ||
 			dmabuf == bc->dma[i]->phy_addr)) {
 			dma = bc->dma[i];
 			break;
@@ -337,10 +341,11 @@ static bool buf_core_check_uvm_dma_recycled(struct buf_core_mgr_s *bc, ulong dma
 	}
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, uvm:%lx, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, recycled:%d, free:%d\n",
+		"%s, uvm:%lx, idmabuf:(%lx, %lx), phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, recycled:%d, free:%d\n",
 		__func__,
 		uvm_dmabuf,
-		dma->dmabuf,
+		dma->dmabuf[PLANE_Y],
+		dma->dmabuf[PLANE_UV],
 		dma->phy_addr,
 		dma->index,
 		atomic_read(&dma->ref),
@@ -436,7 +441,7 @@ static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 						"%s, enter!\n",__func__);
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = bc->dma[i];
-		if (!dma->dmabuf)
+		if (!dma->dmabuf[PLANE_Y])
 			continue;
 		for (j = 0; j < FIELD_NUM; j++) {
 			if (dma->uvm_dma[j] == uvm_dma) {
@@ -444,11 +449,14 @@ static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
 				if (!dma->uvm_dma[0] && !dma->uvm_dma[1] && !dma->uvm_dma[2]) {
 					while (bc->dma[i]->dma_ref) {
 						v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-						"%s, uvmdmabuf:%lx, idmabuf:%lx dma release!\n",__func__,uvm_dma, dma->dmabuf);
-						dma_buf_put((struct dma_buf *)dma->dmabuf);
+						"%s, uvmdmabuf:%lx, idmabuf:%lx dma release!\n",__func__,uvm_dma, dma->dmabuf[PLANE_Y]);
+						dma_buf_put((struct dma_buf *)dma->dmabuf[PLANE_Y]);
+						if (dma->dmabuf[PLANE_UV])
+							dma_buf_put((struct dma_buf *)dma->dmabuf[PLANE_UV]);
 						dma->dma_ref--;
 					}
-					dma->dmabuf = 0;
+					dma->dmabuf[PLANE_Y] = 0;
+					dma->dmabuf[PLANE_UV] = 0;
 					dma->phy_addr = 0;
 					dma->used = 0;
 					dma->inited = 0;
@@ -484,11 +492,12 @@ static void buf_core_reset_dma(struct buf_core_mgr_s *bc)
 			dma->dec_ref--;
 		}
 
-		if (dma->dmabuf)
+		if (dma->dmabuf[PLANE_Y])
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
+			"%s, idmabuf:(%lx, %lx), phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
 			__func__,
-			dma->dmabuf,
+			dma->dmabuf[PLANE_Y],
+			dma->dmabuf[PLANE_UV],
 			dma->phy_addr,
 			dma->index,
 			atomic_read(&dma->ref),
@@ -520,9 +529,10 @@ static void buf_core_get_free_dmabuf(struct buf_core_mgr_s *bc,
 	dma = list_first_entry(&bc->dma_free_que, struct buf_core_dma, node);
 	bc->dma_free_num--;
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, free:%d\n",
+		"%s, idmabuf:(%lx, %lx), phy:%lx, idx:%d, ref:%d, dma_ref:%d, free:%d\n",
 		__func__,
-		dma->dmabuf,
+		dma->dmabuf[PLANE_Y],
+		dma->dmabuf[PLANE_UV],
 		dma->phy_addr,
 		dma->index,
 		atomic_read(&dma->ref),
@@ -545,7 +555,7 @@ static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ul
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
-		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf[PLANE_Y] ||
 			dmabuf == bc->dma[i]->phy_addr)) {
 			dma = bc->dma[i];
 			break;
@@ -560,7 +570,9 @@ static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ul
 	}
 
 	if (!dma->dma_ref) {
-		get_dma_buf((struct dma_buf *)dma->dmabuf);
+		get_dma_buf((struct dma_buf *)dma->dmabuf[PLANE_Y]);
+		if (dma->dmabuf[PLANE_UV])
+			get_dma_buf((struct dma_buf *)dma->dmabuf[PLANE_UV]);
 		dma->dma_ref++;
 	}
 
@@ -588,10 +600,11 @@ static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ul
 	}
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, uvm:%lx, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
+		"%s, uvm:%lx, idmabuf:(%lx, %lx), phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
 		__func__,
 		uvm_dmabuf,
-		dma->dmabuf,
+		dma->dmabuf[PLANE_Y],
+		dma->dmabuf[PLANE_UV],
 		dma->phy_addr,
 		dma->index,
 		atomic_read(&dma->ref),
@@ -620,7 +633,7 @@ static void buf_core_get_dmabuf_ref(struct buf_core_mgr_s *bc,
 		goto out;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
-		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf[PLANE_Y] ||
 			dmabuf == bc->dma[i]->phy_addr)) {
 			dma = bc->dma[i];
 			break;
@@ -638,9 +651,10 @@ static void buf_core_get_dmabuf_ref(struct buf_core_mgr_s *bc,
 		dma->dec_ref++;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, inited:%d, dec_ref:%d, free:%d\n",
+		"%s, idmabuf:(%lx, %lx), phy:%lx, idx:%d, ref:%d, dma_ref:%d, inited:%d, dec_ref:%d, free:%d\n",
 		__func__,
-		dma->dmabuf,
+		dma->dmabuf[PLANE_Y],
+		dma->dmabuf[PLANE_UV],
 		dma->phy_addr,
 		dma->index,
 		atomic_read(&dma->ref),
@@ -663,21 +677,24 @@ static void buf_core_clean_dma(struct buf_core_mgr_s *bc)
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
 		dma = bc->dma[i];
-		if (!dma->dmabuf)
+		if (!dma->dmabuf[PLANE_Y])
 			continue;
 
 		if (dma->inited) {
 			while (bc->dma[i]->dma_ref) {
 				v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
-				"%s, idmabuf:%lx \n", __func__, dma->dmabuf);
-				dma_buf_put((struct dma_buf *)dma->dmabuf);
+				"%s, idmabuf:%lx \n", __func__, dma->dmabuf[PLANE_Y]);
+				dma_buf_put((struct dma_buf *)dma->dmabuf[PLANE_Y]);
+				if (dma->dmabuf[PLANE_UV])
+					dma_buf_put((struct dma_buf *)dma->dmabuf[PLANE_UV]);
 				dma->dma_ref--;
 			}
 
 			dma->uvm_dma[0] = 0;
 			dma->uvm_dma[1] = 0;
 			dma->uvm_dma[2] = 0;
-			dma->dmabuf = 0;
+			dma->dmabuf[PLANE_Y] = 0;
+			dma->dmabuf[PLANE_UV] = 0;
 			dma->phy_addr = 0;
 			dma->used = 0;
 			dma->inited = 0;
@@ -1412,7 +1429,7 @@ static int buf_core_attach(struct buf_core_mgr_s *bc, ulong key,
 	if (bm->config.dynamic_mode) {
 		for (i = 0; i < DAMBUF_POOL; i++) {
 			if (phy_addr && phy_addr == bc->dma[i]->phy_addr) {
-				bc->vpp_que(bc, bc->dma[i]->dmabuf, key);
+				bc->vpp_que(bc, bc->dma[i]->dmabuf[PLANE_Y], key);
 				break;
 			}
 		}
@@ -1617,7 +1634,7 @@ static bool buf_core_check_in_dma_array(struct buf_core_mgr_s *bc, ulong dmabuf)
 		return 0;
 
 	for (i = 0; i < DAMBUF_POOL; i++) {
-		if ((dmabuf && bc->dma[i] && (dmabuf == bc->dma[i]->dmabuf))) {
+		if ((dmabuf && bc->dma[i] && (dmabuf == bc->dma[i]->dmabuf[PLANE_Y]))) {
 			ret = 1;
 			break;
 		}

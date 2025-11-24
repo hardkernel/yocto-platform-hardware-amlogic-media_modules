@@ -2678,8 +2678,8 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 		}
 		if (aml_buf_is_dynamic_mode_inited(&v4l->bm)) {
 			aml_buf_get_dmabuf_ref(&v4l->bm, pic->buf_adr, true);
-			if (aml_buf && aml_buf->dma && aml_buf->dma->dmabuf)
-				pic->idmabuf = aml_buf->dma->dmabuf;
+			if (aml_buf && aml_buf->dma && aml_buf->dma->dmabuf[PLANE_Y])
+				pic->idmabuf = aml_buf->dma->dmabuf[PLANE_Y];
 		}
 		hw->aml_buf = NULL;
 		pic->pic_field = picinfo->field;

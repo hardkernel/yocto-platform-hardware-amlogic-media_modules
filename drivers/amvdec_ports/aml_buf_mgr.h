@@ -195,7 +195,7 @@ struct aml_buf {
 	void			*ge2d_buf;
 	bool			flush_flag;
 	bool 			is_delay_allocated;
-	struct 			sg_table *cap_sgt;
+	struct 			sg_table *cap_sgt[PLANE_NUM];
 	struct dma_buf 		*idmabuf[2];
 	void			*uvm_buf;
 	void 			*master_buf;

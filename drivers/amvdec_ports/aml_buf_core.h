@@ -56,6 +56,20 @@
 struct buf_core_mgr_s;
 
 /*
+ * enum buf_core_plane - The plane of the buffer.
+ *
+ * @PLANE_Y		: The plane for y.
+ * @PLANE_UV		: The plane for uv.
+ * @PLANE_NUM		: The number of plane.
+ */
+enum buf_core_plane {
+	PLANE_Y,
+	PLANE_UV,
+	PLANE_NUM
+};
+
+
+/*
  * enum buf_core_state - The state of the buffer to be used.
  *
  * @BUF_STATE_INIT	: The initialization state of the buffer.
@@ -159,8 +173,8 @@ enum buf_pair {
  */
 
 struct buf_core_dma {
-	ulong			dmabuf;
-	struct sg_table 	*sgt;
+	ulong			dmabuf[PLANE_NUM];
+	struct sg_table 	*sgt[PLANE_NUM];
 	ulong			phy_addr;
 	int			index;
 	atomic_t		ref;
