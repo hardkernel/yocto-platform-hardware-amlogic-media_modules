@@ -244,8 +244,8 @@ static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *ou
 	dst_canvas_config[1].height = dst_h_stride;
 	dst_canvas_config[1].phy_addr = out->img.data + dst_w_stride * dst_h_stride;
 
-	vf->width = dst_w_stride;
-	vf->height = dst_h_stride;
+	vf->width = wrapper->vdec->avbc_info.avbc_width;
+	vf->height = wrapper->vdec->avbc_info.avbc_height;
 	vf->type = (out->img.format == AML_PIX_FMT_NV21) ?
 			VIDTYPE_VIU_NV21 : VIDTYPE_VIU_NV12;
 	vf->canvas0Addr = vf->canvas1Addr = -1;

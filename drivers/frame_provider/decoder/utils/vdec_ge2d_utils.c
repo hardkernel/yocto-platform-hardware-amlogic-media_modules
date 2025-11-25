@@ -404,11 +404,11 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 	ge2d_config.src_para.color	= 0xffffffff;
 	ge2d_config.src_para.top	= 0;
 	ge2d_config.src_para.left	= 0;
-	ge2d_config.src_para.width	= ge2d_info->src_canvas0_config[0].width;
+	ge2d_config.src_para.width	= ge2d_info->dst_vf->width;
 	if (ge2d_info->dst_vf->type & VIDTYPE_INTERLACE)
-		ge2d_config.src_para.height = ge2d_info->src_canvas0_config[0].height >> 1;
+		ge2d_config.src_para.height = ge2d_info->dst_vf->height >> 1;
 	else
-		ge2d_config.src_para.height = ge2d_info->src_canvas0_config[0].height;
+		ge2d_config.src_para.height = ge2d_info->dst_vf->height;
 	if (vdec_ge2d_debug)
 		pr_info("src_para(%d, %d)\n",
 			ge2d_config.src_para.width, ge2d_config.src_para.height);
@@ -452,8 +452,8 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 			ge2d_config.dst_planes[1].w, ge2d_config.dst_planes[1].h);
 
 	ge2d_config.dst_para.format	=  dst_fmt;
-	ge2d_config.dst_para.width	= ge2d_info->src_canvas0_config[0].width;
-	ge2d_config.dst_para.height	= ge2d_info->src_canvas0_config[0].height;
+	ge2d_config.dst_para.width	= ge2d_info->dst_vf->width;
+	ge2d_config.dst_para.height	= ge2d_info->dst_vf->height;
 	ge2d_config.dst_para.mem_type	= CANVAS_TYPE_INVALID;
 	ge2d_config.dst_para.fill_color_en = 0;
 	ge2d_config.dst_para.fill_mode	= 0;
