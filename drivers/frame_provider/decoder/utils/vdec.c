@@ -8373,7 +8373,7 @@ static int vdec_probe(struct platform_device *pdev)
 		}
 	}
 
-	axi_monitor_start("ADDR0_PROTECT");
+	axi_monitor_start("dmc_mon_res");
 
 	return 0;
 }

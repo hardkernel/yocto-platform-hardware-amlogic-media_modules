@@ -24,6 +24,8 @@
 #include <linux/slab.h>
 #include <linux/sizes.h>
 #include <linux/memblock.h>
+#include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 
 struct dos_axi_monitor_t dos_axi_monitor;
 
@@ -328,6 +330,60 @@ ssize_t axi_monitor_config_setup(const char *buf, size_t size)
 	return 0;
 }
 
+static int axi_mon_alloc_reserved_mem(struct dos_axi_monitor_t *mon)
+{
+	struct page *page;
+
+	if (mon->res_start && mon->res_size)
+		return 0;
+
+	/*alloc reserevd mem for protect */
+	page = alloc_pages(GFP_KERNEL, 0);
+	if (!page) {
+		pr_err("%s: failed to alloc lmem buffer\n", __func__);
+		return -ENOMEM;
+	}
+	mon->res_start = page_to_phys(page);
+	mon->res_size = PAGE_SIZE;
+
+	pr_info("%s, alloc reserved addr %lx, size 0x%x\n",
+		__func__, mon->res_start, mon->res_size);
+
+	return 0;
+}
+
+static int protect_dmc_mon_res(struct dos_axi_monitor_t *mon)
+{
+	struct device_node *np;
+	struct reserved_mem *rmem;
+	phys_addr_t base;
+	unsigned long size;
+	ulong ignore_id[4] = {0, 0, 0, 0};  //no ignore module
+
+	if (!mon || !mon->res_start || !mon->res_size)
+		return -EFAULT;
+
+	np = of_find_compatible_node(NULL, NULL, "amlogic,dmc_monitor-reserved");
+	if (np) {
+		rmem = of_reserved_mem_lookup(np);
+		if (rmem) {
+			pr_info("%s, base=%pa size=%pa\n",
+				__func__, &rmem->base, &rmem->size);
+
+			/* protect base ~ base + size */
+			base = (phys_addr_t)rmem->base + rmem->size;
+			size = memblock_end_of_DRAM() - base;
+
+			monitor_mem_config(base, size, 0);
+			protect_mem_config(base, size, mon->res_start, PAGE_SIZE);
+			monitor_ign_config(ignore_id, 1);
+
+			return 0;
+		}
+	}
+	return -EPERM;
+}
+
 struct cma {
 	unsigned long   base_pfn;
 	unsigned long   count;
@@ -336,47 +392,50 @@ struct cma {
 	spinlock_t	lock;
 };
 
-void axi_monitor_start(char *mon_type)
+static int protect_codec_mm_cma(struct dos_axi_monitor_t *mon)
 {
-	ulong ignore_id[4] = {COMPRESS_BODY_WRITE, 0, 0, 0};
 	phys_addr_t base;
 	unsigned long size;
-	static struct dos_axi_monitor_t *mon;
+	ulong ignore_id[4] = {COMPRESS_BODY_WRITE, 0, 0, 0}; //ignore compress body write
+	struct cma *cma;
+
+	if (!mon || !mon->res_start || !mon->res_size)
+		return -EFAULT;
+
+	cma = dev_get_cma_area(v4l_get_dev_from_codec_mm());
+	if (!cma)
+		return -ENOMEM;
+
+	base = PFN_PHYS(cma->base_pfn);
+	size = cma->count << PAGE_SHIFT;
+
+	monitor_mem_config(base, size, 0);
+	protect_mem_config(base, size, mon->res_start, PAGE_SIZE);
+	monitor_ign_config(ignore_id, 1);
+
+	return 0;
+}
+
+void axi_monitor_start(char *mon_type)
+{
+	struct dos_axi_monitor_t *mon;
 
 	if (!is_support_axi_monitor())
 		return;
 
 	mon = get_dos_axi_mon();
-	if (!mon->res_size && !mon->res_start) {
-		struct page *page;
 
-		page = alloc_pages(GFP_KERNEL, 0);
-		if (!page) {
-			pr_err("%s: failed to alloc lmem buffer\n", __func__);
-			return;
-		} else
-			mon->res_start = page_to_phys(page);
+	axi_mon_alloc_reserved_mem(mon);
 
-		mon->res_size = PAGE_SIZE;
-		pr_info("%s, alloc reserved addr %lx, size 0x%x\n", __func__, mon->res_start, mon->res_size);
+	if (!strcmp(mon_type, "dmc_mon_res")) {
+
+		protect_dmc_mon_res(mon);
+
+	} else if (!strcmp(mon_type, "codec_mm")) {
+
+		protect_codec_mm_cma(mon);
+
 	}
-
-	if (!strcmp(mon_type, "codec_mm")) {
-		struct cma *cma = dev_get_cma_area(v4l_get_dev_from_codec_mm());
-
-		base = PFN_PHYS(cma->base_pfn);
-		size = cma->count << PAGE_SHIFT;
-	} else {
-		/* protect 0 ~ 1MB */
-		base = (phys_addr_t)0UL + SZ_1M;
-		size = memblock_end_of_DRAM() - base;
-
-		memset(ignore_id, 0, sizeof(ignore_id));
-	}
-
-	monitor_mem_config(base, size, 0);
-	protect_mem_config(base, size, mon->res_start, PAGE_SIZE);
-	monitor_ign_config(ignore_id, 1);
 }
 EXPORT_SYMBOL(axi_monitor_start);
 
