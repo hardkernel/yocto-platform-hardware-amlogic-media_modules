@@ -1346,7 +1346,7 @@ static u32 step;
 static u32 buf_alloc_width = 4096;
 static u32 buf_alloc_height = 2304;
 
-static u32 dynamic_buf_num_margin;
+static u32 dynamic_buf_num_margin = 6;
 #else
 static u32 buf_alloc_width;
 static u32 buf_alloc_height;
