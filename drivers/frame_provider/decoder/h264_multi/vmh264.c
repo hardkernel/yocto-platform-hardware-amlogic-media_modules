@@ -9169,6 +9169,7 @@ pic_done_proc:
 			hw->mmu_enable) {
 			if (!is_vdec_hevc_combine())
 				amhevc_stop();
+			CLEAR_VREG_MASK(VLD_MEM_VIFIFO_CONTROL, 1 << 1);
 			hevc_reset_core(vdec);
 		}
 		vh264_pic_done_proc(vdec);
@@ -12081,6 +12082,7 @@ result_done:
 
 	/* reset vdec assist for continue timeout when mmu enabled */
 	if (is_vdec_hevc_combine() && hw->mmu_enable && (hw->dec_result == DEC_RESULT_TIMEOUT)) {
+		CLEAR_VREG_MASK(VLD_MEM_VIFIFO_CONTROL, 1 << 1);
 		arb_ctrl_wait_idle(0);
 		WRITE_VREG(DOS_SW_RESET0, (1 << 2));
 		WRITE_VREG(DOS_SW_RESET0, 0);
