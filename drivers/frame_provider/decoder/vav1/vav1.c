@@ -1703,15 +1703,6 @@ static int v4l_get_free_fb(struct AV1HW_s *hw)
 		aml_buf->state = FB_ST_DECODER;
 		free_pic->aux_data_size = 0;
 
-		if (!(error_handle_policy & CHECK_ORDER_HINT)) {
-			if (hw->chunk_frame_pos < FRAME_BUFFERS) {
-				hw->chunk_frame_buf_idx[hw->chunk_frame_pos] = free_pic->index;
-				hw->chunk_frame_pos++;
-			} else {
-				av1_print(hw, AOM_DEBUG_HW_MORE, "chunk_frame_pos(%d) is over\n",
-					hw->chunk_frame_pos);
-			}
-		}
 	}
 
 	if (debug & AV1_DEBUG_OUT_PTS) {
@@ -1780,6 +1771,15 @@ static int get_free_fb(AV1_COMMON *cm) {
 			pic->fence_create = 0;
 			pic->error_mark = 0;
 
+			if (!(error_handle_policy & CHECK_ORDER_HINT)) {
+				if (hw->chunk_frame_pos < FRAME_BUFFERS) {
+					hw->chunk_frame_buf_idx[hw->chunk_frame_pos] = pic->index;
+					hw->chunk_frame_pos++;
+				} else {
+					av1_print(hw, AOM_DEBUG_HW_MORE, "chunk_frame_pos(%d) is over\n",
+						hw->chunk_frame_pos);
+				}
+			}
 			av1_print(hw, AV1_DEBUG_OUT_PTS,
 				"%s, idx: %d, ts: %lld, pts %d, pts64 %lld temporal_spatial_id = 0x%x\n",
 				__func__, i, pic->timestamp, pic->pts, pic->pts64, hw->aom_param.p.temporal_spatial_id);
