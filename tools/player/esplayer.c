@@ -1193,6 +1193,38 @@ error_ret:
     return 0;
 }
 
+static int frame_mode_write_dat(FILE *fp, FILE *fszp, char *buffer)
+{
+    char frame_size_str[32];
+    char *s_rt;
+    int frame_size;
+    int ret;
+
+    while (!feof(fp)) {
+        memset(frame_size_str, 0, sizeof(frame_size_str));
+        s_rt = fgets(frame_size_str, 32, fszp);
+        if (s_rt == NULL)
+        break;
+        frame_size = atoi(frame_size_str);
+        if (frame_size) {
+            memset(buffer, 0, BUFFER_SIZE);
+            ret = fread(buffer, 1, frame_size, fp);
+            if (ret < frame_size)
+                printf("read back size %d, less than frame size %d\n", ret, frame_size);
+            else {
+                if (send_buffer_to_device(buffer, ret) < 0) {
+                    printf("send data failed\n");
+                    break;
+                }
+            }
+        } else
+            printf("error: read frame size 0\n");
+    }
+
+    return 0;
+}
+
+
 enum {
     ESPLAYER,
     ES_FILE_NAME,
@@ -1712,6 +1744,7 @@ static int parse_arg2(const char* arg2)
 int main(int argc, char *argv[])
 {
     char *buffer = NULL;
+    FILE* frame_size_fp = NULL;
 
     int ret = CODEC_ERROR_NONE;
 
@@ -1772,6 +1805,13 @@ int main(int argc, char *argv[])
     printf("play with mode %s\n", (vpcodec->mode != 0)?
             ((vpcodec->mode == 1)?"STREAM_MODE":"FRAME_MODE"):"SINGLE_MODE");
 
+
+    if (argc == 8 && !(vpcodec->video_type == VFORMAT_VC1 || vpcodec->video_type == VFORMAT_MPEG4)) {
+        if ((frame_size_fp = fopen(argv[argc - 1], "rb")) == NULL) {
+            printf("open fsz file error!\n");
+            goto osd_restore;
+        }
+    }
     if (vpcodec->video_type == VFORMAT_H264) {
         vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_H264;
         vpcodec->am_sysinfo.param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE);
@@ -1781,6 +1821,12 @@ int main(int argc, char *argv[])
             vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_WVC1;
         } else {
             vpcodec->am_sysinfo.format = atoi(argv[ES_SUB_FORMAT]);
+            if (argc == 9) {
+                if ((frame_size_fp = fopen(argv[argc - 1], "rb")) == NULL) {
+                    printf("open fsz file error!\n");
+                    goto osd_restore;
+                }
+            }
         }
     } else if (vpcodec->video_type == VFORMAT_MPEG4) {
         if (argc < ES_MAX_OPT) {
@@ -1788,6 +1834,12 @@ int main(int argc, char *argv[])
             vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_5;
         } else {
             vpcodec->am_sysinfo.format = atoi(argv[ES_SUB_FORMAT]);
+            if (argc == 9) {
+                if ((frame_size_fp = fopen(argv[argc - 1], "rb")) == NULL) {
+                    printf("open fsz file error!\n");
+                    goto osd_restore;
+                }
+            }
         }
     }
 
@@ -1813,7 +1865,10 @@ int main(int argc, char *argv[])
     ret = vcodec_init(vpcodec);
     if (ret != CODEC_ERROR_NONE) {
         fclose(fp);
-        printf("codec init failed, ret=-0x%x", -ret);
+        if (frame_size_fp) {
+            fclose(frame_size_fp);
+        }
+        printf("codec init failed, ret=-0x%x\n", -ret);
         goto osd_restore;
     }
     printf("video codec ok!\n");
@@ -1826,8 +1881,10 @@ int main(int argc, char *argv[])
     if (is_video_file_type_ivf(fp, vpcodec->video_type, buffer)) {
         printf("input video file is ivf with av1.\n");
         ivf_write_dat(fp, (uint8_t *)buffer);
-    } else if (vpcodec->mode == FRAME_MODE) {
+    } else if ((vpcodec->mode == FRAME_MODE) && (frame_size_fp == NULL)) {
         av1_frame_mode_write_dat(fp, vpcodec, buffer);
+    } else if ((vpcodec->mode == FRAME_MODE) && frame_size_fp) {
+        frame_mode_write_dat(fp, frame_size_fp, buffer);
     } else {
         while (1) {
             if (!end) {
@@ -1908,6 +1965,9 @@ int main(int argc, char *argv[])
 error:
     vcodec_close(vpcodec);
     fclose(fp);
+    if (frame_size_fp) {
+        fclose(frame_size_fp);
+    }
 osd_restore:
     set_display_axis(1);
     osd_blank("/sys/kernel/debug/dri/0/vpu/blank", 0);

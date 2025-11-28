@@ -1030,6 +1030,22 @@ error_ret:
 	return 0;
 }
 
+static int padding_for_mpeg12_dma_frame(char *buffer, int frame_size)
+{
+	if ((g_mem_type == V4LPLAYER_MEM_TYPE_DMA) &&
+		(g_play_mode == V4LPLAYER_FRAME_MODE) &&
+		(video_type == VFORMAT_MPEG12)) {
+			buffer[frame_size]     = 0x00;
+			buffer[frame_size + 1] = 0x00;
+			buffer[frame_size + 2] = 0x01;
+			buffer[frame_size + 3] = 0x00;
+
+			return (frame_size + 4);
+		}
+
+	return frame_size;
+}
+
 int frame_mode_write_dat(FILE *fp, FILE *fszp, char *buffer)
 {
 	char frame_size_str[32];
@@ -1046,6 +1062,7 @@ int frame_mode_write_dat(FILE *fp, FILE *fszp, char *buffer)
 		if (frame_size) {
 			memset(buffer, 0, BUFFER_SIZE);
 			ret = fread(buffer, 1, frame_size, fp);
+			ret = padding_for_mpeg12_dma_frame(buffer, frame_size);
 #ifdef DEBUG_FRAME
 			debug_print(DEBUG_FRAME, "read size %d/%d, %x %x %x %x %x %x %x %x ...\n", ret, frame_size,
 				buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]);
@@ -1102,7 +1119,7 @@ static void usage()
 	printf(" -i, --ifile,  input es file\n");
 	printf(" -f, --format, video format\n");
 	printf("\t0:mpeg12\t1:mpeg4\t\t2:h264\t\t3:mjpeg\n");
-	printf("\t5:jpeg\t\t6:vcl\t\t7:avs\t\t11:hevc\n");
+	printf("\t5:jpeg\t\t6:vc1\t\t7:avs\t\t11:hevc\n");
 	printf("\t14:vp9\t\t15:avs2\t\t16:av1\t\t17:avs3\n");
 	printf("\t18:h266\n");
 	printf(" -s, --size,   frame size file\n");

@@ -206,7 +206,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 
 				ret = ioctl(dev, VDBG_IOC_BUF_RESET);
 				if (ret < 0)
-					printf("VDBG_IOC_BUF_RESET failed\n");
+					printf("VDBG_IOC_BUF_RESET failed, message: %s\n", strerror(errno));
 				continue;
 			}
 			/*
