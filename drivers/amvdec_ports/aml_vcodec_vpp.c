@@ -588,17 +588,22 @@ static void vpp_vf_get(void *caller, struct vframe_s *vf_out)
 
 	if (kfifo_get(&vpp->out_done_q, &vpp_buf)) {
 		aml_buf	= vpp_buf->aml_vb->aml_buf;
-		buf	= &vpp_buf->di_buf;
-		eos	= (buf->flag & DI_FLAG_EOS);
-		bypass	= (buf->flag & DI_FLAG_BUF_BY_PASS);
-		vf	= buf->vf;
-
-		if (eos) {
-			v4l_dbg(vpp->ctx, V4L_DEBUG_VPP_DETAIL,
-				"%s %d got eos\n",
-				__func__, __LINE__);
-			vf->type |= VIDTYPE_V4L_EOS;
-			vf->flag = VFRAME_FLAG_EMPTY_FRAME_V4L;
+		if (vpp->dpss_index < 0) {
+			buf	= &vpp_buf->di_buf;
+			eos	= (buf->flag & DI_FLAG_EOS);
+			bypass	= (buf->flag & DI_FLAG_BUF_BY_PASS);
+			vf	= buf->vf;
+			if (eos) {
+				v4l_dbg(vpp->ctx, V4L_DEBUG_VPP_DETAIL,
+					"%s %d got eos\n",
+					__func__, __LINE__);
+				vf->type |= VIDTYPE_V4L_EOS;
+				vf->flag = VFRAME_FLAG_EMPTY_FRAME_V4L;
+			}
+		} else {
+			vf	= &vpp_buf->vf;
+			if (vpp_buf->vf.type & VIDTYPE_V4L_EOS)
+				vf->flag = VFRAME_FLAG_EMPTY_FRAME_V4L;
 		}
 
 		if (!eos && !bypass) {
@@ -610,7 +615,8 @@ static void vpp_vf_get(void *caller, struct vframe_s *vf_out)
 		memcpy(vf_out, vf, sizeof(struct vframe_s));
 
 		mutex_lock(&vpp->output_lock);
-		kfifo_put(&vpp->frame, vf);
+		if (vpp->dpss_index < 0)
+			kfifo_put(&vpp->frame, vf);
 		kfifo_put(&vpp->output, vpp_buf);
 		mutex_unlock(&vpp->output_lock);
 
@@ -619,12 +625,12 @@ static void vpp_vf_get(void *caller, struct vframe_s *vf_out)
 		vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_11, aml_buf->index);
 
 		v4l_dbg(vpp->ctx, V4L_DEBUG_VPP_BUFMGR,
-			"%s: vf:%px, index:%d, flag(vf:%x di:%x), ts:%lld\n",
+			"%s: vf:%px, index:%d, flag(vf:%x di/dpss:%x), ts:%lld\n",
 			__func__, vf,
-			vf->index,
-			vf->flag,
-			buf->flag,
-			vf->timestamp);
+			vf_out->index,
+			vf_out->flag,
+			vpp->dpss_index < 0 ? buf->flag : vf_out->dpss_flg,
+			vf_out->timestamp);
 	}
 }
 
@@ -704,7 +710,7 @@ void aml_v4l2_vpp_recycle(struct aml_v4l2_vpp *vpp, struct aml_v4l2_buf *aml_vb)
 	bool bypass = false;
 	bool eos = false;
 
-	if (aml_vb->aml_buf->vpp_buf == NULL)
+	if (aml_vb->aml_buf->vpp_buf == NULL || vpp->dpss_index >= 0)
 		return;
 
 	vpp_buf = (struct aml_v4l2_vpp_buf *)aml_vb->aml_buf->vpp_buf;
@@ -724,6 +730,197 @@ void aml_v4l2_vpp_recycle(struct aml_v4l2_vpp *vpp, struct aml_v4l2_buf *aml_vb)
 		}
 	}
 }
+
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+static enum DPSS_ERRORTYPE dpss_empty_input_done(void *arg, struct vframe_s *vf)
+{
+	struct aml_v4l2_vpp *vpp = (struct aml_v4l2_vpp *)arg;
+	struct aml_v4l2_vpp_buf *vpp_buf;
+	struct aml_buf *aml_buf = NULL;
+	bool eos = false;
+
+	if (!vpp || !vpp->ctx) {
+		v4l_dbg(0, V4L_DEBUG_CODEC_ERROR,
+			"fatal %s %d vpp:%px\n",
+			__func__, __LINE__, vpp);
+		return DPSS_ERR_UNDEFINED;
+	}
+
+	if (vpp->ctx->is_stream_off) {
+		v4l_dbg(vpp->ctx, V4L_DEBUG_CODEC_EXINFO,
+			"vpp discard recycle frame %s %d vpp:%p\n",
+			__func__, __LINE__, vpp);
+		return DPSS_ERR_UNDEFINED;
+	}
+
+	vpp_buf	= container_of(vf, struct aml_v4l2_vpp_buf, vf);
+	aml_buf = vpp_buf->aml_vb->aml_buf;
+	eos	= (vf->flag & VIDTYPE_V4L_EOS);
+
+	v4l_dbg(vpp->ctx, V4L_DEBUG_VPP_BUFMGR,
+		"vpp_input done: idx:%d, vf:%px, idx: %d, flag(vf:%x dpss:%x) %s %s, ts:%lld, "
+		"in:%d, out:%d, in done:%d, out done:%d\n",
+		aml_buf->index,
+		vf,
+		vf->index,
+		vf->flag,
+		vf->dpss_flg,
+		vpp->is_prog ? "P" : "I",
+		eos ? "eos" : "",
+		vf->timestamp,
+		kfifo_len(&vpp->input),
+		kfifo_len(&vpp->output),
+		kfifo_len(&vpp->in_done_q),
+		kfifo_len(&vpp->out_done_q));
+
+	if (!vpp->is_prog) {
+		/* recycle vf only in non-bypass mode */
+		aml_buf_fill(&vpp->ctx->bm, aml_buf, BUF_USER_VPP);
+
+		kfifo_put(&vpp->input, vpp_buf);
+		update_vpp_num_cache(vpp);
+		vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_15, atomic_read(&vpp->ctx->vpp_cache_num));
+	}
+
+	vpp->in_num[OUTPUT_PORT]++;
+
+	vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_1, aml_buf->index);
+
+	return DPSS_ERR_NONE;
+}
+
+static enum DPSS_ERRORTYPE dpss_fill_output_done(void *arg, struct vframe_s *vf)
+{
+	struct aml_v4l2_vpp *vpp = (struct aml_v4l2_vpp *)arg;
+	struct aml_v4l2_vpp_buf *vpp_buf = NULL;
+	struct aml_buf *aml_buf = NULL;
+	bool bypass = false;
+	bool eos = false;
+
+	if (!vpp || !vpp->ctx) {
+		v4l_dbg(0, V4L_DEBUG_CODEC_ERROR,
+			"fatal %s %d vpp:%px\n",
+			__func__, __LINE__, vpp);
+		return DPSS_ERR_UNDEFINED;
+	}
+
+	if (vpp->ctx->is_stream_off) {
+		v4l_dbg(vpp->ctx, V4L_DEBUG_CODEC_EXINFO,
+			"vpp discard submit frame %s %d vpp:%p\n",
+			__func__, __LINE__, vpp);
+		return DPSS_ERR_UNDEFINED;
+	}
+
+	vpp_buf	= container_of(vf, struct aml_v4l2_vpp_buf, vf);
+	aml_buf	= vpp_buf->aml_vb->aml_buf;
+	eos	= (vf->flag & VIDTYPE_V4L_EOS);
+	bypass	= (vf->dpss_flg & VFRAME_DPSS_FLAG_BYPASS);
+
+	/* recovery aml_buf handle. */
+	vf->v4l_mem_handle = (ulong)aml_buf;
+
+	kfifo_put(&vpp->out_done_q, vpp_buf);
+
+	if (aml_buf->vpp_buf == NULL) {
+		aml_buf->vpp_buf = vzalloc(sizeof(struct aml_v4l2_vpp_buf));
+	}
+
+	if (aml_buf->vpp_buf)
+		memcpy((struct aml_v4l2_vpp_buf *)(aml_buf->vpp_buf), vpp_buf,
+			sizeof(struct aml_v4l2_vpp_buf));
+
+	v4l_dbg(vpp->ctx, V4L_DEBUG_VPP_BUFMGR,
+		"vpp_output done: idx:%d, vf:%px, idx:%d, flag(vf:%x di:%x) %s %s, ts:%lld, "
+		"in:%d, out:%d, in done:%d, out done:%d\n",
+		aml_buf->index,
+		vf,
+		vf->index,
+		vf->flag,
+		vf->dpss_flg,
+		vpp->is_prog ? "P" : "I",
+		eos ? "eos" : "",
+		vf->timestamp,
+		kfifo_len(&vpp->input),
+		kfifo_len(&vpp->output),
+		kfifo_len(&vpp->in_done_q),
+		kfifo_len(&vpp->out_done_q));
+
+	vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_9, aml_buf->index);
+
+	aml_buf_done(&vpp->ctx->bm, aml_buf, BUF_USER_VPP);
+
+	vpp->out_num[OUTPUT_PORT]++;
+
+	return DPSS_ERR_NONE;
+}
+
+static enum DPSS_ERRORTYPE dpss_get_input_vf_info(void *arg, struct vframe_s *vf,
+	struct dpss_in_vf_info *status)
+{
+	return DPSS_ERR_NONE;
+}
+
+int aml_v4l2_create_di_instance(struct aml_vcodec_ctx *ctx,
+					struct aml_vpp_cfg_infos *cfg,
+					struct aml_v4l2_vpp *vpp)
+{
+	struct dpss_init_parm *dpss_parm = &vpp->dpss_parm;
+	int output_format;
+
+	if ((cfg->fmt == V4L2_PIX_FMT_NV21M) || (cfg->fmt == V4L2_PIX_FMT_NV21))
+		output_format = DPSS_OUTPUT_NV21 | DPSS_OUTPUT_LINEAR;
+	else
+		output_format = DPSS_OUTPUT_NV12 | DPSS_OUTPUT_LINEAR;
+
+	if (cfg->is_drm)
+		output_format |= DI_OUTPUT_TVP;
+
+	dpss_parm->dps_work_mode = DPSS_WORK_MODE_NR | DPSS_WORK_MODE_MAIN | DPSS_WORK_MODE_FRONT;
+	dpss_parm->di_parm.is_interlace = 1;
+	dpss_parm->di_parm.buffer_mode = DPSS_BUFFER_MODE_ALLOC_SELF;
+	dpss_parm->di_parm.output_format = output_format;
+
+	dpss_parm->ops.arg = vpp;
+	dpss_parm->ops.empty_input_done = dpss_empty_input_done;
+	dpss_parm->ops.fill_output_done = dpss_fill_output_done;
+	dpss_parm->ops.get_input_vf_info = dpss_get_input_vf_info;
+
+	vpp->dpss_index = dpss_create_instance(dpss_parm);
+	if (vpp->dpss_index < 0) {
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+			"%s: creat dpss fail, dpss_index=%d\n",
+			__func__, vpp->dpss_index);
+		return -EINVAL;
+	}
+
+	v4l_dbg(ctx, V4L_DEBUG_VPP_DETAIL,
+		"%s: dpss_index(%d), work_mode(0x%x), buffer_mode(0x%x), output_format(0x%x)\n",
+		__func__,
+		vpp->dpss_index,
+		vpp->dpss_parm.dps_work_mode,
+		dpss_parm->di_parm.buffer_mode,
+		dpss_parm->di_parm.output_format);
+
+	return 0;
+}
+
+int aml_v4l2_destroy_di_instance(struct aml_vcodec_ctx *ctx,
+					struct aml_v4l2_vpp *vpp)
+{
+	int ret = -1;
+
+	if (vpp->dpss_index >= 0) {
+		ret = dpss_destroy_instance(vpp->dpss_index);
+		if (ret != 0)
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+				  "destroy dpss fail, dpss_index=%d\n",
+				  vpp->dpss_index);
+		vpp->dpss_index = -1;
+	}
+
+	return ret;
+}
+#endif
 
 static int aml_v4l2_vpp_thread(void* param)
 {
@@ -807,16 +1004,9 @@ retry:
 			goto exit;
 		}
 
-		mutex_lock(&vpp->output_lock);
-		if (!kfifo_get(&vpp->frame, &vf_out)) {
-			mutex_unlock(&vpp->output_lock);
-			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-				"vpp can not get frame\n");
-			goto exit;
-		}
-		mutex_unlock(&vpp->output_lock);
+		if (vpp->dpss_index >= 0) {
+			struct vframe_s *out = &out_buf->vf;
 
-		if (!vpp->is_prog) {
 			/* submit I to DI. */
 			aml_buf = out_buf->aml_vb->aml_buf;
 			aml_buf->state = FB_ST_VPP;
@@ -827,124 +1017,199 @@ retry:
 			in_buf->aml_vb->aml_buf->sei_buf = NULL;
 			in_buf->aml_vb->aml_buf->sei_buf_idx = INVALID_IDX;
 
-			memcpy(vf_out, in_buf->di_buf.vf, sizeof(*vf_out));
-			memcpy(vf_out->canvas0_config,
-				in_buf->di_buf.vf->canvas0_config,
+			memcpy(out, &in_buf->vf, sizeof(*out));
+			memcpy(out->canvas0_config,
+				in_buf->vf.canvas0_config,
 				2 * sizeof(struct canvas_config_s));
 
-			vf_out->canvas0_config[0].phy_addr = aml_buf->planes[0].addr;
+			out->canvas0_config[0].phy_addr = aml_buf->planes[0].addr;
 			if (aml_buf->num_planes == 1)
-				vf_out->canvas0_config[1].phy_addr =
+				out->canvas0_config[1].phy_addr =
 					aml_buf->planes[0].addr + aml_buf->planes[0].offset;
 			else
-				vf_out->canvas0_config[1].phy_addr =
+				out->canvas0_config[1].phy_addr =
 					aml_buf->planes[1].addr;
 
-			vf_out->meta_data_size = in_buf->di_buf.vf->meta_data_size;
-			vf_out->meta_data_buf = in_buf->di_buf.vf->meta_data_buf;
-		} else {
-			/* submit P to DI. */
-			out_buf->aml_vb = in_buf->aml_vb;
+			out->meta_data_size = in_buf->vf.meta_data_size;
+			out->meta_data_buf = in_buf->vf.meta_data_buf;
 
-			memcpy(vf_out, in_buf->di_buf.vf, sizeof(*vf_out));
-		}
+			out->mem_sec = ctx->is_drm_mode ? 1 : 0;
 
-		vf_out->mem_sec = ctx->is_drm_mode ? 1 : 0;
-		/* fill outbuf parms. */
-		out_buf->di_buf.vf	= vf_out;
-		out_buf->di_buf.flag	= 0;
-		out_buf->di_local_buf	= NULL;
-		out_buf->di_buf.caller_data = vpp;
+			v4l_dbg(ctx, V4L_DEBUG_VPP_BUFMGR,
+				"vpp_handle start: idx:(%d, %d), dec vf:%px/%d afbc:0x%lx, vpp vf:%px/%d, iphy:%lx/%lx %dx%d ophy:%lx/%lx %dx%d, %s %s "
+				"in:%d, out:%d, in done:%d, out done:%d, fgs_valid:%d",
+				in_buf->aml_vb->aml_buf->index,
+				out_buf->aml_vb->aml_buf->index,
+				&in_buf->vf,
+				in_buf->vf.index,
+				in_buf->vf.compHeadAddr,
+				&out_buf->vf, VPP_BUF_GET_IDX(out_buf),
+				in_buf->vf.canvas0_config[0].phy_addr,
+				in_buf->vf.canvas0_config[1].phy_addr,
+				in_buf->vf.canvas0_config[0].width,
+				in_buf->vf.canvas0_config[0].height,
+				out->canvas0_config[0].phy_addr,
+				out->canvas0_config[1].phy_addr,
+				out->canvas0_config[0].width,
+				out->canvas0_config[0].height,
+				vpp->is_prog ? "P" : "",
+				vpp->is_bypass_p ? "bypass-prog" : "",
+				kfifo_len(&vpp->input),
+				kfifo_len(&vpp->output),
+				kfifo_len(&vpp->in_done_q),
+				kfifo_len(&vpp->out_done_q),
+				out->fgs_valid);
 
-		/* fill inbuf parms. */
-		in_buf->di_buf.caller_data = vpp;
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+			vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_3,
+					out_buf->aml_vb->aml_buf->index);
 
-		/*
-		 * HWC or SF should hold di buffres refcnt after resolution changed
-		 * that might cause stuck, thus sumbit 10 frames from dec to display directly.
-		 * then frames will be pushed out from these buffer queuen and
-		 * recycle local buffers to DI module.
-		 */
-		if (/*(ctx->vpp_cfg.res_chg) && */(vpp->is_prog) &&
-			(vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)) {
-			if (vpp->in_num[INPUT_PORT] < vpp_bypass_frames) {
-				vpp->is_bypass_p = true;
-			} else {
-				vpp->is_bypass_p = false;
-				ctx->vpp_cfg.res_chg = false;
-			}
-		}
+			dpss_empty_out_buffer(vpp->dpss_index, &out_buf->vf);
 
-		v4l_dbg(ctx, V4L_DEBUG_VPP_BUFMGR,
-			"vpp_handle start: idx:(%d, %d), dec vf:%px/%d afbc:0x%lx, vpp vf:%px/%d, iphy:%lx/%lx %dx%d ophy:%lx/%lx %dx%d, %s %s "
-			"in:%d, out:%d, vf:%d, in done:%d, out done:%d, fgs_valid:%d",
-			in_buf->aml_vb->aml_buf->index,
-			out_buf->aml_vb->aml_buf->index,
-			in_buf->di_buf.vf,
-			in_buf->di_buf.vf->index,
-			in_buf->di_buf.vf->compHeadAddr,
-			out_buf->di_buf.vf, VPP_BUF_GET_IDX(out_buf),
-			in_buf->di_buf.vf->canvas0_config[0].phy_addr,
-			in_buf->di_buf.vf->canvas0_config[1].phy_addr,
-			in_buf->di_buf.vf->canvas0_config[0].width,
-			in_buf->di_buf.vf->canvas0_config[0].height,
-			vf_out->canvas0_config[0].phy_addr,
-			vf_out->canvas0_config[1].phy_addr,
-			vf_out->canvas0_config[0].width,
-			vf_out->canvas0_config[0].height,
-			vpp->is_prog ? "P" : "",
-			vpp->is_bypass_p ? "bypass-prog" : "",
-			kfifo_len(&vpp->input),
-			kfifo_len(&vpp->output),
-			kfifo_len(&vpp->frame),
-			kfifo_len(&vpp->in_done_q),
-			kfifo_len(&vpp->out_done_q),
-			in_buf->di_buf.vf->fgs_valid);
-
-		if (vpp->work_mode == VPP_MODE_S4_DW_MMU) {
-			vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_7,
-				out_buf->aml_vb->aml_buf->index);
-
-			kfifo_put(&vpp->processing, in_buf);
-
-			di_fill_output_buffer(vpp->di_handle, &out_buf->di_buf);
-			vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_8,
-				in_buf->aml_vb->aml_buf->index);
-			di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
-		} else {
-			if (vpp->is_bypass_p) {
-				vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_6,
+			vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_4,
 					in_buf->aml_vb->aml_buf->index);
-				out_buf->di_buf.flag = in_buf->di_buf.flag;
-				out_buf->di_buf.vf->vf_ext = in_buf->di_buf.vf;
-				/*
-				 * di_buf contains in vpp_buf, there is no
-				 * overrun-buffer-val issue for di_buf.
-				 */
-				/* coverity[overrun-buffer-val] */
-				v4l_vpp_fill_output_done(&out_buf->di_buf);
-				v4l_vpp_empty_input_done(&in_buf->di_buf);
+			dpss_empty_input_buffer(vpp->dpss_index, &in_buf->vf);
+#endif
+		} else {
+			mutex_lock(&vpp->output_lock);
+			if (!kfifo_get(&vpp->frame, &vf_out)) {
+				mutex_unlock(&vpp->output_lock);
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+					"vpp can not get frame\n");
+				goto exit;
+			}
+			mutex_unlock(&vpp->output_lock);
+
+			if (!vpp->is_prog) {
+				/* submit I to DI. */
+				aml_buf = out_buf->aml_vb->aml_buf;
+				aml_buf->state = FB_ST_VPP;
+
+				aml_buf->sei_buf = in_buf->aml_vb->aml_buf->sei_buf;
+				aml_buf->sei_size = in_buf->aml_vb->aml_buf->sei_size;
+				aml_buf->sei_buf_idx = in_buf->aml_vb->aml_buf->sei_buf_idx;
+				in_buf->aml_vb->aml_buf->sei_buf = NULL;
+				in_buf->aml_vb->aml_buf->sei_buf_idx = INVALID_IDX;
+
+				memcpy(vf_out, in_buf->di_buf.vf, sizeof(*vf_out));
+				memcpy(vf_out->canvas0_config,
+					in_buf->di_buf.vf->canvas0_config,
+					2 * sizeof(struct canvas_config_s));
+
+				vf_out->canvas0_config[0].phy_addr = aml_buf->planes[0].addr;
+				if (aml_buf->num_planes == 1)
+					vf_out->canvas0_config[1].phy_addr =
+						aml_buf->planes[0].addr + aml_buf->planes[0].offset;
+				else
+					vf_out->canvas0_config[1].phy_addr =
+						aml_buf->planes[1].addr;
+
+				vf_out->meta_data_size = in_buf->di_buf.vf->meta_data_size;
+				vf_out->meta_data_buf = in_buf->di_buf.vf->meta_data_buf;
 			} else {
-				if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF) {
-					/*
-					 * the flow of DI local buffer:
-					 * empty input -> output done cb -> fetch processing fifo.
-					 */
-					vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_5,
-						in_buf->aml_vb->aml_buf->index);
+				/* submit P to DI. */
+				out_buf->aml_vb = in_buf->aml_vb;
 
-					out_buf->inbuf = in_buf;
-					kfifo_put(&vpp->processing, out_buf);
+				memcpy(vf_out, in_buf->di_buf.vf, sizeof(*vf_out));
+			}
 
-					di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
+			vf_out->mem_sec = ctx->is_drm_mode ? 1 : 0;
+			/* fill outbuf parms. */
+			out_buf->di_buf.vf	= vf_out;
+			out_buf->di_buf.flag	= 0;
+			out_buf->di_local_buf	= NULL;
+			out_buf->di_buf.caller_data = vpp;
+
+			/* fill inbuf parms. */
+			in_buf->di_buf.caller_data = vpp;
+
+			/*
+			 * HWC or SF should hold di buffres refcnt after resolution changed
+			 * that might cause stuck, thus sumbit 10 frames from dec to display directly.
+			 * then frames will be pushed out from these buffer queuen and
+			 * recycle local buffers to DI module.
+			 */
+			if (/*(ctx->vpp_cfg.res_chg) && */(vpp->is_prog) &&
+				(vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)) {
+				if (vpp->in_num[INPUT_PORT] < vpp_bypass_frames) {
+					vpp->is_bypass_p = true;
 				} else {
-					vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_3,
-						out_buf->aml_vb->aml_buf->index);
-					di_fill_output_buffer(vpp->di_handle, &out_buf->di_buf);
+					vpp->is_bypass_p = false;
+					ctx->vpp_cfg.res_chg = false;
+				}
+			}
 
-					vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_4,
+			v4l_dbg(ctx, V4L_DEBUG_VPP_BUFMGR,
+				"vpp_handle start: idx:(%d, %d), dec vf:%px/%d afbc:0x%lx, vpp vf:%px/%d, iphy:%lx/%lx %dx%d ophy:%lx/%lx %dx%d, %s %s "
+				"in:%d, out:%d, vf:%d, in done:%d, out done:%d, fgs_valid:%d",
+				in_buf->aml_vb->aml_buf->index,
+				out_buf->aml_vb->aml_buf->index,
+				in_buf->di_buf.vf,
+				in_buf->di_buf.vf->index,
+				in_buf->di_buf.vf->compHeadAddr,
+				out_buf->di_buf.vf, VPP_BUF_GET_IDX(out_buf),
+				in_buf->di_buf.vf->canvas0_config[0].phy_addr,
+				in_buf->di_buf.vf->canvas0_config[1].phy_addr,
+				in_buf->di_buf.vf->canvas0_config[0].width,
+				in_buf->di_buf.vf->canvas0_config[0].height,
+				vf_out->canvas0_config[0].phy_addr,
+				vf_out->canvas0_config[1].phy_addr,
+				vf_out->canvas0_config[0].width,
+				vf_out->canvas0_config[0].height,
+				vpp->is_prog ? "P" : "",
+				vpp->is_bypass_p ? "bypass-prog" : "",
+				kfifo_len(&vpp->input),
+				kfifo_len(&vpp->output),
+				kfifo_len(&vpp->frame),
+				kfifo_len(&vpp->in_done_q),
+				kfifo_len(&vpp->out_done_q),
+				in_buf->di_buf.vf->fgs_valid);
+
+			if (vpp->work_mode == VPP_MODE_S4_DW_MMU) {
+				vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_7,
+					out_buf->aml_vb->aml_buf->index);
+
+				kfifo_put(&vpp->processing, in_buf);
+
+				di_fill_output_buffer(vpp->di_handle, &out_buf->di_buf);
+				vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_8,
+					in_buf->aml_vb->aml_buf->index);
+				di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
+			} else {
+				if (vpp->is_bypass_p) {
+					vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_6,
 						in_buf->aml_vb->aml_buf->index);
-					di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
+					out_buf->di_buf.flag = in_buf->di_buf.flag;
+					out_buf->di_buf.vf->vf_ext = in_buf->di_buf.vf;
+					/*
+					 * di_buf contains in vpp_buf, there is no
+					 * overrun-buffer-val issue for di_buf.
+					 */
+					/* coverity[overrun-buffer-val] */
+					v4l_vpp_fill_output_done(&out_buf->di_buf);
+					v4l_vpp_empty_input_done(&in_buf->di_buf);
+				} else {
+					if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF) {
+						/*
+						 * the flow of DI local buffer:
+						 * empty input -> output done cb -> fetch processing fifo.
+						 */
+						vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_5,
+							in_buf->aml_vb->aml_buf->index);
+
+						out_buf->inbuf = in_buf;
+						kfifo_put(&vpp->processing, out_buf);
+
+						di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
+					} else {
+						vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_3,
+							out_buf->aml_vb->aml_buf->index);
+						di_fill_output_buffer(vpp->di_handle, &out_buf->di_buf);
+
+						vdec_tracing(&vpp->ctx->vtr, VTRACE_VPP_PIC_4,
+							in_buf->aml_vb->aml_buf->index);
+						di_empty_input_buffer(vpp->di_handle, &in_buf->di_buf);
+					}
 				}
 			}
 		}
@@ -1055,58 +1320,72 @@ int aml_v4l2_vpp_init(
 		return -ENOMEM;
 
 	vpp->work_mode = work_mode;
-	if (vpp->work_mode >= VPP_MODE_DI_LOCAL &&
-		vpp->work_mode <= VPP_MODE_NOISE_REDUC_LOCAL)
-		vpp->buffer_mode = BUFFER_MODE_ALLOC_BUF;
-	else
-		vpp->buffer_mode = BUFFER_MODE_USE_BUF;
+	vpp->dpss_index = -1;
 
-	if (vpp->work_mode == VPP_MODE_S4_DW_MMU)
-		init.work_mode			= WORK_MODE_S4_DCOPY;
-	else
-		init.work_mode			= WORK_MODE_PRE_POST;
-	init.buffer_mode		= vpp->buffer_mode;
-	init.ops.fill_output_done	= v4l_vpp_fill_output_done;
-	init.ops.empty_input_done	= v4l_vpp_empty_input_done;
-	init.caller_data		= (void *)vpp;
+	if (is_support_dpss_front_mode()) {
+		vpp->buffer_mode = BUFFER_MODE_MAX;
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+		ret = aml_v4l2_create_di_instance(ctx, cfg, vpp);
+		if (ret < 0) {
+			aml_media_mem_free(vpp);
+			v4l_dbg(ctx, V4L_DEBUG_VPP_DETAIL, "%s fail!\n",__func__);
+			return -EINVAL;
+		}
+#endif
+	} else {
+		if (vpp->work_mode >= VPP_MODE_DI_LOCAL &&
+			vpp->work_mode <= VPP_MODE_NOISE_REDUC_LOCAL)
+			vpp->buffer_mode = BUFFER_MODE_ALLOC_BUF;
+		else
+			vpp->buffer_mode = BUFFER_MODE_USE_BUF;
 
-	v4l_dbg(ctx, V4L_DEBUG_VPP_DETAIL,
-		"%s work_mode:0x%x buffer_mode:%d\n",__func__, vpp->work_mode, vpp->buffer_mode);
+		if (vpp->work_mode == VPP_MODE_S4_DW_MMU)
+			init.work_mode			= WORK_MODE_S4_DCOPY;
+		else
+			init.work_mode			= WORK_MODE_PRE_POST;
+		init.buffer_mode		= vpp->buffer_mode;
+		init.ops.fill_output_done	= v4l_vpp_fill_output_done;
+		init.ops.empty_input_done	= v4l_vpp_empty_input_done;
+		init.caller_data		= (void *)vpp;
 
-	if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF) {
-		init.ops.fill_output_done =
-			v4l_vpp_fill_output_done_alloc_buffer;
-	}
+		v4l_dbg(ctx, V4L_DEBUG_VPP_DETAIL,
+			"%s work_mode:0x%x buffer_mode:%d\n",__func__, vpp->work_mode, vpp->buffer_mode);
 
-	if (vpp->work_mode == VPP_MODE_S4_DW_MMU) {
-		init.ops.fill_output_done =
-			v4l_vpp_fill_output_done_dw_mmu;
-	}
+		if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF) {
+			init.ops.fill_output_done =
+				v4l_vpp_fill_output_done_alloc_buffer;
+		}
 
-	if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)
-		init.output_format = DI_OUTPUT_BY_DI_DEFINE;
-	else if ((vpp->buffer_mode == BUFFER_MODE_USE_BUF) &&
-		((cfg->fmt == V4L2_PIX_FMT_NV21M) || (cfg->fmt == V4L2_PIX_FMT_NV21)))
-		init.output_format = DI_OUTPUT_NV21 | DI_OUTPUT_LINEAR;
-	else if ((vpp->buffer_mode == BUFFER_MODE_USE_BUF) &&
-		((cfg->fmt == V4L2_PIX_FMT_NV12M) || (cfg->fmt == V4L2_PIX_FMT_NV12)))
-		init.output_format = DI_OUTPUT_NV12 | DI_OUTPUT_LINEAR;
-	else /* AFBC decoder case, NV12 as default */
-		init.output_format = DI_OUTPUT_NV12 | DI_OUTPUT_LINEAR;
+		if (vpp->work_mode == VPP_MODE_S4_DW_MMU) {
+			init.ops.fill_output_done =
+				v4l_vpp_fill_output_done_dw_mmu;
+		}
 
-	if (cfg->is_drm)
-		init.output_format |= DI_OUTPUT_TVP;
+		if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)
+			init.output_format = DI_OUTPUT_BY_DI_DEFINE;
+		else if ((vpp->buffer_mode == BUFFER_MODE_USE_BUF) &&
+			((cfg->fmt == V4L2_PIX_FMT_NV21M) || (cfg->fmt == V4L2_PIX_FMT_NV21)))
+			init.output_format = DI_OUTPUT_NV21 | DI_OUTPUT_LINEAR;
+		else if ((vpp->buffer_mode == BUFFER_MODE_USE_BUF) &&
+			((cfg->fmt == V4L2_PIX_FMT_NV12M) || (cfg->fmt == V4L2_PIX_FMT_NV12)))
+			init.output_format = DI_OUTPUT_NV12 | DI_OUTPUT_LINEAR;
+		else /* AFBC decoder case, NV12 as default */
+			init.output_format = DI_OUTPUT_NV12 | DI_OUTPUT_LINEAR;
 
-	/*
-	 * necessary variable init members had set.
-	 */
-	/* coverity[uninit_use_in_call] */
-	vpp->di_handle = di_create_instance(init);
-	if (vpp->di_handle < 0) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-			"di_create_instance fail\n");
-		ret = -EINVAL;
-		goto error;
+		if (cfg->is_drm)
+			init.output_format |= DI_OUTPUT_TVP;
+
+		/*
+		 * necessary variable init members had set.
+		 */
+		/* coverity[uninit_use_in_call] */
+		vpp->di_handle = di_create_instance(init);
+		if (vpp->di_handle < 0) {
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+				"di_create_instance fail\n");
+			ret = -EINVAL;
+			goto error;
+		}
 	}
 
 	INIT_KFIFO(vpp->input);
@@ -1272,11 +1551,18 @@ int aml_v4l2_vpp_destroy(struct aml_v4l2_vpp* vpp)
 		up(&vpp->sem_out);
 		kthread_stop(vpp->task);
 	}
-	di_destroy_instance(vpp->di_handle);
-	/* no more vpp callback below this line */
 
-	if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)
-		release_DI_buff(vpp);
+	if (vpp->dpss_index >= 0) {
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+		aml_v4l2_destroy_di_instance(vpp->ctx, vpp);
+#endif
+	} else {
+		di_destroy_instance(vpp->di_handle);
+		/* no more vpp callback below this line */
+
+		if (vpp->buffer_mode == BUFFER_MODE_ALLOC_BUF)
+			release_DI_buff(vpp);
+	}
 
 	kfifo_free(&vpp->processing);
 	kfifo_free(&vpp->frame);
@@ -1328,12 +1614,6 @@ static int aml_v4l2_vpp_push_vframe(struct aml_v4l2_vpp* vpp, struct vframe_s *v
 		return -1;
 	}
 
-#if 0 //to debug di by frame
-	if (vpp->in_num[INPUT_PORT] > 2)
-		return 0;
-	if (vpp->in_num[INPUT_PORT] == 2)
-		vf->type |= VIDTYPE_V4L_EOS;
-#endif
 	in_buf->di_buf.vf = &in_buf->vf;
 	in_buf->di_buf.flag = 0;
 	if (vf->type & VIDTYPE_V4L_EOS) {

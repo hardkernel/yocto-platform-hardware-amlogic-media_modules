@@ -660,6 +660,11 @@ static bool vpp_needed(struct aml_vcodec_ctx *ctx, u32* mode)
 	if (is_ge2d_mode(ctx))
 		return false;
 
+	if (!ctx->enable_di_post &&
+		ctx->picinfo.field == V4L2_FIELD_NONE &&
+		is_support_dpss_front_mode())
+		return false;
+
 	if (!ctx->vpp_cfg.enable_nr &&
 		(ctx->picinfo.field == V4L2_FIELD_NONE) &&
 		!((ctx->config.parm.dec.cfg.double_write_mode & VDEC_MODE_MMU_DW_MASK) &&

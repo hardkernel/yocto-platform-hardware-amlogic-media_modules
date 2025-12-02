@@ -26,6 +26,9 @@
 #ifdef SUPPORT_V4L_VPP
 #include <linux/amlogic/media/di/di_interface.h>
 #endif
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+#include <linux/amlogic/media/di/dpss_interface.h>
+#endif
 #include "aml_vcodec_drv.h"
 #include "aml_vcodec_dec.h"
 
@@ -58,7 +61,11 @@ struct aml_v4l2_vpp {
 	u32 buf_size; /* buffer size for vpp */
 	u32 work_mode; /* enum vpp_work_mode */
 	u32 buffer_mode;
-
+	/* for dpss */
+	int dpss_index;
+#ifdef CONFIG_AMLOGIC_MEDIA_DEINTERLACE
+	struct dpss_init_parm dpss_parm;
+#endif
 	DECLARE_KFIFO_PTR(input, typeof(struct aml_v4l2_vpp_buf*));
 	DECLARE_KFIFO_PTR(output, typeof(struct aml_v4l2_vpp_buf*));
 	DECLARE_KFIFO_PTR(pre_output, typeof(struct aml_v4l2_vpp_buf*));
@@ -115,5 +122,12 @@ static inline int aml_v4l2_vpp_init(
 		struct aml_v4l2_vpp** vpp_handle) { return -1; }
 static inline int aml_v4l2_vpp_destroy(struct aml_v4l2_vpp* vpp) { return -1; }
 #endif
+
+int aml_v4l2_create_di_instance(struct aml_vcodec_ctx *ctx,
+					struct aml_vpp_cfg_infos *cfg,
+					struct aml_v4l2_vpp *vpp);
+int aml_v4l2_destroy_di_instance(struct aml_vcodec_ctx *ctx,
+					struct aml_v4l2_vpp *vpp);
+
 
 #endif
