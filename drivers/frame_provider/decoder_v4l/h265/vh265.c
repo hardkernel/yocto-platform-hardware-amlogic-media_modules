@@ -12056,10 +12056,14 @@ static int userdata_prepare(struct hevc_state_s *hevc)
 				vpts = 0;
 				vpts64 = 0;
 				pts_valid = 0;
+			} else {
+				pts_valid = 1;
+				vpts = pts_st.pts;
+				vpts64 = USERDATA_PTS64_TO_90K_V4L2(pts_st.pts_64);
 			}
 		}
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
-			"%s: id = %x, offset: %x, vpts: %d, vpts64 %lld, pts_valid: %d\n",
+			"%s: id = %x, offset: %x, vpts: 0x%x, vpts64 %lld, pts_valid: %d\n",
 			__func__, ctx->ptsserver_id, pic->stream_offset, vpts, vpts64, pts_valid);
 		vh265_userdata_fill_vpts(hevc, vpts, vpts64, pts_valid, pic->POC);
 	}

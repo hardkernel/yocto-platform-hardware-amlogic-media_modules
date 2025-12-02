@@ -8142,7 +8142,7 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 					vpts_valid = 1;
 					vpts = pts_st.pts;
-					vpts_64 = pts_st.pts_64;
+					vpts_64 = USERDATA_PTS64_TO_90K_V4L2(pts_st.pts_64);
 				} else {
 					vpts_valid = 0;
 					vpts = 0;
@@ -8151,7 +8151,7 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 
 #ifdef MH264_USERDATA_ENABLE
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
-						"%s: id = %x, offset: %x, vpts: %d, vpts_64 %lld, vpts_valid %d\n",
+						"%s: id = %x, offset: %x, vpts: 0x%x, vpts_64 %lld, vpts_valid %d\n",
 						__func__, vdec->pts_server_id, offset, vpts, vpts_64, vpts_valid);
 
 				vmh264_udc_fill_vpts(hw, p_H264_Dpb->mSlice.slice_type, vpts, vpts_64, vpts_valid);
@@ -11325,7 +11325,7 @@ static void v4l_vmh264_fill_userdata(struct vdec_h264_hw_s *hw,
 	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
 	usd_rep.meta_data.pic_struct = (meta_info->flags >> 12) & 0x3;
 	usd_rep.meta_data.duration = meta_info->duration;
-	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL,	"%s: poc %d vpts %d, vpts_64 %lld\n",
+	dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL, "%s: poc %d vpts 0x%x, vpts_64 %lld\n",
 			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts,
 			usd_rep.meta_data.vpts_64);
 

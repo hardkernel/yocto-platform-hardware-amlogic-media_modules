@@ -1207,14 +1207,11 @@ static void user_data_ready_notify(struct vdec_mpeg12_hw_s *hw,
 			p_userdata_rec = hw->userdata_info.records
 				+ hw->userdata_info.write_index;
 
-			hw->ud_record[i].meta_info.vpts_valid = pts_valid;
-			hw->ud_record[i].meta_info.vpts = pts;
-			hw->ud_record[i].meta_info.vpts_64 = pts_64;
-
 			debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
-				"%s, pts %lld, pts_valid %d, poc %d\n",
-				__func__, pts, pts_valid,
-				hw->ud_record[i].meta_info.poc_number);
+				"%s: poc %d, vpts 0x%x, vpts_64 %lld\n",
+				__func__, hw->ud_record[i].meta_info.poc_number,
+				hw->ud_record[i].meta_info.vpts,
+				hw->ud_record[i].meta_info.vpts_64);
 
 			*p_userdata_rec = hw->ud_record[i];
 #ifdef DUMP_USER_DATA
@@ -1508,7 +1505,7 @@ static void v4l_vmpeg2_fill_userdata(struct vdec_mpeg12_hw_s *hw,
 	usd_rep.meta_data.vpts_64 = meta_info->vpts_64;
 	usd_rep.meta_data.vpts_valid = meta_info->vpts_valid;
 	usd_rep.meta_data.duration = meta_info->duration;
-	debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL, "%s: poc %d vpts %d, vpts_64 %lld\n",
+	debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL, "%s: poc %d vpts 0x%x, vpts_64 %lld\n",
 			__func__, usd_rep.meta_data.poc_number, usd_rep.meta_data.vpts,
 			usd_rep.meta_data.vpts_64);
 
@@ -1722,7 +1719,7 @@ static void userdata_push_do_work(struct work_struct *work)
 		if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 			meta_info.vpts_valid = true;
 			meta_info.vpts = pts_st.pts;
-			meta_info.vpts_64 = pts_st.pts_64;
+			meta_info.vpts_64 = USERDATA_PTS64_TO_90K_V4L2(pts_st.pts_64);
 		} else {
 			meta_info.vpts_valid = false;
 			meta_info.vpts = 0;

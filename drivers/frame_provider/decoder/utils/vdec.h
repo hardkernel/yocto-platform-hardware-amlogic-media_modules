@@ -218,6 +218,12 @@ enum e_trace_work_status {
  */
 #define USERDATA_VERSION    (0<<24|0<<16|0<<8|2);
 
+/*
+ * div64_u64(pts64 * 9, 100): convert pts64 to 90k units
+ * 1000: pts64 integrate with v4l2 framework
+ */
+#define USERDATA_PTS64_TO_90K_V4L2(pts64)  div64_u64(pts64 * 9, 100 * 1000)
+
 /* same size with SEI_BUF_SIZE in aml_vcodec_dec.h */
 #define AUX_DATA_SIZE1 (24 * 1024)
 
