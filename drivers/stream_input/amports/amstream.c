@@ -1347,7 +1347,7 @@ void amstream_wakeup_userdata_poll(struct vdec_s *vdec)
 	st_userdata *userdata = get_vdec_userdata_ctx();
 
 	if (vdec == NULL) {
-		pr_info("Error, invalid vdec instance!\n");
+		pr_err("Error, invalid vdec instance!\n");
 		return;
 	}
 
@@ -1477,7 +1477,7 @@ static int amstream_open(struct inode *inode, struct file *file)
 	if (force_dv_mode & 0x2) {
 		port->type |= PORT_TYPE_FRAME;
 		port->fops = &vframe_fops;
-		pr_debug("%s, dobly vision force frame mode.\n", __func__);
+		pr_debug("%s, dolby vision force frame mode.\n", __func__);
 	}
 
 	/* esplayer stream mode force dv */
@@ -1975,7 +1975,7 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 	case AMSTREAM_IOC_PCRID:
 		this->pcrid = parm.data_32;
 		this->pcr_inited = 1;
-		pr_err("set pcrid = 0x%x\n", this->pcrid);
+		pr_debug("set pcrid = 0x%x\n", this->pcrid);
 		break;
 	case AMSTREAM_SET_ACHANNEL:
 		if (this->type & PORT_TYPE_AUDIO) {
@@ -2099,7 +2099,7 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 				priv->vdec->port_flag |= PORT_FLAG_DRM;
 		} else {
 			this->flag &= (~PORT_FLAG_DRM);
-			pr_debug("no drmmode\n");
+			pr_debug("[%s] no drmmode\n", __func__);
 		}
 		break;
 	case AMSTREAM_SET_APTS: {
@@ -2292,7 +2292,7 @@ static long amstream_ioctl_get_ex(struct port_priv_s *priv, ulong arg)
 		break;
 	case AMSTREAM_GET_EX_VDECSTAT:
 		if ((this->type & PORT_TYPE_VIDEO) == 0) {
-			pr_err("no video\n");
+			pr_err("error, no video\n");
 			return -EINVAL;
 		} else {
 			struct vdec_info_statistic_s v_statistic;
@@ -2326,7 +2326,7 @@ static long amstream_ioctl_get_ex(struct port_priv_s *priv, ulong arg)
 		break;
 	case AMSTREAM_GET_EX_ADECSTAT:
 		if ((this->type & PORT_TYPE_AUDIO) == 0) {
-			pr_err("no audio\n");
+			pr_err("error, no audio\n");
 			return -EINVAL;
 		}
 		if (amstream_adec_status == NULL) {
@@ -2756,7 +2756,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 	case AMSTREAM_IOC_PCRID:
 		this->pcrid = (u32) arg;
 		this->pcr_inited = 1;
-		pr_err("set pcrid = 0x%x\n", this->pcrid);
+		pr_debug("set pcrid = 0x%x\n", this->pcrid);
 		break;
 
 	case AMSTREAM_IOC_VB_STATUS:
@@ -3192,7 +3192,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 				}
 			}
 			if (!ready_flag) {
-				pr_info("no instance ready!\n");
+				pr_err("no instance ready!\n");
 				r = -EINVAL;
 			}
 			mutex_unlock(&userdata->mutex);
@@ -3358,29 +3358,28 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 	}
 	case AMSTREAM_IOC_SET_DRMMODE:
 		if ((u32) arg == 1) {
-			pr_err("set drmmode, input must be secure buffer\n");
+			pr_debug("set drmmode, input must be secure buffer\n");
 			this->flag |= PORT_FLAG_DRM;
 			if ((this->type & PORT_TYPE_VIDEO) &&
 				(priv->vdec))
 				priv->vdec->port_flag |= PORT_FLAG_DRM;
 		} else if ((u32)arg == 2) {
-			pr_err("set drmmode, input must be normal buffer\n");
+			pr_debug("set drmmode, input must be normal buffer\n");
 			if ((this->type & PORT_TYPE_VIDEO) &&
 				(priv->vdec)) {
-				pr_err("vdec port_flag with drmmode\n");
+				pr_debug("vdec port_flag with drmmode\n");
 				priv->vdec->port_flag |= PORT_FLAG_DRM;
 			}
 		} else {
 			this->flag &= (~PORT_FLAG_DRM);
-			pr_err("no drmmode\n");
+			pr_debug("[%s] no drmmode\n", __func__);
 		}
 		break;
 	case AMSTREAM_IOC_SET_APTS: {
 		unsigned long pts;
 
 		if (get_user(pts, (unsigned long __user *)arg)) {
-			pr_err
-			("Get audio pts from user space fault!\n");
+			pr_err("Get audio pts from user space fault!\n");
 			return -EFAULT;
 		}
 		if (this->flag & PORT_FLAG_TSYNC) {
@@ -3414,7 +3413,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 				return -ENOMEM;
 		}
 		if (vdec->vfc.usr_cmp_num >= USER_CMP_POOL_MAX_SIZE) {
-			pr_info("warn: could not write any more, max %d",
+			pr_err("error: could not write any more, max %d",
 				USER_CMP_POOL_MAX_SIZE);
 			return -EFAULT;
 		}
@@ -3449,13 +3448,13 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		struct stream_buf_s *vbuf = NULL;
 
 		if (priv->vdec == NULL) {
-			pr_err("init %s, no vdec.\n", __func__);
+			pr_err("%s init failed, no vdec.\n", __func__);
 			return -EFAULT;
 		}
 
 		vbuf = &priv->vdec->vbuf;
 		if (vbuf == NULL) {
-			pr_err("init %s, no stbuf.\n", __func__);
+			pr_err("%s init failed, no stbuf.\n", __func__);
 			return -EFAULT;
 		}
 
@@ -3476,18 +3475,18 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		struct stream_buf_s *vbuf = NULL;
 
 		if (priv->vdec == NULL) {
-			pr_err("write %s, no vdec.\n", __func__);
+			pr_err("%s write failed, no vdec.\n", __func__);
 			return -EFAULT;
 		}
 
 		vbuf = &priv->vdec->vbuf;
 		if (vbuf == NULL) {
-			pr_err("write %s, no stbuf.\n", __func__);
+			pr_err("%s write failed, no stbuf.\n", __func__);
 			return -EFAULT;
 		}
 
 		if (vbuf->ops == NULL) {
-			pr_err("write %s, no ops.\n", __func__);
+			pr_err("%s write failed, no ops.\n", __func__);
 			return -EFAULT;
 		}
 
@@ -3506,18 +3505,18 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		struct stream_buf_s *pbuf = NULL;
 
 		if (priv->vdec == NULL) {
-			pr_err("get status %s, no vdec.\n", __func__);
+			pr_err("%s get status failed, no vdec.\n", __func__);
 			return -EFAULT;
 		}
 
 		pbuf = &priv->vdec->vbuf;
 		if (pbuf == NULL) {
-			pr_err("get status %s, no stbuf.\n", __func__);
+			pr_err("%s get status failed, no stbuf.\n", __func__);
 			return -EFAULT;
 		}
 
 		if (pbuf->ops == NULL) {
-			pr_err("get status %s, no ops.\n", __func__);
+			pr_err("%s get status failed, no ops.\n", __func__);
 			return -EFAULT;
 		}
 
@@ -3563,7 +3562,7 @@ static long amstream_do_ioctl(struct port_priv_s *priv,
 		break;
 	}
 	if (r != 0)
-		pr_debug("amstream_do_ioctl error :%lx, %x\n", r, cmd);
+		pr_err("amstream_do_ioctl error :%lx, cmd nr %x\n", r, _IOC_NR(cmd));
 
 	return r;
 }
@@ -4171,34 +4170,34 @@ ssize_t dump_stream_store(KV_CLASS_CONST struct class *class,
 
 	ret = sscanf(buf, "%d", &id);
 	if (ret < 0) {
-		pr_info("paser buf id fail, default id = 0\n");
+		pr_warn("parse buf id fail, default id = 0\n");
 		id = 0;
 	}
 	if (id != BUF_TYPE_VIDEO && id != BUF_TYPE_HEVC) {
-		pr_info("buf id out of range, max %d, id %d, set default id 0\n", BUF_MAX_NUM - 1, id);
+		pr_warn("buf id out of range, max %d, id %d, set default id 0\n", BUF_MAX_NUM - 1, id);
 		id = 0;
 	}
 	p_buf = get_stream_buffer(id);
 	if (!p_buf) {
-		pr_info("get buf fail, id %d\n", id);
+		pr_err("get buf fail, id %d\n", id);
 		return size;
 	}
 	if ((!p_buf->buf_size) || (p_buf->is_secure) || (!(p_buf->flag & BUF_FLAG_IN_USE))) {
-		pr_info("buf size %d, is_secure %d, in_use %d, it can not dump\n",
+		pr_warn("buf size %d, is_secure %d, in_use %d, it can not dump\n",
 			p_buf->buf_size, p_buf->is_secure, (p_buf->flag & BUF_FLAG_IN_USE));
 		return size;
 	}
 
 	level = stbuf_level(p_buf);
 	if (!level || level > p_buf->buf_size) {
-		pr_info("stream buf level %d, buf size %d, error return\n", level, p_buf->buf_size);
+		pr_err("stream buf level %d, buf size %d, error return\n", level, p_buf->buf_size);
 		return size;
 	}
 
 	fp = media_open(DUMP_STREAM_FILE, O_CREAT | O_RDWR, 0666);
 	if (IS_ERR(fp)) {
 		fp = NULL;
-		pr_info("create dump stream file failed\n");
+		pr_err("create dump stream file failed\n");
 		return size;
 	}
 
@@ -4219,7 +4218,7 @@ ssize_t dump_stream_store(KV_CLASS_CONST struct class *class,
 		stbuf_vaddr = codec_mm_vmap(offset, vmap_size);
 		if (stbuf_vaddr == NULL) {
 			stride >>= 1;
-			pr_info("vmap fail change vmap stride size 0x%x\n", stride);
+			pr_warn("vmap fail change vmap stride size 0x%x\n", stride);
 			continue;
 		}
 		codec_mm_dma_flush(stbuf_vaddr, vmap_size, DMA_FROM_DEVICE);
@@ -4227,9 +4226,9 @@ ssize_t dump_stream_store(KV_CLASS_CONST struct class *class,
 		write_size = media_write(fp, stbuf_vaddr, vmap_size, &fpos);
 		if (write_size < vmap_size) {
 			write_size += media_write(fp, stbuf_vaddr + write_size, vmap_size - write_size, &fpos);
-			pr_info("fail write retry, total %d, write %d\n", vmap_size, write_size);
+			pr_warn("fail write retry, total %d, write %d\n", vmap_size, write_size);
 			if (write_size < vmap_size) {
-				pr_info("retry fail, interrupt dump stream, break\n");
+				pr_err("retry fail, interrupt dump stream, break\n");
 				break;
 			}
 		}
@@ -4302,7 +4301,7 @@ int amstream_request_firmware_from_sys(const char *file_name,
 
 	memcpy(buf, (char *)firmware->data, firmware->size);
 	/*mb(); don't need it*/
-	pr_err("load mcode size=%zd\n mcode name %s\n", firmware->size,
+	pr_info("load mcode size=%zd\n mcode name %s\n", firmware->size,
 		   file_name);
 	err = firmware->size;
 release:
@@ -4357,7 +4356,7 @@ static int amstream_probe(struct platform_device *pdev)
 	int r;
 	struct stream_port_s *st;
 
-	pr_err("Amlogic A/V streaming port init\n");
+	pr_info("Amlogic A/V streaming port init\n");
 
 	amstream_port_num = MAX_AMSTREAM_PORT_NUM;
 	amstream_buf_num = BUF_MAX_NUM;
@@ -4377,8 +4376,10 @@ static int amstream_probe(struct platform_device *pdev)
 	}
 
 	r = astream_dev_register();
-	if (r)
+	if (r) {
+		pr_err("astream_dev_register fail.\n");
 		return r;
+	}
 
 	r = register_chrdev(AMSTREAM_MAJOR, "amstream", &amstream_fops);
 	if (r < 0) {
@@ -4459,7 +4460,7 @@ static KV_INT_TO_VOID amstream_remove(struct platform_device *pdev)
 
 	amstream_adec_status = NULL;
 
-	pr_err("Amlogic A/V streaming port release\n");
+	pr_info("Amlogic A/V streaming port release\n");
 
 	return KV_RET_x_TO_VOID(0);
 }
