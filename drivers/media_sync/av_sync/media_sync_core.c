@@ -841,6 +841,8 @@ static void mediasync_ins_reset_l(mediasync_ins* pInstance) {
 		pInstance->mIsAbnormalAudio = false;
 		pInstance->video_latency = 0;
 		pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
+		pInstance->audio_playback_status = 0;
+		pInstance->video_playback_status = 0;
 		if (media_sync_calculate_cache_enable) {
 			pTable = &pInstance->frame_table[PTS_TYPE_AUDIO];
 			clear_frame_list(pInstance, pTable);
@@ -4157,6 +4159,8 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case GET_IS_ABNORMAL_AUDIO:
 		case GET_SHOW_FIRSTFRAME_NOSYNC:
 		case GET_QUEUE_VIDEO_INTERVAL:
+		case GET_VIDEO_PLAYBACK_STATUS:
+		case GET_AUDIO_PLAYBACK_STATUS:
 		{
 			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			if (copy_to_user((void *)arg,&mediasyncUserControl,sizeof(mediasyncControl))) {
@@ -4175,6 +4179,8 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case SET_IS_ABNORMAL_AUDIO:
 		case SET_SHOW_FIRSTFRAME_NOSYNC:
 		case SET_VIDEO_LATENCY:
+		case SET_VIDEO_PLAYBACK_STATUS:
+		case SET_AUDIO_PLAYBACK_STATUS:
 		{
 			ret = mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			break;
@@ -4464,6 +4470,30 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		case SET_VIDEO_LATENCY:
 		{
 			pInstance->video_latency = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case SET_AUDIO_PLAYBACK_STATUS:
+		{
+			pInstance->audio_playback_status = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case SET_VIDEO_PLAYBACK_STATUS:
+		{
+			pInstance->video_playback_status = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case GET_AUDIO_PLAYBACK_STATUS:
+		{
+			mediasyncControl->value = pInstance->audio_playback_status;
+			ret = 0;
+			break;
+		}
+		case GET_VIDEO_PLAYBACK_STATUS:
+		{
+			mediasyncControl->value = pInstance->video_playback_status;
 			ret = 0;
 			break;
 		}

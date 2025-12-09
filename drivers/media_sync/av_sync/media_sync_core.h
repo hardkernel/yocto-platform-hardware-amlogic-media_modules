@@ -128,6 +128,8 @@ typedef enum {
 	GET_SHOW_FIRSTFRAME_NOSYNC,
 	GET_TUNNEL_COMBINED_INFO,
 	GET_QUEUE_VIDEO_INTERVAL,
+	GET_AUDIO_PLAYBACK_STATUS,
+	GET_VIDEO_PLAYBACK_STATUS,
 	SET_VIDEO_FRAME_ADVANCE = 500,
 	SET_SLOW_SYNC_ENABLE,
 	SET_TRICK_MODE,
@@ -138,7 +140,9 @@ typedef enum {
 	SET_START_PLAY_THRESHOLD,
 	SET_IS_ABNORMAL_AUDIO,
 	SET_SHOW_FIRSTFRAME_NOSYNC,
-	SET_VIDEO_LATENCY
+	SET_VIDEO_LATENCY,
+	SET_AUDIO_PLAYBACK_STATUS,
+	SET_VIDEO_PLAYBACK_STATUS
 } mediasync_control_cmd;
 
 typedef struct m_control {
@@ -432,6 +436,8 @@ typedef struct instance{
 	int32_t audio_wait_bind_threshold;
 	int32_t video_wait_bind_threshold;
 	mediasync_preplay_slowsync preplay_slow_sync;
+	u32 audio_playback_status;
+	u32 video_playback_status;
 }mediasync_ins;
 
 typedef struct Media_Sync_Manage {
