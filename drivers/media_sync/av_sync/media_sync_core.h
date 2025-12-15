@@ -435,6 +435,7 @@ typedef struct instance{
 	int32_t video_wait_audio_threshold;
 	int32_t audio_wait_bind_threshold;
 	int32_t video_wait_bind_threshold;
+	u32 last_slope_overall_process;
 	mediasync_preplay_slowsync preplay_slow_sync;
 	u32 audio_playback_status;
 	u32 video_playback_status;

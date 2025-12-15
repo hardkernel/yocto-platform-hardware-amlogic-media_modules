@@ -920,6 +920,7 @@ long mediasync_ins_alloc(s32 sDemuxId,
 			pInstance->mIsAbnormalAudio = false;
 			pInstance->mQueueVptsInterval = -1;
 			pInstance->video_latency = 0;
+			pInstance->last_slope_overall_process = 100;
 			pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 			pInstance->audio_wait_video_threshold = media_sync_audio_wait_video_threshold; //2s
 			pInstance->video_wait_audio_threshold = media_sync_video_wait_audio_threshold; //2s
@@ -3727,8 +3728,7 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 	u32 mCheckSlopeSytemtimeThreshold90k = 0;
 	if (pInstance->mSourceClockType != PCR_CLOCK ||
 		pInstance->mDemuxId < 0 ||
-		pInstance->mSyncInfo.state != MEDIASYNC_RUNNING ||
-		pInstance->mSourceClockState == CLOCK_PROVIDER_DISCONTINUE) {
+		pInstance->mSyncInfo.state != MEDIASYNC_RUNNING) {
 		return;
 	}
 
@@ -3744,7 +3744,7 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 		}
 		pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
 		pInstance->mlastCheckVideocacheDuration = 0;
-		pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
+		pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_500MS;
 		return ;
 	}
 
@@ -3834,11 +3834,11 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 			slope > SLOPE_ABNORMAL ||
 			slope_overall_process == 0 ||
 			slope_overall_process > SLOPE_ABNORMAL) {
-			/*   pcr discontinue*/
+			/*pcr discontinue*/
 			pInstance->mLastCheckSlopeDemuxPts = pcr_ns;
 			pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
-			if (pInstance->mPcrSlope.mNumerator != 100) {
-				pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_1S;
+			if (pInstance->mPcrSlope.mNumerator != 100 || pInstance->last_slope_overall_process != 100) {
+				pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_500MS;
 			} else {
 				pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
 			}
@@ -3857,6 +3857,7 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 			return;
 		}
 
+		pInstance->last_slope_overall_process = slope_overall_process;
 		if (slope_overall_process == SLOPE_NORMAL &&
 			slope >= SLOPE_JITTER_MIN &&
 			slope <= SLOPE_JITTER_MAX) {
@@ -3889,11 +3890,12 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 
 		pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
 		pInstance->mLastCheckSlopeDemuxPts = pcr_ns;
-		if (i < RECORD_SLOPE_NUM) {
+		if (/*i < RECORD_SLOPE_NUM*/
+			pInstance->mSyncInfo.state != MEDIASYNC_RUNNING) {
 			return;
 		}
 
-		avgslope = div_u64(avgslope,RECORD_SLOPE_NUM);
+		avgslope = div_u64(avgslope,i);
 
 		mCheckSlopeSytemtimeThreshold90k = div_u64(pInstance->mCheckSlopeSytemtimeThreshold * 9,100);
 		if (pInstance->mHasVideo == 1) {
@@ -3909,6 +3911,7 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 		}
 
 		cacheDiffAbs = ABSSUB(mincache,pInstance->mlastCheckVideocacheDuration);
+
 		if (pInstance->mlastCheckVideocacheDuration != 0) {
 			if (pInstance->mPcrSlope.mNumerator != avgslope) {
 
@@ -3975,6 +3978,8 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 						referenceAudioCache == 1) {
 						if ((mincache < pInstance->mlastCheckVideocacheDuration &&
 							cacheDiffAbs > CACHE_200MS) ||
+							(pInstance->mlastCheckVideocacheDuration < CACHE_200MS &&
+							mincache < CACHE_150MS) ||
 							referenceAudioCache == 1) {
 							UpdateSlop = avgslope;
 							updateSlopDebug = 4;
@@ -4013,6 +4018,7 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 		} else {
 			pInstance->mlastCheckVideocacheDuration = mincache;
 		}
+
 		pcrCurpcrDiff = ABSSUB(pcr ,(s64)mCurPcr);
 		#if 1
 		if (media_sync_debug_level >= 1) {
@@ -4037,7 +4043,9 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 
 		#endif
 		//7000ms * 90
-		if (isUpdate && pcrCurpcrDiff < DEFAULT_TRIGGER_DISCONTINUE_THRESHOLD) {
+		if (isUpdate &&
+			(pcrCurpcrDiff < DEFAULT_TRIGGER_DISCONTINUE_THRESHOLD ||
+			pInstance->mSourceClockState == CLOCK_PROVIDER_DISCONTINUE)) {
 			pcrslope.mNumerator = UpdateSlop;
 			pcrslope.mDenominator = 100;
 			//mCurPcr = mediasync_ins_get_stc_time(pInstance,CurTimeUs);
@@ -4060,8 +4068,6 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 
 	return ;
 }
-
-
 
 long mediasync_ins_get_update_info(mediasync_ins* pInstance, mediasync_update_info* info) {
 
@@ -5024,7 +5030,6 @@ MODULE_PARM_DESC(media_sync_debug_level, "\n mediasync debug level\n");
 
 module_param(media_sync_user_debug_level, uint, 0664);
 MODULE_PARM_DESC(media_sync_user_debug_level, "\n mediasync user debug level\n");
-
 
 module_param(media_sync_calculate_cache_enable, uint, 0664);
 MODULE_PARM_DESC(media_sync_calculate_cache_enable, "\n mediasync calculate cache enable\n");
