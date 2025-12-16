@@ -16580,6 +16580,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	mod_timer(&hevc->timer, jiffies);
 	hevc->stat |= STAT_TIMER_ARM;
 	hevc->stat |= STAT_ISR_REG;
+	hevc->slice_count = 0;
 
 	hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
 		"%s hevc->decode_idx %d\n", __func__, hevc->decode_idx);
@@ -16588,7 +16589,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	amhevc_start();
 	vdec_profile(hw_to_vdec(hevc), VDEC_PROFILE_DECODER_START, CORE_MASK_HEVC);
 	hevc->stat |= STAT_VDEC_RUN;
-	hevc->slice_count = 0;
 	ATRACE_COUNTER(hevc->trace.decode_time_name, DECODER_RUN_END);
 }
 

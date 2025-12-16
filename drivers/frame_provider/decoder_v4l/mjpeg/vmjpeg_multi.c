@@ -2273,11 +2273,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	start_process_time(hw);
 	hw->last_vld_level = 0;
 	mod_timer(&hw->check_timer, jiffies + CHECK_INTERVAL);
-	amvdec_start();
-	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
-	vdec_enable_input(vdec);
-	hw->stat |= STAT_VDEC_RUN;
-	hw->init_flag = 1;
 
 	mmjpeg_debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
 		"%s (0x%x 0x%x 0x%x) vldcrl 0x%x bitcnt 0x%x powerctl 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
@@ -2293,6 +2288,11 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		READ_VREG(VLD_MEM_VIFIFO_CONTROL),
 		READ_VREG(VLD_MEM_VIFIFO_BUF_CNTL),
 		READ_VREG(VLD_MEM_VIFIFO_END_PTR));
+	amvdec_start();
+	vdec_profile(vdec, VDEC_PROFILE_DECODER_START, CORE_MASK_VDEC_1);
+	vdec_enable_input(vdec);
+	hw->stat |= STAT_VDEC_RUN;
+	hw->init_flag = 1;
 	hw->run_flag = 0;
 }
 static void wait_vmjpeg_search_done(struct vdec_mjpeg_hw_s *hw)
