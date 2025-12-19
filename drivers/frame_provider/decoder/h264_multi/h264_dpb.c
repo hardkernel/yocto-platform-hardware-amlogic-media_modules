@@ -2186,7 +2186,7 @@ static int unmark_one_out_frame(struct h264_dpb_stru *p_H264_Dpb)
 		1, remove one error buf (is_out is 1) if there is no un-used buf
 		2, remove one buf (is_out is 1) if there is no un-used buf
 */
-void bufmgr_h264_remove_unused_frame(struct h264_dpb_stru *p_H264_Dpb,
+int bufmgr_h264_remove_unused_frame(struct h264_dpb_stru *p_H264_Dpb,
 	u8 force_flag)
 {
 	struct DecodedPictureBuffer *p_Dpb = &p_H264_Dpb->mDPB;
@@ -2220,6 +2220,7 @@ void bufmgr_h264_remove_unused_frame(struct h264_dpb_stru *p_H264_Dpb,
 			dump_dpb(p_Dpb, 0);
 		}
 	}
+	return removed_flag;
 }
 
 #ifdef OUTPUT_BUFFER_IN_C

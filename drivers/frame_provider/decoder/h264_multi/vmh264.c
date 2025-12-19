@@ -12273,9 +12273,9 @@ static int check_dpb_full(struct vdec_s *vdec)
 
 	if (inner_size >= p_H264_Dpb->dec_dpb_size) {
 		bufmgr_recover(hw);
+		bufmgr_h264_remove_unused_frame(p_H264_Dpb, 0);
 		ret = 1;
 	}
-	bufmgr_h264_remove_unused_frame(p_H264_Dpb, 0);
 
 	return ret;
 }
@@ -12394,7 +12394,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 				run_ready_max_buf_num)
 				ret = 0;
 			if (ret == 0)
-				bufmgr_h264_remove_unused_frame(&hw->dpb, 0);
+				ret = bufmgr_h264_remove_unused_frame(&hw->dpb, 0);
 		}
 		if (ret)
 			ret = is_buffer_available(vdec);
