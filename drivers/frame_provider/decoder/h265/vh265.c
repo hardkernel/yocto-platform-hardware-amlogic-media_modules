@@ -9569,8 +9569,8 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 
 		if (get_dbg_flag(hevc) & H265_DEBUG_PIC_STRUCT) {
 			hevc_print(hevc, 0,
-				"%s(vf 0x%p type %x index 0x%x poc %d/%d) pts(%d,%d) dur %d, discard_dv:%d\n",
-				__func__, vf, vf->type, vf->index,
+				"%s(vf 0x%p type %x flag %x index 0x%x poc %d/%d) pts(%d,%d) dur %d, discard_d_v:%d\n",
+				__func__, vf, vf->type, vf->flag, vf->index,
 				get_pic_poc(hevc, vf->index & 0xff),
 				get_pic_poc(hevc, (vf->index >> 8) & 0xff),
 				vf->pts, vf->pts_us64,
@@ -10323,7 +10323,8 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 
 		set_frame_info(hevc, vf, pic);
 
-		if (hevc->high_bandwidth_flag) {
+		if ((is_t6d_high_speed() && IS_4K_SIZE(pic->width, pic->height)) ||
+			(hevc->high_bandwidth_flag)) {
 			vf->flag |= VFRAME_FLAG_HIGH_BANDWIDTH;
 		}
 		if (hevc->enable_fence) {
