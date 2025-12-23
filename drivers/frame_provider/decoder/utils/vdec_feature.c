@@ -482,7 +482,7 @@ static int vcodec_feature_profile_and_level(u8 *buf, int size, int vformat, int 
 	}
 
 	if (pbuf != buf) {
-		pbuf += snprintf(pbuf, size, "        \"level\" : %d,\n", get_level_of_format(vformat));
+		pbuf += snprintf(pbuf, size, "        \"level\" : %d,\n", get_codec_support_level(vformat));
 	}
 
 	return pbuf - buf;

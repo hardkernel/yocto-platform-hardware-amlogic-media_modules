@@ -119,9 +119,8 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define V4L2_EVENT_PRIVATE_EXT_SEND_ERROR (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 2)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_ERROR_FRAME (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 3)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_DECINFO (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 4)
-/*V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 5 occupied*/
+#define V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 5)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_SIGNAL_TYPE (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 6)
-
 
 #define WORK_ITEMS_MAX (32)
 #define MAX_DI_INSTANCE (2)
@@ -544,11 +543,13 @@ void __aml_vdec_dispatch_event(struct aml_vcodec_ctx *ctx, u32 changes, struct s
 		break;
 	case V4L2_EVENT_SEND_ERROR:
 		event.type = V4L2_EVENT_PRIVATE_EXT_SEND_ERROR;
+		if (ctx->decoder_status_info.error_type & (DECODER_EMERGENCY_UNSUPPORT))
+			event.type = V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT;
 
 #ifdef CONFIG_AMLOGIC_MEDIA_PROXY
-		if (ctx->decoder_status_info.error_type & (1 << 24)) {
+		if (ctx->decoder_status_info.error_type & (DECODER_EMERGENCY_NO_MEM)) {
 			events = MEDIA_ERRORCODES_VDEC_F_NO_MEMORY;
-		} else if (ctx->decoder_status_info.error_type & (1 << 25)) {
+		} else if (ctx->decoder_status_info.error_type & (DECODER_EMERGENCY_UNSUPPORT)) {
 			events = MEDIA_ERRORCODES_VDEC_E_PROFILELEVEL_NOT_SUPPORTED;
 		}
 
@@ -3367,6 +3368,8 @@ static int vidioc_vdec_subscribe_evt(struct v4l2_fh *fh,
 		return v4l2_event_subscribe(fh, sub, 60, NULL);
 	case V4L2_EVENT_PRIVATE_EXT_REPORT_SIGNAL_TYPE:
 		return v4l2_event_subscribe(fh, sub, 10, NULL);
+	case V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT:
+		return v4l2_event_subscribe(fh, sub, 5, NULL);
 	default:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	}

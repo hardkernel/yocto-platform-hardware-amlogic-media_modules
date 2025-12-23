@@ -365,6 +365,8 @@ static unsigned int disable_multi_slice_irq = 1;
 static unsigned int disable_multi_slice_irq = 0;
 #endif
 
+static unsigned int force_max_level_idc_52 = 0;
+
 #define MH264_USERDATA_ENABLE
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
@@ -1228,45 +1230,66 @@ static int is_crop_valid(struct vdec_h264_hw_s *hw, int mb_width, int mb_height,
 	return true;
 }
 
-static int is_base_csd_valid(struct vdec_h264_hw_s *hw, u32 param4)
+static enum ResResult is_base_csd_valid(struct vdec_h264_hw_s *hw, u32 param4)
 {
 	int profile_idc, level_idc, max_reference_size;
 	u32 reg_val = param4;
+	int max_support_level_idc;
 	profile_idc = hw->dpb.mSPS.profile_idc;
 	level_idc = reg_val & 0xff;
 	max_reference_size = (reg_val >> 8) & 0xff;
+
+	//firstly check error data with more data
 	if (profile_idc < FREXT_CAVLC444 || profile_idc > STEREO_HIGH) {
 		dpb_print(DECODE_ID(hw), 0,
 			"%s, %d, invalid profile_idc, profile_idc:%d\n", __FUNCTION__, __LINE__, profile_idc);
-		return false;
+		return RES_RET_ABNORMAL;
 	}
-	if (level_idc < 9 || level_idc > 52) {
+	if (level_idc < 9 || level_idc > 62) {
 		dpb_print(DECODE_ID(hw), 0,
 			"%s, %d, invalid level_idc, level_idc:%d\n", __FUNCTION__, __LINE__, level_idc);
-		return false;
+		return RES_RET_ABNORMAL;
 	}
 	if (max_reference_size < 0 || max_reference_size > 16) { // only I-frame in stream, the max_reference_size may be 0.
 		dpb_print(DECODE_ID(hw), 0,
 			"%s, %d, invalid max_reference_size, max_reference_size:%d\n", __FUNCTION__, __LINE__, max_reference_size);
-		return false;
+		return RES_RET_ABNORMAL;
 	}
-	return true;
+	if ((hw->dpb.bit_depth_luma < 8 || hw->dpb.bit_depth_luma > 12) ||
+		(hw->dpb.bit_depth_chroma < 8 || hw->dpb.bit_depth_chroma > 12)) {
+		dpb_print(DECODE_ID(hw), 0,
+			"%s, %d, invalid bit_depth, bit_depth_luma:%d, bit_depth_chroma:%d\n", __FUNCTION__, __LINE__, hw->dpb.bit_depth_luma, hw->dpb.bit_depth_chroma);
+		return RES_RET_ABNORMAL;
+	}
+
+	//then check oversize data
+	max_support_level_idc = force_max_level_idc_52 ? 52 : get_codec_support_level(VFORMAT_H264);
+	if (level_idc > max_support_level_idc) {
+		dpb_print(DECODE_ID(hw), 0,
+			"%s, %d, unsupport oversize level_idc, level_idc:%d > max_level_idc:%d\n", __FUNCTION__, __LINE__, level_idc, max_support_level_idc);
+		return RES_RET_OVERSIZE;
+	}
+	if (hw->dpb.bit_depth_luma != 8 || hw->dpb.bit_depth_chroma != 8) {
+		dpb_print(DECODE_ID(hw), 0,
+			"%s, %d, unsupport oversize bit_depth, bit_depth_luma:%d, bit_depth_chroma:%d\n", __FUNCTION__, __LINE__, hw->dpb.bit_depth_luma, hw->dpb.bit_depth_chroma);
+		return RES_RET_OVERSIZE;
+	}
+
+	return RES_RET_NORMAL;
 }
 
 static enum ResResult is_csd_valid(struct vdec_h264_hw_s *hw, int mb_width, int mb_height, u32 param2, u32 param4) {
 	int over_size = RES_RET_NORMAL;
 	int crop_valid = 0;
-	int base_csd_valid = 0;
+	int base_csd_valid = RES_RET_NORMAL;
 	struct mh264_csd_main_info_t curr_info;
 
 	if (mb_width <= 0 || mb_height <= 0)
 		return RES_RET_ABNORMAL;
 
 	base_csd_valid = is_base_csd_valid(hw, param4);
-	if (!base_csd_valid) {
-		vdec_v4l_post_error_event(hw->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
-		return RES_RET_ABNORMAL;
-	}
+	if (base_csd_valid != RES_RET_NORMAL)
+		return base_csd_valid;
 	curr_info.frame_width = mb_width << 4;
 	curr_info.frame_height = mb_height << 4;
 	over_size = is_oversize(curr_info.frame_width, curr_info.frame_height);
@@ -6739,8 +6762,10 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 			ret_is_csd_valid);
 			hw->error_frame_width = mb_width << 4;
 			hw->error_frame_height = mb_height << 4;
-		if (ret_is_csd_valid == RES_RET_OVERSIZE)
+		if (ret_is_csd_valid == RES_RET_OVERSIZE) {
 			hw->stat |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
+			vdec_v4l_post_error_event(hw->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
+		}
 		return -1;
 	}
 
@@ -8367,6 +8392,8 @@ static bool h264_params_correct(struct vdec_h264_hw_s *hw, union param *param)
 	u32 frame_crop_top_offset = param->l.data[FRAME_CROP_TOP_OFFSET];
 	u32 frame_crop_bottom_offset = param->l.data[FRAME_CROP_BOTTOM_OFFSET];
 	u32 profile_idc = (param->l.data[PROFILE_IDC_MMCO] >> 8) & 0xff;
+	u32 bit_depth_luma = param->l.data[BIT_DEPTH_LUMA_MINUS8] + 8;
+	u32 bit_depth_chroma = param->l.data[BIT_DEPTH_CHROMA_MINUS8] + 8;
 
 	u32 mb_width = seq_info2 & 0xff;
 	u32 mb_total = (seq_info2 >> 8) & 0xffff;
@@ -8382,7 +8409,7 @@ static bool h264_params_correct(struct vdec_h264_hw_s *hw, union param *param)
 		ret = -1;
 		goto param_view;
 	}
-	if (level_idc < 9 || level_idc > 52) {
+	if (level_idc < 9 || level_idc > 62) {
 		ret = -2;
 		goto param_view;
 	}
@@ -8449,6 +8476,13 @@ static bool h264_params_correct(struct vdec_h264_hw_s *hw, union param *param)
 		ret = -6;
 		goto param_view;
 	}
+
+	if ((bit_depth_luma < 8 || bit_depth_luma > 12) ||
+			(bit_depth_chroma < 8 || bit_depth_chroma > 12)) {
+		ret = -7;
+		goto param_view;
+	}
+
 	loglevel = PRINT_FLAG_VDEC_STATUS;
 
 param_view:
@@ -8911,6 +8945,15 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		p_H264_Dpb->frame_crop_right_offset,
 		p_H264_Dpb->frame_crop_top_offset,
 		p_H264_Dpb->frame_crop_bottom_offset);
+
+		p_H264_Dpb->bit_depth_luma = p_H264_Dpb->dpb_param.l.data[BIT_DEPTH_LUMA_MINUS8] + 8;
+		p_H264_Dpb->bit_depth_chroma = p_H264_Dpb->dpb_param.l.data[BIT_DEPTH_CHROMA_MINUS8] + 8;
+
+		dpb_print(p_H264_Dpb->decoder_index, PRINT_FLAG_DPB_DETAIL,
+			"%s bit_depth_luma %d bit_depth_chroma %d\n",
+			__func__,
+			p_H264_Dpb->bit_depth_luma,
+			p_H264_Dpb->bit_depth_chroma);
 
 		WRITE_VREG(DPB_STATUS_REG, H264_ACTION_CONFIG_DONE);
 		hw->reg_iqidct_control = READ_VREG(IQIDCT_CONTROL);
@@ -12051,6 +12094,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	ps->field = (!hw->is_interlace) && frame_mbs_only_flag ?
 		V4L2_FIELD_NONE : V4L2_FIELD_INTERLACED;
 	ps->field = hw->bForceInterlace ? V4L2_FIELD_INTERLACED : ps->field;
+	ps->bitdepth = hw->dpb.bit_depth_luma;
 
 	if (set_double_write_config(hw, hw->double_write_mode, ps->field))
 		return -1;
@@ -12379,6 +12423,44 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 		u32 param4 = READ_VREG(AV_SCRATCH_B);
 		u8 *trans_data_buf = (u8 *)hw->aux_addr;
 		int dw_mode = get_double_write_mode(hw);
+
+		int mb_width = 0;
+		int mb_total = 0;
+		int mb_height = 0;
+		int frame_width = 0;
+		int frame_height = 0;
+		int ret_is_csd_valid = 0;
+		mb_width = param1 & 0xff;
+		mb_total = (param1 >> 8) & 0xffff;
+		if (!mb_width && mb_total) /*for 4k2k*/
+			mb_width = 256;
+		if (mb_width)
+			mb_height = mb_total / mb_width;
+		frame_width = mb_width << 4;
+		frame_height = mb_height << 4;
+
+		ret_is_csd_valid = is_csd_valid(hw, mb_width, mb_height, param2, param4);
+		if (ret_is_csd_valid != RES_RET_NORMAL) {
+			dpb_print(DECODE_ID(hw), 0,
+				"!!!wrong csd info mb_width/mb_height (0x%x/0x%x), w:%d h:%d, ret:%d\r\n",
+				mb_width,
+				mb_height,
+				frame_width,
+				frame_height,
+				ret_is_csd_valid);
+			if (ret_is_csd_valid == RES_RET_OVERSIZE) {
+				hw->stat |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
+				vdec_v4l_post_error_event(hw->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
+			}
+			hw->init_flag = 0;
+
+			hw->csd_error_flag = 1;
+			hw->csd_restore_flag = true;
+			hw->reset_bufmgr_flag = 1;
+			hw->dec_result = DEC_RESULT_ERROR_DATA;
+			vdec_schedule_work(&hw->work);
+			return;
+		}
 
 		if ((hw->frame_width != 0) && (hw->frame_height != 0) && dw_mode != hw->double_write_mode) {
 			if (!set_double_write_config(hw, dw_mode, hw->field))
@@ -14441,6 +14523,7 @@ static struct param_entry amvdec_h264_v4l_params[] = {
 	PARAM_UINT(save_buffer),
 	PARAM_UINT(enable_hw_timer),
 	PARAM_UINT(disable_multi_slice_irq),
+	PARAM_UINT(force_max_level_idc_52),
 	{ /* sentinel */ }
 };
 module_param_cb(params, &key_value_param_ops, &amvdec_h264_v4l_params, 0644);
@@ -14677,6 +14760,9 @@ MODULE_PARM_DESC(enable_hw_timer, "\n enable_hw_timer\n");
 
 module_param(disable_multi_slice_irq, uint, 0664);
 MODULE_PARM_DESC(disable_multi_slice_irq, "\n disable_multi_slice_irq\n");
+
+module_param(force_max_level_idc_52, uint, 0664);
+MODULE_PARM_DESC(force_max_level_idc_52, "\n force_max_level_idc_52\n");
 
 module_init(ammvdec_h264_driver_init_module);
 module_exit(ammvdec_h264_driver_remove_module);

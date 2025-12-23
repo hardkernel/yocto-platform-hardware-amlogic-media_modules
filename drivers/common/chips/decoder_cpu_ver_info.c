@@ -1444,11 +1444,6 @@ enum ResResult format_resolution_fatal_error(int format, int w, int h)
 }
 EXPORT_SYMBOL(format_resolution_fatal_error);
 
-inline int get_level_of_format(int format) {
-	return platform_dos_dev->profile_level_idc.fmt_level[format];
-}
-EXPORT_SYMBOL(get_level_of_format);
-
 inline bool is_support_no_parser(void)
 {
 	return ((force_dos_support & FORCE_VDEC_NO_PARSER) ||

@@ -190,6 +190,7 @@ static enum vformat_e v4l2_fourcc_to_vtype(uint32_t fourcc) {
 
 #define V4L2_EVENT_PRIVATE_EXT_VSC_BASE (V4L2_EVENT_PRIVATE_START + 0x2000)
 #define V4L2_EVENT_PRIVATE_EXT_REPORT_DECINFO (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 4)
+#define V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 5)
 
 static uint32_t get_driver_min_buffers (int fd, bool capture_port)
 {
@@ -1214,6 +1215,8 @@ static void *dec_thread_func(void * arg)
 				eos_evt_pending = true;
 			} else if (evt.type == V4L2_EVENT_PRIVATE_EXT_REPORT_DECINFO) {
 				process_decoder_info(evt.id);
+			} else if (evt.type == V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT) {
+				decode_finish_cb();
 			}
 
 			/* ignore res change for 1st frame */
@@ -1383,6 +1386,14 @@ static int config_decoder(int fd, enum vformat_e type)
 	ret = ioctl(fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
 	if (ret) {
 		debug_print(DEBUG_ERROR, "subscribe V4L2_EVENT_EOS fail\n");
+		return ret;
+	}
+
+	memset(&sub, 0, sizeof(sub));
+	sub.type = V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT;
+	ret = ioctl(fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
+	if (ret) {
+		debug_print(DEBUG_ERROR, "subscribe V4L2_EVENT_PRIVATE_EXT_REPORT_UNSUPPORT fail\n");
 		return ret;
 	}
 

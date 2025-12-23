@@ -145,6 +145,9 @@ union param {
 
 #define H264_HW_TIMER_STATUS				0x3e
 
+#define BIT_DEPTH_LUMA_MINUS8				0x40
+#define BIT_DEPTH_CHROMA_MINUS8				0x41
+
 #define SLICE_IPONLY_BREAK						0X5C
 #define PREV_MAX_REFERENCE_FRAME_NUM					0X5D
 #define EOS								0X5E
@@ -937,6 +940,9 @@ struct h264_dpb_stru {
 	unsigned int frame_crop_top_offset;
 	unsigned int frame_crop_bottom_offset;
 	unsigned int chroma_format_idc;
+
+	unsigned int bit_depth_luma;
+	unsigned int bit_depth_chroma;
 
 	unsigned int dec_dpb_status;
 	unsigned int last_dpb_status;

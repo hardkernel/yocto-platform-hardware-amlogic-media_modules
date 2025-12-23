@@ -8229,6 +8229,7 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 	int lcu_y_num_div;
 	int Col_ref;
 	int dbg_skip_flag = 0;
+	struct aml_vcodec_ctx *ctx = hevc->v4l2_ctx;
 	int ret_is_csd_valid = 0;
 	int ret;
 	int ref_total_num;
@@ -8301,8 +8302,10 @@ static int hevc_slice_segment_header_process(struct hevc_state_s *hevc,
 		if (ret_is_csd_valid != RES_RET_NORMAL) {
 			hevc_print(hevc, 0, "%s, unsupported size : %u x %u. ret:%d\n",
 				__func__, rpm_param->p.pic_width_in_luma_samples, rpm_param->p.pic_height_in_luma_samples, ret_is_csd_valid);
-			if (ret_is_csd_valid == RES_RET_OVERSIZE)
+			if (ret_is_csd_valid == RES_RET_OVERSIZE) {
 				hevc->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
+				vdec_v4l_post_error_event(ctx, DECODER_EMERGENCY_UNSUPPORT);
+			}
 			if ((!hevc->m_ins_flag) &&
 				((debug &
 				H265_NO_CHANG_DEBUG_FLAG_IN_CODE) == 0))
@@ -14099,8 +14102,10 @@ force_output:
 					if (ret_is_csd_valid != RES_RET_NORMAL)
 						hevc_print(hevc, 0, "%s, unsupported size : %u x %u. ret:%d\n",
 							__func__, hevc->pic_w, hevc->pic_h, ret_is_csd_valid);
-					if (ret_is_csd_valid == RES_RET_OVERSIZE)
+					if (ret_is_csd_valid == RES_RET_OVERSIZE) {
 						hevc->fatal_error |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
+						vdec_v4l_post_error_event(ctx, DECODER_EMERGENCY_UNSUPPORT);
+					}
 					/* skip search next start code */
 					WRITE_VREG(HEVC_WAIT_FLAG, READ_VREG(HEVC_WAIT_FLAG) & (~0x2));
 					if ((hevc->pic_h == 96) && (hevc->pic_w == 160))

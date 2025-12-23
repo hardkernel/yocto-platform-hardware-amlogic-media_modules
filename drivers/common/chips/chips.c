@@ -133,11 +133,11 @@ static int codec_level_idc_init(int format)
 				return chip_level[i][1 + format];
 			}
 		}
-	} else {
-		for (i = 0; i < sizeof(chip_level)/((VFORMAT_MAX + 1) * sizeof(u32)); i++) {
-			if (cpu == chip_level[i][0]) {
-				return chip_level[i][1 + format];
-			}
+	}
+	cpu = get_cpu_major_id();
+	for (i = 0; i < sizeof(chip_level)/((VFORMAT_MAX + 1) * sizeof(u32)); i++) {
+		if (cpu == chip_level[i][0]) {
+			return chip_level[i][1 + format];
 		}
 	}
 
