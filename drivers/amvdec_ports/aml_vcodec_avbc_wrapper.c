@@ -39,7 +39,7 @@
 #include "../frame_provider/aml_dhp/aml_dhp_if.h"
 #include "../common/chips/decoder_cpu_ver_info.h"
 #include "../frame_provider/decoder/utils/vdec_ge2d_utils.h"
-
+#include "../common//media_utils/media_cpufreq.h"
 
 #define MAX_SIZE_8K (8192 * 4608)
 #define MAX_SIZE_4K (4096 * 2304)
@@ -197,6 +197,7 @@ static DEFINE_MUTEX(avbc_mutex);
 static DEFINE_MUTEX(task_mutex);
 
 struct aml_avbc_wrapper_s *g_wrapper;
+static struct freq_qos_request media_copy_qos_req;
 
 extern int avbcd_work_mode;
 extern int crc_dump;
@@ -283,7 +284,7 @@ static void copy_ge2d(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *ou
 	vfree(vf);
 }
 
-static void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out)
+static noinline void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out)
 {
 	u8 *dst_addr, *src_addr, *src_addr_start, *dst_addr_start, *dump_addr;
 	u32 src_w_stride, src_h_stride, dst_w_stride, dst_h_stride;
@@ -299,7 +300,7 @@ static void copy_yuv(struct aml_avbc_wrapper_s *wrapper, struct avbc_output *out
 
 	src_addr = wrapper->hw_buf.virt_addr;
 try_map:
-	dst_addr = codec_mm_vmap_noncache(out->img.data, out->img.size);
+	dst_addr = codec_mm_vmap(out->img.data, out->img.size);
 	if (!dst_addr) {
 		v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
 		"%s Map fail!Try again!\n", __func__);
@@ -311,6 +312,8 @@ try_map:
 
 	dump_addr = dst_addr;
 
+	preempt_disable();
+	codec_mm_inval_cache(wrapper->hw_buf.phy_addr, wrapper->hw_buf.size);
 	for (i = 0; i < src_h_stride; i++) {
 		memcpy(dst_addr, src_addr, src_w_stride);
 		dst_addr += dst_w_stride;
@@ -325,6 +328,9 @@ try_map:
 		dst_addr += dst_w_stride;
 		src_addr += src_w_stride;
 	}
+	codec_mm_dma_flush(dst_addr, out->img.size, DMA_TO_DEVICE);
+	preempt_enable();
+	media_recover_cpufreq(&media_copy_qos_req);
 
 	v4l_dbg_avbcd(0, V4L_DEBUG_AVBCD_BUFMGR,
 		"data 0x%llx size %d, dst_addr: 0x%px, src_addr: 0x%px, src_w_stride: %u, src_h_stride: %u, dst_w_stride:%u, dst_h_stride %u\n",
@@ -905,7 +911,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 				if (vdec->avbc_info.bitdepth_dst == 10)
 					size = size * 2;
 				wrapper->hw_buf.size = size;
-				wrapper->hw_buf.virt_addr = codec_mm_dma_alloc_coherent(&wrapper->hw_buf.mem_handle, &wrapper->hw_buf.phy_addr, wrapper->hw_buf.size, "AVBCD_BUF");
+				wrapper->hw_buf.phy_addr = codec_mm_alloc_for_dma("AVBCD_BUF", PAGE_COUNT(size), 0, 0);
+				wrapper->hw_buf.virt_addr = codec_mm_vmap(wrapper->hw_buf.phy_addr, size);
 				vdec->avbc_info.avbc_y_addr = (ulong)wrapper->hw_buf.phy_addr;
 			}
 			if (dec_i_frame_once && wrapper->frame_count) {
@@ -947,7 +954,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 					if (vdec->avbc_info.bitdepth_dst == 10)
 						size = size * 2;
 					wrapper->hw_buf.size = size;
-					wrapper->hw_buf.virt_addr = codec_mm_dma_alloc_coherent(&wrapper->hw_buf.mem_handle, &wrapper->hw_buf.phy_addr, wrapper->hw_buf.size, "AVBCD_BUF");
+					wrapper->hw_buf.phy_addr = codec_mm_alloc_for_dma("AVBCD_BUF", PAGE_COUNT(size), 0, 0);
+					wrapper->hw_buf.virt_addr = codec_mm_vmap(wrapper->hw_buf.phy_addr, size);
 					vdec->avbc_info.avbc_y_addr = (ulong)wrapper->hw_buf.phy_addr;
 				}
 			}
@@ -1122,12 +1130,12 @@ static void aml_buf_copy_worker(struct work_struct *work)
 			copy_yuv(wrapper, out);
 	}
 
-	if (wrapper->hw_buf.mem_handle) {
-		codec_mm_dma_free_coherent(wrapper->hw_buf.mem_handle);
+	if (wrapper->hw_buf.phy_addr) {
+		codec_mm_unmap_phyaddr(wrapper->hw_buf.virt_addr);
+		codec_mm_free_for_dma("AVBCD_BUF", wrapper->hw_buf.phy_addr);
 		wrapper->hw_buf.phy_addr = 0;
 		wrapper->hw_buf.virt_addr = 0;
 		wrapper->hw_buf.size = 0;
-		wrapper->hw_buf.mem_handle = 0;
 	}
 	wrapper->wait_complete = false;
 	complete(&wrapper->avbc_done);
@@ -1174,6 +1182,10 @@ static irqreturn_t avbc_isr_thread_fn(int irq, void *data)
 			vdec->pic0_done = 1;
 			wrapper->chunk = NULL;
 			vdec->run(vdec, 0, NULL, NULL);
+			/* boost CPU frequency for the efficiency of copy_yuv() */
+			if (wrapper->hw_buf.phy_addr)
+				media_set_cpufreq(&media_copy_qos_req, media_get_max_cpufreq(),
+					MEDIA_BOOST_FREQ_MIN);
 		} else {
 			do_gettimeofday(&wrapper->end);
 			time_use = (wrapper->end.tv_sec - wrapper->start.tv_sec) * 1000 * 1000 +

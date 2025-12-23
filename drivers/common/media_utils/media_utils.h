@@ -22,6 +22,7 @@
 #include <linux/fs.h>
 #include <linux/vmalloc.h>
 
+
 #define VDEC_MODE_MMU_DW_MASK	(0x20)
 #define VDEC_MODE_10BIT_MASK	(0x10000)
 #define VDEC_MODE_DW_MASK	(0xffff)
@@ -51,6 +52,9 @@ enum vdec_dec_mode {
 	/* (0~1080] 1/1, (1080~4K] 1/16 */
 	DM_YUV_14_11_10BIT_AVBC	= 0x10200,
 };
+
+#define PAGE_COUNT(x) (((x) + PAGE_SIZE - 1) >> PAGE_SHIFT)
+
 
 typedef unsigned long dos_addr_t;
 
