@@ -74,6 +74,7 @@ struct aml_buf_config {
 	u32	chroma_length_tw;
 	u32	dw_mode;
 	u32	tw_mode;
+	u32	duration;
 };
 
 /*

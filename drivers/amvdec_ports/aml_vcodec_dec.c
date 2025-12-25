@@ -890,6 +890,7 @@ void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
+	config.duration = ctx->duration;
 
 	if (config.enable_fbc && ctx->update_comp_info)
 		ctx->update_comp_info(ctx, ctx->ada_ctx->vdec->private);
@@ -968,6 +969,7 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
+	config.duration		= ctx->duration;
 
 	aml_buf_configure(&ctx->bm, &config);
 
@@ -1201,10 +1203,12 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		VFRAME_FLAG_GAME_MODE : 0;
 
 	vf->priority = ctx->priority;
+	if (ctx->duration)
+		vf->duration = ctx->duration;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
 		"OUT_BUFF (%s, st:%d, seq:%d, idx:%d) vb:(%d, %px), vf:(%d, %px), ts:%llu, flag: 0x%x "
-		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u) bitdepth(%x), priority(%u)\n",
+		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u) bitdepth(%x), priority(%u) duration(%u)\n",
 		ctx->ada_ctx->frm_name, aml_buf->state, ctx->out_buff_cnt, aml_buf->index,
 		vb2_buf->index, vb2_buf,
 		vf->index & 0xff, vf,
@@ -1214,7 +1218,8 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		planes[1].addr, planes[1].length,
 		planes[2].addr, planes[2].length,
 		vf->bitdepth,
-		vf->priority);
+		vf->priority,
+		vf->duration);
 
 	if (!ctx->out_buff_cnt) {
 		PR_PIPE_KPI_INFO("TP_V4L2_CapBuf_First_Finish", ctx->id, MAIN_INFO,
@@ -5526,6 +5531,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	config.vpp_work_mode	= ctx->enable_di_post ? VPP_WORK_MODE_DI_POST :
 						VPP_WORK_MODE_DI_M2M;
 	config.priority		= ctx->priority;
+	config.duration		= ctx->duration;
 
 	aml_buf_configure(&ctx->bm, &config);
 	if (ctx->bm.config.enable_fbc) {
@@ -6078,7 +6084,11 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
 			"set uevent duration: %d\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_VF_DURATION) {
-		vdec_set_vf_duration(ctrl->val);
+		struct aml_buf_config config = { 0 };
+		ctx->duration = ctrl->val;
+		aml_buf_get_configure(&ctx->bm, &config);
+		config.duration = ctx->duration;
+		aml_buf_configure(&ctx->bm, &config);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set vf duration: %x\n", ctrl->val);
 	} else if (ctrl->id == AML_V4L2_SET_INPUT_BUFFER_NUM_CACHE) {
@@ -6136,7 +6146,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			return 0;
 		}
 		ctx->priority = ctrl->val;
-		vdec_set_sched_priority_adapt(ctx->ada_ctx, ctrl->val);
+		vdec_set_sched_priority_adapt(ctx->ada_ctx, ctrl->val & 0xffff);
 		aml_buf_get_configure(&ctx->bm, &config);
 		config.priority	= ctx->priority;
 		aml_buf_configure(&ctx->bm, &config);
@@ -6258,7 +6268,7 @@ static const struct v4l2_ctrl_config ctrl_st_channel_priority = {
 	.ops	= &aml_vcodec_dec_ctrl_ops,
 	.type	= V4L2_CTRL_TYPE_INTEGER,
 	.min	= 0,
-	.max	= 128,
+	.max	= 0x7fffffff,
 	.step	= 1,
 	.def	= 0,
 };

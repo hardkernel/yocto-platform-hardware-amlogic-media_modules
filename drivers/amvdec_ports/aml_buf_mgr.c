@@ -160,6 +160,8 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
 	vf->priority	= bm->config.priority;
+	if (bm->config.duration)
+		vf->duration = bm->config.duration;
 
 	dmabuf_set_vframe(buf->planes[0].dbuf, &buf->vframe, VF_SRC_DECODER);
 
@@ -183,13 +185,13 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	bc->checkin_num++;
 	if (buf->dma && bc->is_dynamic_mode_init(bc))
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), priority(%d), checkin(%u), ret: %d\n",
-			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, vf->priority, bc->checkin_num, ret);
+		"%s, set vf(%px, %d) frame_index:%d , ts:%llu, uvm(dmabuf: %px, file: %px), yuv(dmabuf: %px, file: %px), priority(%d), duration(%d), checkin(%u), ret: %d\n",
+			__func__, vf, vf->index, vf->frame_index, vf->timestamp, uvm_dmabuf, uvm_dmabuf->file, dmabuf, dmabuf->file, vf->priority, vf->duration, bc->checkin_num, ret);
 	else
 		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
-			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d, priority(%d), checkin(%u), ret: %d\n",
+			"%s, set vf(%px, %d) frame_index:%d , ts:%llu, dbuf: %px, buf idx: %d, priority(%d), duration(%d), checkin(%u), ret: %d\n",
 			__func__, vf, vf->index, vf->frame_index, vf->timestamp,
-			buf->planes[0].dbuf, buf->index, vf->priority, bc->checkin_num, ret);
+			buf->planes[0].dbuf, buf->index, vf->priority, vf->duration, bc->checkin_num, ret);
 
 
 	return ret;
