@@ -3054,6 +3054,8 @@ static irqreturn_t vmpeg12_isr(struct vdec_s *vdec, int irq)
 	u32 info, offset;
 	struct vdec_mpeg12_hw_s *hw =
 	(struct vdec_mpeg12_hw_s *)(vdec->private);
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+
 	if (hw->eos)
 		return IRQ_HANDLED;
 
@@ -3097,10 +3099,24 @@ static irqreturn_t vmpeg12_isr(struct vdec_s *vdec, int irq)
 			READ_VREG(VIFF_BIT_CNT), READ_VREG(MREG_BUFFEROUT));
 		/* for t6d error reset in c drvier */
 		userdata_pushed_drop(hw);
-		mpeg2_idle_axi_reset(hw);
 
-		WRITE_VREG(MREG_BUFFEROUT, 0x100);
-		start_process_time_set(hw);
+		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+			debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
+				"error reset, stop decoding\n");
+			hw->dec_result = DEC_RESULT_DONE;
+			mpeg2_buf_ref_process_for_exception(hw);
+			if (vdec_frame_based(vdec))
+				vdec_v4l_post_error_frame_event(ctx);
+			else
+				vmpeg12_report_pts(hw);
+			vdec_schedule_work(&hw->work);
+		} else {
+			mpeg2_idle_axi_reset(hw);
+
+			WRITE_VREG(MREG_BUFFEROUT, 0x100);
+			start_process_time_set(hw);
+		}
+
 		hw->process_busy = false;
 		return IRQ_HANDLED;
 	}

@@ -293,7 +293,7 @@ static int start_decode_buf_level = 0x8000;
 
 static u32 work_buf_size;
 
-static u32 again_threshold;
+static u32 again_threshold = 0x300;
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
 /* double_write_mode:
@@ -7826,7 +7826,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 			goto irq_handled_exit_and_start_timer;
 		} else {
 			avs3_print(dec, AVS3_DBG_BUFMGR,
-				"PROC_STATE_HEAD_AGAIN, start_code 0x%x\r\n",
+				"PROC_STATE_HEAD_AGAIN, start_code 0x%x\n",
 				start_code);
 			dec->process_state = PROC_STATE_HEAD_DONE;
 			WRITE_VREG(HEVC_DEC_STATUS_REG, AVS3_ACTION_DONE);
@@ -7846,7 +7846,7 @@ static irqreturn_t vavs3_isr_thread_fn(int irq, void *data)
 			else
 				goto decode_slice;
 		} else {
-			avs3_print(dec, 0,
+			avs3_print(dec, AVS3_DBG_BUFMGR,
 				"PROC_STATE_DECODE_AGAIN, start_code 0x%x!!!\r\n",
 				start_code);
 			WRITE_VREG(HEVC_DEC_STATUS_REG, AVS3_ACTION_DONE);
@@ -10075,6 +10075,8 @@ static void avs3_work_implement(struct AVS3Decoder_s *dec)
 
 	if (dec->front_back_mode == 1)
 		amhevc_stop_f();
+	else
+		amhevc_stop();
 
 	if (dec->stat & STAT_TIMER_ARM) {
 		del_timer_sync(&dec->timer);
@@ -10486,7 +10488,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			run_ready_case = 5;
 			avs3_print(dec,
 			PRINT_FLAG_VDEC_DETAIL, "%s case%d buf lelvel:%x\n", __func__, run_ready_case, r);
-			return 0;
+			return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 /*
@@ -10706,7 +10708,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	if (debug & PRINT_FLAG_VDEC_STATUS) {
 		int ii;
 		avs3_print(dec, 0,
-			"%s (%d): size 0x%x (0x%x 0x%x) sum 0x%x (%x %x %x %x %x) bytes 0x%x",
+			"%s (%d): size 0x%x (0x%x 0x%x) sum 0x%x (%x %x %x %x %x) bytes 0x%x\n",
 			__func__,
 			dec->frame_count, r,
 			dec->chunk ? dec->chunk->size : 0,
@@ -10736,8 +10738,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 					data[ii]);
 			if (!dec->chunk->block->is_mapped)
 				codec_mm_unmap_phyaddr(data);
+			avs3_print_cont(dec, 0, "\n");
 		}
-		avs3_print_cont(dec, 0, "\r\n");
 	}
 
 	decoder_trace(dec->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_START, TRACE_BASIC);

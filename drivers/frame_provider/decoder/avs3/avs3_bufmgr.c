@@ -136,7 +136,7 @@ COM_PIC *dec_pull_frm(DEC_CTX *ctx, int state)
 		ret = com_picman_out_libpic(pic, library_picture_index, &ctx->dpm);
 		if (pic)
 		{
-		printf("%s output index %d\n", __func__, pic->buf_cfg.index);
+		printf("%s libvcon output index %d\n", __func__, pic->buf_cfg.index);
 		//com_assert_rv(pic->imgb != NULL, COM_ERR);
 		//pic->imgb->addref(pic->imgb);
 		//*imgb = pic->imgb;

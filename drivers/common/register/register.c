@@ -321,6 +321,26 @@ int read_sysctrl_reg(u32 reg)
 }
 EXPORT_SYMBOL(read_sysctrl_reg);
 
+int sysctrl_wait_status(int reg, int mask, bool idle)
+{
+	u32 nop_cnt = 10;
+	ulong timeout = jiffies + (HZ/5);
+	u32 val = read_sysctrl_reg(reg);
+
+	while ((!(val & mask)) == idle) {
+		if (time_after(jiffies, timeout)) {
+			pr_crit("%s timeout, reg %x, val %x, mask %x\n",
+				__func__, reg, val, mask);
+			return -EBUSY;
+		}
+		val = read_sysctrl_reg(reg);
+	}
+	while (nop_cnt--);
+
+	return 0;
+}
+EXPORT_SYMBOL(sysctrl_wait_status);
+
 int dos_register_probe(struct platform_device *pdev, reg_compat_func reg_compat_fn)
 {
 	u32 i;

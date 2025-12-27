@@ -327,10 +327,10 @@ static void lp_clk_on_vdec_mmu_v2(void)// Enable DOS Clocks
 	WRITE_VREG(DOS_GCLK_EN3, 0x10e03);//ddr, mcr, lpf, cbus
 
 	WRITE_VREG(HEVC_LPF_GCLK_EN0, ((0x1 << 0 ) | //lpf top
-		(0x0 << 1 ) | //cfg
-		(0xd << 2 ) | //mem
-		(0x0 << 8 ) | //obuf
-		(0x0 << 12)   //dblk
+		(0x1  << 1 ) | //cfg
+		(0x1f << 2 ) | //mem
+		(0x1  << 8 ) | //obuf
+		(0x0  << 12)   //dblk
 		));
 	WRITE_VREG(HEVC_LPF_GCLK_EN1, ((0x0 << 0 ) | //oadp2
 		(0x0 << 8 )   //evan

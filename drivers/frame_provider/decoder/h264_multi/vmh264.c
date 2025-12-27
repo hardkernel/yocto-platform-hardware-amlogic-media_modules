@@ -8442,9 +8442,16 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			if (dec_dpb_status & 0x1000)
 				reset_bit |= RESET_PIC_DC_ERR;
 
-			h264_idle_axi_reset(hw, "error reset", reset_bit);
+			if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
+					"error reset, stop decoding\n");
+				hw->dec_result = DEC_RESULT_DONE;
+				vdec_schedule_work(&hw->work);
+			} else {
+				h264_idle_axi_reset(hw, "error reset", reset_bit);
+				WRITE_VREG(DPB_STATUS_REG, 0);
+			}
 
-			WRITE_VREG(DPB_STATUS_REG, 0);
 			return IRQ_HANDLED;
 		} else if ((dec_dpb_status & 0xff) == H264_DECODE_INI_RESET) {
 			if (dec_dpb_status & 0x100)
@@ -9164,9 +9171,8 @@ pic_done_proc:
 			}
 		}
 		if (dec_dpb_status == H264_DECODE_TIMEOUT &&
-			hw->mmu_enable) {
-			if (!is_vdec_hevc_combine())
-				amhevc_stop();
+			hw->mmu_enable && !is_vdec_hevc_combine()) {
+			amhevc_stop();
 			CLEAR_VREG_MASK(VLD_MEM_VIFIFO_CONTROL, 1 << 1);
 			hevc_reset_core(vdec);
 		}

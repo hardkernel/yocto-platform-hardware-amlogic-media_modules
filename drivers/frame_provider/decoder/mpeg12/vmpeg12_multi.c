@@ -2771,10 +2771,18 @@ static irqreturn_t vmpeg12_isr(struct vdec_s *vdec, int irq)
 			userdata_pushed_drop(hw);
 		else
 			userdata_pushed_drop_stream(hw);
-		mpeg2_idle_axi_reset(hw);
 
-		WRITE_VREG(MREG_BUFFEROUT, 0x100);
-		start_process_time_set(hw);
+		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+			debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
+				"error reset, stop decoding\n");
+			hw->dec_result = DEC_RESULT_DONE;
+			vdec_schedule_work(&hw->work);
+		} else {
+			mpeg2_idle_axi_reset(hw);
+
+			WRITE_VREG(MREG_BUFFEROUT, 0x100);
+			start_process_time_set(hw);
+		}
 		hw->process_busy = false;
 		return IRQ_HANDLED;
 	}

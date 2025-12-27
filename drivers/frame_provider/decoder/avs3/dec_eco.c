@@ -1655,6 +1655,8 @@ int dec_eco_alf_coeff(union param_u *rpm_param, ALF_PARAM *alf_param)
 			{
 			symbol = 1;
 			}
+			if ((symbol + pre_symbole) >= NO_VAR_BINS)
+				break;
 			alf_param->filter_pattern[symbol + pre_symbole] = 1;
 			pre_symbole = symbol + pre_symbole;
 		}

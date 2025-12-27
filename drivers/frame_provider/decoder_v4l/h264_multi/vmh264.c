@@ -8760,9 +8760,21 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			if (dec_dpb_status & 0x1000)
 				reset_bit |= RESET_PIC_DC_ERR;
 
-			h264_idle_axi_reset(hw, "error reset", reset_bit);
+			if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG,
+					"error reset, stop decoding\n");
+				hw->dec_result = DEC_RESULT_DONE;
+				buf_ref_process_for_exception(hw);
+				if (input_frame_based(vdec))
+					vdec_v4l_post_error_frame_event(ctx);
+				else
+					vh264_report_pts(hw);
+				vdec_schedule_work(&hw->work);
+			} else {
+				h264_idle_axi_reset(hw, "error reset", reset_bit);
+				WRITE_VREG(DPB_STATUS_REG, 0);
+			}
 
-			WRITE_VREG(DPB_STATUS_REG, 0);
 			return IRQ_HANDLED;
 		} else if ((dec_dpb_status & 0xff) == H264_DECODE_INI_RESET) {
 			if (dec_dpb_status & 0x100)

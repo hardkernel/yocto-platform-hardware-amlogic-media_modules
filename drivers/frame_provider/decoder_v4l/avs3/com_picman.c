@@ -1208,6 +1208,25 @@ int com_picman_out_libpic(COM_PIC * pic, int library_picture_index, COM_PM * pm)
 }
 #endif
 
+static void dump_com_pb(COM_PM * pm)
+{
+	COM_PIC ** ps;
+	int i;
+
+	if (!is_avs3_print_bufmgr_detail())
+		return;
+
+	ps = pm->pic;
+	for (i = 0; i < pm->max_pb_size; i++) {
+		if (ps[i] != NULL) {
+			avs3_debug(NULL, 0, "[%d] needout %d, dtr %d, outdelay %d, poc %d, ptr %d\n",
+				i, ps[i]->need_for_out,
+				ps[i]->dtr, ps[i]->picture_output_delay,
+				ps[i]->buf_cfg.poc, ps[i]->ptr);
+		}
+	}
+}
+
 COM_PIC * com_picman_out_pic(COM_PM * pm, int * err, int cur_pic_doi, int state)
 {
 	COM_PIC ** ps;
@@ -1236,6 +1255,9 @@ COM_PIC * com_picman_out_pic(COM_PM * pm, int * err, int cur_pic_doi, int state)
 			}
 		}
 		if (exist_pic) {
+			printf("%s, temp poc %d, %d, cur_pic_doi %d\n",
+				__func__, temp_smallest_poc, temp_idx_for_smallest_poc, cur_pic_doi);
+			dump_com_pb(pm);
 			ps[temp_idx_for_smallest_poc]->need_for_out = 0;
 			if (err) *err = COM_OK;
 			return ps[temp_idx_for_smallest_poc];

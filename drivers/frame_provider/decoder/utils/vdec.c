@@ -1139,10 +1139,15 @@ static void dec_dmc_port_ctrl(bool dmc_on, u32 target)
 
 void arb_ctrl_wait_idle(int enable)
 {
-	int mask;
+	int mask, val;
 
 	if (enable) {
 		CLEAR_VREG_MASK(HEVC_ASSIST_AXI_CTRL, ((1 << 6 ) | (1 << 14) | (1 << 22)));
+
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X) {
+			val = read_sysctrl_reg(SYSCTRL_AXI_PIPE_CTRL0);
+			write_sysctrl_reg(SYSCTRL_AXI_PIPE_CTRL0, val | (1 << 6));
+		}
 	} else {
 		SET_VREG_MASK(HEVC_ASSIST_AXI_CTRL, ((1 << 6 ) | (1 << 14) | (1 << 22)));
 
@@ -1151,6 +1156,13 @@ void arb_ctrl_wait_idle(int enable)
 		mask = get_hevc_bus_idle_mask();
 		if (mask)
 			dos_wait_status(HEVC_ASSIST_AFIFO_CTRL, mask, 0);
+
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X) {
+			val = read_sysctrl_reg(SYSCTRL_AXI_PIPE_CTRL0);
+			write_sysctrl_reg(SYSCTRL_AXI_PIPE_CTRL0, val & ~(1 << 6));
+
+			sysctrl_wait_status(SYSCTRL_AXI_PIPE_CTRL0, (1 << 7), 1);
+		}
 	}
 }
 EXPORT_SYMBOL(arb_ctrl_wait_idle);
@@ -6290,8 +6302,8 @@ void hevc_reset_core(struct vdec_s *vdec)
 		(1<<3)|(1<<4)|(1<<8)|(1<<10)|(1<<11)|
 		(1<<12)|(1<<13)|(1<<14)|(1<<15)|
 		(1<<17)|(1<<18)|(1<<19)|(1<<24)|(1<<26));
-
 	WRITE_VREG(DOS_SW_RESET3, 0);
+
 	dos_wait_status(HEVC_WRRSP_LMEM, 0xfff, 0);
 
 	WRITE_VREG(HEVC_SAO_MMU_RESET_CTRL,

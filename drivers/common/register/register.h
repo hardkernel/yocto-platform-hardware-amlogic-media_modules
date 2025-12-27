@@ -155,7 +155,7 @@ void dos_reg_write_bits(u32 reg, u32 val, int start, int len);
 
 //SYSCTRL REG
 int read_sysctrl_reg(u32 reg);
-
+int sysctrl_wait_status(int reg, int mask, bool idle);
 void write_sysctrl_reg(u32 reg, int val);
 
 //DMC REG

@@ -3850,9 +3850,18 @@ static irqreturn_t vmavs_isr_thread_fn(struct vdec_s *vdec, int irq)
 			debug_print(hw, PRINT_FLAG_DECODING, "READ_VREG(AVS_PIC_INFO) = 0x%x\n", READ_VREG(AVS_PIC_INFO));
 			return IRQ_HANDLED;
 		} else if ((reg & 0xff) == DECODE_STATUS_ERROR_RESET) {
-			error_reset_in_c_driver((reg >> 16) & 0xffff);
-			WRITE_VREG(DECODE_STATUS, 0xff);
-			start_process_time(hw);
+			if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T6X) {
+				reset_process_time(hw);
+				debug_print(hw, PRINT_FLAG_RUN_FLOW, "error reset, stop decoding\n");
+				hw->dec_result = DEC_RESULT_DONE;
+				amvdec_stop();
+				vavs_save_regs(hw);
+				vdec_schedule_work(&hw->work);
+			} else {
+				error_reset_in_c_driver((reg >> 16) & 0xffff);
+				WRITE_VREG(DECODE_STATUS, 0xff);
+				start_process_time(hw);
+			}
 			return IRQ_HANDLED;
 		}
 

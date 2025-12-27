@@ -291,7 +291,7 @@ static int start_decode_buf_level = 0x8000;
 
 static u32 work_buf_size;
 
-static u32 again_threshold;
+static u32 again_threshold = 0x300;
 
 /* DOUBLE_WRITE_MODE is enabled only when NV21 8 bit output is needed */
 /* double_write_mode:
@@ -9759,6 +9759,8 @@ static void avs3_work_implement(struct AVS3Decoder_s *dec)
 
 	if (dec->front_back_mode == 1)
 		amhevc_stop_f();
+	else
+		amhevc_stop();
 
 	if (dec->stat & STAT_TIMER_ARM) {
 		del_timer_sync(&dec->timer);
@@ -10353,7 +10355,7 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			run_ready_case = 5;
 			avs3_print(dec,
 			PRINT_FLAG_VDEC_DETAIL, "%s case%d buf lelvel:%x\n", __func__, run_ready_case, r);
-			return 0;
+			return PRE_LEVEL_NOT_ENOUGH;
 		}
 	}
 	if ((dec->pic_list_init_flag == 0) ||

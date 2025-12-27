@@ -90,5 +90,8 @@
 #define  AXI_ADDR_34                       PSEUDODEF_REG
 #endif
 
+/* SYS_CTRL */
+#define SYSCTRL_AXI_PIPE_CTRL0             0x0055
+
 #endif // DOS_REGISTERS_HEADER_
 
