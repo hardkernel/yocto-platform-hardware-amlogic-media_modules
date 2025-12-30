@@ -148,6 +148,7 @@
 #define IS_4K_SIZE(w, h)  (((w) * (h)) > (1920*1088))
 
 #define SEI_UserDataITU_T_T35	4
+#define SEI_UserDataUnregister	5
 #define SEI_AlternativeTransferCharacteristics 147
 #define INVALID_IDX -1  /* Invalid buffer index.*/
 
@@ -2273,6 +2274,7 @@ struct hevc_state_s {
 	bool check_suffix_data;
 	enum FenceModeBufStatus fence_mode_buf_status;
 	spinlock_t tlock;
+	bool unsupport_format;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -9841,6 +9843,8 @@ static int parse_sei(struct hevc_state_s *hevc,
 	int i, j;
 	int data_len;
 	u8 *user_data_buf;
+	const u8 uuid_and_flag_0[20] = {0x68, 0x55, 0x98, 0x4e, 0x49, 0x9e, 0x45, 0xc5, 0x8e, 0x5b, 0xf2, 0x7b, 0xd1, 0xd4, 0xac, 0xe6, 0x44, 0x69, 0x76, 0x58};
+	const u8 uuid_and_flag_1[20] = {0x68, 0x55, 0x98, 0x4e, 0x49, 0x9c, 0x45, 0xc5, 0x8e, 0x5b, 0xf2, 0x7b, 0xd1, 0xd4, 0xac, 0xe6, 0x44, 0x69, 0x76, 0x58};
 
 	if (size < 2)
 		return 0;
@@ -10004,6 +10008,21 @@ static int parse_sei(struct hevc_state_s *hevc,
 				}
 #endif
 			break;
+			case SEI_UserDataUnregister:
+				p_sei = p;
+				if (!memcmp(p_sei, uuid_and_flag_0, sizeof(uuid_and_flag_0)) ||
+					!memcmp(p_sei, uuid_and_flag_1, sizeof(uuid_and_flag_1))) {
+					int i;
+					hevc_print_cont(hevc, 0, "SEI payload_type %d, ", payload_type);
+					for (i = 0; i < 20; i++) {
+						hevc_print_cont(hevc, 0,
+							"%02x ", p_sei[i]);
+					}
+					hevc_print_cont(hevc, 0, "\n");
+					hevc_print(hevc, 0, "Unsupport format\n");
+					hevc->unsupport_format = 1;
+				}
+				break;
 			case SEI_MasteringDisplayColorVolume:
 				/* master_display_colour */
 				p_sei = p;
@@ -13282,6 +13301,12 @@ pic_done:
 				hevc->decoding_pic = NULL;
 #ifdef H265_USERDATA_ENABLE
 			userdata_prepare(hevc);
+			if (hevc->unsupport_format) {
+				hevc->dec_result = DEC_RESULT_ERROR_DATA;
+				vdec_schedule_work(&hevc->work);
+				vdec_v4l_post_error_event(hevc->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
+				return IRQ_HANDLED;
+			}
 #endif
 
 #ifdef NEW_FB_CODE
@@ -13900,6 +13925,12 @@ force_output:
 							type = (type << 8) | *p++;
 							if (type == 0x02000000) {
 								parse_sei(hevc, pic, p, size, false, false);
+								if (hevc->unsupport_format) {
+									hevc->dec_result = DEC_RESULT_ERROR_DATA;
+									vdec_schedule_work(&hevc->work);
+									vdec_v4l_post_error_event(hevc->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
+									return IRQ_HANDLED;
+								}
 							}
 							p += size;
 						}
@@ -17891,6 +17922,15 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		if (!hevc->chunk->block->is_mapped)
 			codec_mm_unmap_phyaddr(data);
 	}
+
+	if (hevc->unsupport_format) {
+		hevc_print(hevc, PRINT_FLAG_ERROR,
+			"%s, unsupport format, discard es data\n", __func__);
+		hevc->dec_result = DEC_RESULT_ERROR_DATA;
+		vdec_schedule_work(&hevc->work);
+		return;
+	}
+
 	ATRACE_COUNTER(hevc->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_START);
 
 	if (vdec->mc_loaded) {

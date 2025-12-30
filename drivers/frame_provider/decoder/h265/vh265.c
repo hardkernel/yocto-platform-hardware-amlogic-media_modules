@@ -150,6 +150,7 @@ to enable DV of frame mode
 #define IS_4K_SIZE(w, h)  (((w) * (h)) > (1920*1088))
 
 #define SEI_UserDataITU_T_T35	4
+#define SEI_UserDataUnregister	5
 #define SEI_AlternativeTransferCharacteristics 147
 #define INVALID_IDX -1  /* Invalid buffer index.*/
 
@@ -2038,6 +2039,7 @@ struct hevc_state_s {
 	int overscan_info_present_flag;
 	int overscan_appropriate_flag;
 	u32 lcu_skip_cnt;
+	bool unsupport_format;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -9034,6 +9036,8 @@ static int parse_sei(struct hevc_state_s *hevc,
 	int i, j;
 	int data_len;
 	u8 *user_data_buf;
+	const u8 uuid_and_flag_0[20] = {0x68, 0x55, 0x98, 0x4e, 0x49, 0x9e, 0x45, 0xc5, 0x8e, 0x5b, 0xf2, 0x7b, 0xd1, 0xd4, 0xac, 0xe6, 0x44, 0x69, 0x76, 0x58};
+	const u8 uuid_and_flag_1[20] = {0x68, 0x55, 0x98, 0x4e, 0x49, 0x9c, 0x45, 0xc5, 0x8e, 0x5b, 0xf2, 0x7b, 0xd1, 0xd4, 0xac, 0xe6, 0x44, 0x69, 0x76, 0x58};
 
 	if (size < 2)
 		return 0;
@@ -9198,6 +9202,15 @@ static int parse_sei(struct hevc_state_s *hevc,
 					}
 				}
 #endif
+				break;
+			case SEI_UserDataUnregister:
+				p_sei = p;
+				if (!memcmp(p_sei, uuid_and_flag_0, sizeof(uuid_and_flag_0)) ||
+					!memcmp(p_sei, uuid_and_flag_1, sizeof(uuid_and_flag_1))) {
+					hevc_print(hevc, 0, "SEI payload_type %d\n", payload_type);
+					hevc_print(hevc, 0, "Unsupport format\n");
+					hevc->unsupport_format = 1;
+				}
 				break;
 			case SEI_MasteringDisplayColorVolume:
 				/* master_display_colour */
@@ -11903,6 +11916,12 @@ pic_done:
 
 #ifdef H265_USERDATA_ENABLE
 			userdata_prepare(hevc);
+			if (hevc->unsupport_format) {
+				hevc->dec_result = DEC_RESULT_ERROR_DATA;
+				vdec_schedule_work(&hevc->work);
+				hevc->fatal_error |= DECODER_FATAL_ERROR_UNSUPPORT_FORMAT;
+				return IRQ_HANDLED;
+			}
 #endif
 
 #ifdef DETREFILL_ENABLE
@@ -12443,6 +12462,12 @@ force_output:
 							type = (type << 8) | *p++;
 							if (type == 0x02000000) {
 								parse_sei(hevc, pic, p, size, false);
+								if (hevc->unsupport_format) {
+									hevc->dec_result = DEC_RESULT_ERROR_DATA;
+									vdec_schedule_work(&hevc->work);
+									hevc->fatal_error |= DECODER_FATAL_ERROR_UNSUPPORT_FORMAT;
+									return IRQ_HANDLED;
+								}
 							} else if (hevc->check_dv_flag && (type == 0x01000000)) {
 								if (p[0] == 0x7c && p[1] == 0x01 && p[2] == 0x19 && p[3] == 0x08)
 									hevc->is_dv_flag = true;
@@ -15661,6 +15686,15 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		if (!hevc->chunk->block->is_mapped)
 			codec_mm_unmap_phyaddr(data);
 	}
+
+	if (hevc->unsupport_format) {
+		hevc_print(hevc, PRINT_FLAG_ERROR,
+			"%s, unsupport format, discard es data\n", __func__);
+		hevc->dec_result = DEC_RESULT_ERROR_DATA;
+		vdec_schedule_work(&hevc->work);
+		return;
+	}
+
 	ATRACE_COUNTER(hevc->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_START);
 	if (vdec->mc_loaded) {
 		/*firmware have load before,

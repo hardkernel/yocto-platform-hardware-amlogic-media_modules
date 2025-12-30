@@ -123,6 +123,8 @@
 #define PTS_UNIT            90000
 #define CHECK_INTERVAL        (HZ/100)
 
+#define MPEG4_UNSUPPORT_FORMAT_FLAG        (1 << 17)
+
 #define DUR2PTS(x) ((x) - ((x) >> 4))
 
 /* 96000/(60fps* 2field) = 800, 96000/10fps = 9600 */
@@ -375,6 +377,7 @@ struct vdec_mpeg4_hw_s {
 	bool timeout;
 	int dec_again_cnt;
 	int last_dur;
+	bool unsupport_format;
 };
 static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw);
 static int vmpeg4_hw_ctx_restore(struct vdec_mpeg4_hw_s *hw);
@@ -1520,6 +1523,15 @@ static irqreturn_t vmpeg4_isr_thread_handler(struct vdec_s *vdec, int irq)
 		"time_inc_res = %d, fixed_vop_rate = %d, rate = %d reg %d\n",
 		time_increment_resolution, fixed_vop_rate,
 		hw->vmpeg4_amstream_dec_info.rate, reg);
+
+	if (reg & MPEG4_UNSUPPORT_FORMAT_FLAG) {
+		mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_ERROR, "Unsupport format\n");
+		hw->unsupport_format = 1;
+		hw->dec_result = DEC_RESULT_DONE;
+		vdec_schedule_work(&hw->work);
+		vdec_v4l_post_error_event(hw->v4l2_ctx, DECODER_EMERGENCY_UNSUPPORT);
+		return IRQ_HANDLED;
+	}
 
 	if (reg == 2) {
 		/* timeout when decoding next frame */
@@ -3186,6 +3198,14 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		READ_VREG(VLD_MEM_VIFIFO_RP),
 		STBUF_READ(&vdec->vbuf, get_rp),
 		STBUF_READ(&vdec->vbuf, get_wp));
+
+	if (hw->unsupport_format) {
+		mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_ERROR,
+			"%s, unsupport format, discard es data\n", __func__);
+		hw->dec_result = DEC_RESULT_DONE;
+		vdec_schedule_work(&hw->work);
+		return;
+	}
 
 	hw->dec_result = DEC_RESULT_NONE;
 	if (vdec->mc_loaded) {

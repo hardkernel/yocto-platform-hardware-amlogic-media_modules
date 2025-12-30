@@ -1046,6 +1046,7 @@ struct vdec_h264_hw_s {
 	enum FenceModeBufStatus fence_mode_buf_status;
 	int overscan_info_present_flag;
 	int overscan_appropriate_flag;
+	bool unsupport_format;
 };
 
 #define TIMEOUT_INIT 0
@@ -7366,10 +7367,11 @@ static bool is_buffer_available(struct vdec_s *vdec)
 
 #define AUX_TAG_SEI				0x2
 
-#define SEI_BUFFERING_PERIOD	0
-#define SEI_PicTiming			1
-#define SEI_USER_DATA			4
-#define SEI_RECOVERY_POINT		6
+#define SEI_BUFFERING_PERIOD		0
+#define SEI_PicTiming				1
+#define SEI_USER_DATA				4
+#define SEI_USER_DATA_UNREGISTER	5
+#define SEI_RECOVERY_POINT			6
 
 /*
  *************************************************************************
@@ -7440,6 +7442,8 @@ static int parse_one_sei_record(struct vdec_h264_hw_s *hw,
 	int bit_offset;
 	int read_size;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
+	const u8 uuid_and_flag_0[20] = {0xfa, 0x5e, 0xfe, 0x40, 0xa6, 0xaf, 0x11, 0xdd, 0xa6, 0x59, 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b, 0x44, 0x69, 0x76, 0x58};
+	const u8 uuid_and_flag_1[20] = {0x68, 0x55, 0x98, 0x4e, 0x49, 0x9e, 0x45, 0xc5, 0x8e, 0x5b, 0xf2, 0x7b, 0xd1, 0xd4, 0xac, 0xe6, 0x44, 0x69, 0x76, 0x58};
 
 	p_sei = sei_data_buf;
 	read_size = 0;
@@ -7654,6 +7658,14 @@ static int parse_one_sei_record(struct vdec_h264_hw_s *hw,
 		break;
 	case SEI_RECOVERY_POINT:
 		p_H264_Dpb->dpb_param.l.data[RECOVERY_POINT] = 1;
+		break;
+	case SEI_USER_DATA_UNREGISTER:
+		if (!memcmp(p_sei, uuid_and_flag_0, sizeof(uuid_and_flag_0)) ||
+			!memcmp(p_sei, uuid_and_flag_1, sizeof(uuid_and_flag_1))) {
+			dpb_print(DECODE_ID(hw), 0, "SEI payload_type %d\n", payload_type);
+			dpb_print(DECODE_ID(hw), 0, "Unsupport format\n");
+			hw->unsupport_format = 1;
+		}
 		break;
 	}
 
@@ -8905,8 +8917,15 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 				data_low,
 				data_high);*/
 
-		if (hw->sei_need_parse == true)
+		if (hw->sei_need_parse == true) {
 			parse_sei_data(hw, hw->sei_data_buf, hw->sei_data_len, true, NULL);
+			if (hw->unsupport_format) {
+				hw->dec_result = DEC_RESULT_ERROR_DATA;
+				vdec_schedule_work(&hw->work);
+				hw->stat |= DECODER_FATAL_ERROR_UNSUPPORT_FORMAT;
+				return IRQ_HANDLED;
+			}
+		}
 
 		if (hw->config_bufmgr_done == 0) {
 			hw->dec_result = DEC_RESULT_DONE;
@@ -9008,8 +9027,15 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			struct StorablePicture *p =
 				p_H264_Dpb->mVideo.dec_picture;
 
-			if ((hw->sei_need_parse == true) && (p->buf_spec_num >= 0))
+			if ((hw->sei_need_parse == true) && (p->buf_spec_num >= 0)) {
 				parse_sei_data(hw, hw->sei_data_buf, hw->sei_data_len, true, &hw->buffer_spec[p->buf_spec_num]);
+				if (hw->unsupport_format) {
+					hw->dec_result = DEC_RESULT_ERROR_DATA;
+					vdec_schedule_work(&hw->work);
+					hw->stat |= DECODER_FATAL_ERROR_UNSUPPORT_FORMAT;
+					return IRQ_HANDLED;
+				}
+			}
 
 			if (slice_header_process_status == 1) {
 				if (!p_H264_Dpb->mSPS.frame_mbs_only_flag) {
@@ -11660,8 +11686,15 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 		if (trans_data_buf[7] == AUX_TAG_SEI) {
 			int pic_struct;
 
-			if (hw->sei_need_parse == true)
+			if (hw->sei_need_parse == true) {
 				parse_sei_data(hw, hw->sei_data_buf, hw->sei_data_len, false, NULL);
+				if (hw->unsupport_format) {
+					hw->dec_result = DEC_RESULT_ERROR_DATA;
+					vdec_schedule_work(&hw->work);
+					hw->stat |= DECODER_FATAL_ERROR_UNSUPPORT_FORMAT;
+					return;
+				}
+			}
 			pic_struct = p_H264_Dpb->dpb_param.l.data[PICTURE_STRUCT];
 			hw->is_interlace = ((pic_struct == PIC_TOP) || (pic_struct == PIC_BOT) ||
 				(pic_struct == PIC_TOP_BOT) || (pic_struct == PIC_BOT_TOP) ||
@@ -12629,6 +12662,14 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			STBUF_READ(&vdec->vbuf, get_rp),
 			STBUF_READ(&vdec->vbuf, get_wp),
 			size);
+
+	if (hw->unsupport_format) {
+		dpb_print(DECODE_ID(hw), PRINT_FLAG_ERROR,
+			"%s, unsupport format, discard es data\n", __func__);
+		hw->dec_result = DEC_RESULT_ERROR_DATA;
+		vdec_schedule_work(&hw->work);
+		return;
+	}
 
 	hw->dec_result = DEC_RESULT_NONE;
 	hw->timeout_flag = TIMEOUT_INIT;
