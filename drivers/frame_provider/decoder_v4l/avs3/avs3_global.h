@@ -23,6 +23,9 @@
 
 #define WITH_OLD_CODE
 
+#define PICTURE_OUTPUT_DELAY_MAX		64
+#define PICTURE_OUTPUT_DELAY_MIN		0
+
 #define RPM_BEGIN                                              0x080  //0x100
 #define ALF_BEGIN                                              0x100  //0x180
 #define RPM_END                                                0x200  //0x280

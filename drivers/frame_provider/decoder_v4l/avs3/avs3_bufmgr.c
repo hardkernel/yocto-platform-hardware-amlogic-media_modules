@@ -124,6 +124,11 @@ COM_PIC *dec_pull_frm(DEC_CTX *ctx, int state)
 
 		//output to the buffer outside the decoder
 		ret = com_picman_out_libpic(pic, library_picture_index, &ctx->dpm);
+		if (!ret) {
+			printf("%s com_picman_out_libpic ret %d\n", __func__, ret);
+			return NULL;
+		}
+
 		if (pic) {
 			printf("%s libvcon output index %d\n", __func__, pic->buf_cfg.index);
 		}
@@ -621,6 +626,12 @@ int avs3_bufmgr_post_process(struct avs3_decoder *hw)
 	} else
 #endif
 	{
+		if ((pic_header->picture_output_delay < PICTURE_OUTPUT_DELAY_MIN) || (pic_header->picture_output_delay > PICTURE_OUTPUT_DELAY_MAX)) {
+			printf("pic_header->picture_output_delay is %d force to 0\n",
+				pic_header->picture_output_delay);
+			pic_header->picture_output_delay = 0;
+		}
+
 		ret = com_picman_put_pic(&ctx->dpm, ctx->pic, ctx->info.pic_header.slice_type, ctx->ptr, pic_header->decode_order_index,
 			pic_header->picture_output_delay, ctx->info.pic_header.temporal_id, 1, ctx->refp);
 #ifdef NEW_FRONT_BACK_CODE
