@@ -3775,7 +3775,7 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 			else
 				frame_type = BFRAME_FLAG;
 
-			dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+			dur_offset = ((dur_offset << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
 				vf->pts = pts_st.pts;
 				vf->pts_us64 = pts_st.pts_64;
@@ -4057,7 +4057,7 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 			else
 				frame_type = BFRAME_FLAG;
 
-			dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+			dur_offset = ((dur_offset << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
 				vf->pts = pts_st.pts;
 				vf->pts_us64 = pts_st.pts_64;

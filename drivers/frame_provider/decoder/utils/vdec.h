@@ -231,6 +231,8 @@ enum e_trace_work_status {
 #define SEI_TYPE	(1)
 #define DV_TYPE		(2)
 
+#define PTS_US64_FRAME_TYPE_SHIFT   62
+
 extern void vdec2_power_mode(int level);
 extern void vdec_poweron(enum vdec_type_e core);
 extern void vdec_poweroff(enum vdec_type_e core);

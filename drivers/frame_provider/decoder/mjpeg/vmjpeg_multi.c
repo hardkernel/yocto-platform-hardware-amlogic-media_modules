@@ -406,14 +406,14 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 		}
 		if ((vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_UPPER_LOOKUP) && vdec_stream_based(vdec)) {
 			u64 frame_type = KEYFRAME_FLAG;
-			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| offset;
 			vf->pts = 0;
 		}
 		if (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_DECODER_LOOKUP) {
 			u64 frame_type = KEYFRAME_FLAG;
 			checkout_pts_offset pts_info;
-			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| offset;
 			if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 				vf->pts = pts_info.pts;

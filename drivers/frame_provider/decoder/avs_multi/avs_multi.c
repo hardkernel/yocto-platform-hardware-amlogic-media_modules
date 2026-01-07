@@ -3291,11 +3291,19 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 	u32 buffer_index = pic->index;
 	u32 dur;
 	unsigned short decode_pic_count = pic->decode_pic_count;
+	u64 frame_type = 0;
 
 	if ((dec_control & DEC_CONTROL_FLAG_FORCE_2500_1080P_INTERLACE)
 		&& hw->frame_width == 1920 && hw->frame_height == 1080) {
 			force_interlaced_frame = true;
 	}
+
+	if (picture_type == I_PICTURE)
+		frame_type = KEYFRAME_FLAG;
+	else if (picture_type == P_PICTURE)
+		frame_type = PFRAME_FLAG;
+	else
+		frame_type = BFRAME_FLAG;
 
 	if (reg & INTERLACE_FLAG || force_interlaced_frame) {	/* interlace */
 			hw->throw_pb_flag = 0;
@@ -3395,11 +3403,11 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 
 			if (vdec_stream_based(vdec) && (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_UPPER_LOOKUP)) {
 				vf->pts_us64 =
-					(((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
+					(((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 				vf->pts = 0;
 			} else if (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_DECODER_LOOKUP) {
 				checkout_pts_offset pts_info;
-				pts_info.offset = (((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
+				pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 				if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 					vf->pts = pts_info.pts;
 					vf->pts_us64 = pts_info.pts_64;
@@ -3611,11 +3619,11 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 
 			if (vdec_stream_based(vdec) && (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_UPPER_LOOKUP)) {
 				vf->pts_us64 =
-					(((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
+					(((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 				vf->pts = 0;
 			} else if (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_DECODER_LOOKUP) {
 				checkout_pts_offset pts_info;
-				pts_info.offset = (((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
+				pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 				if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 					vf->pts = pts_info.pts;
 					vf->pts_us64 = pts_info.pts_64;

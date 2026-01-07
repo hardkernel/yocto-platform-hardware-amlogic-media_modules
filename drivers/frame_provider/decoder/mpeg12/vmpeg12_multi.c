@@ -2034,7 +2034,7 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 					frame_type = BFRAME_FLAG;
 
 				if (i == 0) {
-					vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+					vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 						| pic->offset;
 					vf->pts = 0;
 				} else {

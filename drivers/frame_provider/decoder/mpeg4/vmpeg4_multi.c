@@ -817,7 +817,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 				frame_type = PFRAME_FLAG;
 			else
 				frame_type = BFRAME_FLAG;
-			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| pic->offset;
 			vf->pts = 0;
 		} else if (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_DECODER_LOOKUP) {
@@ -831,7 +831,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 			else
 				frame_type = BFRAME_FLAG;
 
-			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| pic->offset;
 			if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 				vf->pts = pts_info.pts;
@@ -1031,7 +1031,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 				frame_type = PFRAME_FLAG;
 			else
 				frame_type = BFRAME_FLAG;
-			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| pic->offset;
 			vf->pts = 0;
 		} else if (vdec->vbuf.use_ptsserv == MULTI_PTS_SERVER_DECODER_LOOKUP) {
@@ -1044,7 +1044,7 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 				frame_type = PFRAME_FLAG;
 			else
 				frame_type = BFRAME_FLAG;
-			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+			pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 				| pic->offset;
 			if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 				vf->pts = pts_info.pts;

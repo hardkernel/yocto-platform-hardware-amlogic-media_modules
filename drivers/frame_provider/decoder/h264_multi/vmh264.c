@@ -3851,7 +3851,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			else
 				frame_type = BFRAME_FLAG;
 			if (i == 0) {
-				vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000)
+				vf->pts_us64 = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000)
 					| offset;
 				vf->pts = 0;
 			} else {
@@ -3870,7 +3870,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			else
 				frame_type = BFRAME_FLAG;
 			if (i == 0) {
-				pts_info.offset = (((u64)vf->duration << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+				pts_info.offset = (((u64)vf->duration << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | offset;
 				if (!ptsserver_checkout_pts_offset((vdec->pts_server_id & 0xff), &pts_info)) {
 					vf->pts = pts_info.pts;
 					vf->pts_us64 = pts_info.pts_64;

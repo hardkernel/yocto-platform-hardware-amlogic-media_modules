@@ -5844,7 +5844,7 @@ static void set_vframe(struct AVS3Decoder_s *dec,
 		else if (pic->slice_type == B_IMG)
 			frame_type = BFRAME_FLAG;
 
-		dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | stream_offset;
+		dur_offset = ((dur_offset << 32 | (frame_type << PTS_US64_FRAME_TYPE_SHIFT)) & 0xffffffff00000000) | stream_offset;
 
 		if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
 			vf->pts = pts_st.pts;
