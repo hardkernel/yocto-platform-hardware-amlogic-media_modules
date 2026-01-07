@@ -13066,7 +13066,6 @@ static void reset_dpb_init(struct h264_dpb_stru *p_H264_Dpb,
 
 static void h264_reset_bufmgr(struct vdec_s *vdec, bool reset_flags)
 {
-	ulong timeout;
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)vdec->private;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
 #if 0
@@ -13126,15 +13125,6 @@ static void h264_reset_bufmgr(struct vdec_s *vdec, bool reset_flags)
 	hw->skip_frame_count);
 
 	flush_dpb(&hw->dpb);
-
-	if (!hw->is_used_v4l) {
-		timeout = jiffies + HZ;
-		while (kfifo_len(&hw->display_q) > 0) {
-			if (time_after(jiffies, timeout))
-				break;
-			usleep_range(1000, 2000);
-		}
-	}
 
 	buf_spec_init(hw, true);
 
