@@ -50,6 +50,8 @@
 #define DEFAULT_DOULBCHECK_THRESHOLD (5)
 #define DEFAULT_REWIND_PTS_THRESHOLD (5000000)
 #define DEFAULT_REWIND_INDEX_THRESHOLD (120)
+/* Upper bound for user-provided free list count to avoid excessive vmalloc */
+#define MAX_FREE_LIST_COUNT (10000)
 
 /* Debug log levels */
 #define PTS_SERVER_DEBUG_LEVEL_0   0   /* Critical logs only */
@@ -113,6 +115,7 @@ long ptsserver_ins_init_syncinfo(ptsserver_ins* pInstance,ptsserver_alloc_para* 
 	s32 index = 0;
 	s32 pts_server_id = pInstance->mPtsServerInsId;
 	pts_node* ptn = NULL;
+	u32 alloc_count;
 
 	if (pInstance == NULL) {
 		return -1;
@@ -127,6 +130,11 @@ long ptsserver_ins_init_syncinfo(ptsserver_ins* pInstance,ptsserver_alloc_para* 
 		pInstance->mLookupThreshold = DEFAULT_LOOKUP_THRESHOLD;
 		pInstance->kDoubleCheckThreshold = DEFAULT_DOULBCHECK_THRESHOLD;
 	}
+
+	/* initialize alloc_count after mMaxCount has been set and validate it */
+	alloc_count = pInstance->mMaxCount;
+	if (alloc_count == 0 || alloc_count > MAX_FREE_LIST_COUNT)
+		alloc_count = DEFAULT_FREE_LIST_COUNT;
 
 	pInstance->mPtsCheckinStarted = 0;
 	pInstance->mPtsCheckoutStarted = 0;
@@ -179,13 +187,18 @@ long ptsserver_ins_init_syncinfo(ptsserver_ins* pInstance,ptsserver_alloc_para* 
 	INIT_LIST_HEAD(&pInstance->pts_list);
 	INIT_LIST_HEAD(&pInstance->pts_free_list);
 
-	pInstance->all_free_ptn = vmalloc(pInstance->mMaxCount * sizeof(struct ptsnode));
+	if (alloc_count > (SIZE_MAX / sizeof(struct ptsnode))) {
+		alloc_count = DEFAULT_FREE_LIST_COUNT;
+		pInstance->mMaxCount = alloc_count;
+	}
+
+	pInstance->all_free_ptn = vmalloc(alloc_count * sizeof(struct ptsnode));
 	if (pInstance->all_free_ptn == NULL) {
 		pr_info("vmalloc all_free_ptn fail \n");
 		return -1;
 	}
 
-	for (index = 0; index < pInstance->mMaxCount; index++) {
+	for (index = 0; index < alloc_count; index++) {
 		ptn = &pInstance->all_free_ptn[index];
 		PTS_LOG(PTS_SERVER_DEBUG_LEVEL_5,'C',pts_server_id,
 			"server_id:%d ptn[%d]:%px\n",pts_server_id,index,ptn);
@@ -220,7 +233,7 @@ long ptsserver_ins_alloc(s32 *pServerInsId,
 	for (index = 0; index < MAX_DYNAMIC_INSTANCE_NUM - 1; index++) {
 		mutex_lock(&vPtsServerInsList[index].mListLock);
 		if (vPtsServerInsList[index].pInstance == NULL) {
-			vPtsServerInsList[index].pInstance = pInstance;
+			// vPtsServerInsList[index].pInstance = pInstance;
 			pInstance->mPtsServerInsId = index;
 			pInstance->mRef++;
 			*pServerInsId = index;
@@ -231,6 +244,7 @@ long ptsserver_ins_alloc(s32 *pServerInsId,
 				mutex_unlock(&vPtsServerInsList[index].mListLock);
 				return -1;
 			}
+			vPtsServerInsList[index].pInstance = pInstance;
 			mutex_unlock(&vPtsServerInsList[index].mListLock);
 			break;
 		}
@@ -238,7 +252,7 @@ long ptsserver_ins_alloc(s32 *pServerInsId,
 	}
 	pr_info("ptsserv: %s --> index:%d\n",__func__,index);
 	if (index == MAX_DYNAMIC_INSTANCE_NUM) {
-		memset(pInstance, 0, sizeof(ptsserver_ins));
+		// memset(pInstance, 0, sizeof(ptsserver_ins));
 		kfree(pInstance);;
 		return -1;
 	}
@@ -255,6 +269,7 @@ void ptsserver_set_mode(s32 pServerInsId, bool set_mode) {
 	if (index < 0 || index >= MAX_INSTANCE_NUM)
 		return;
 	vPtsServerIns = &(vPtsServerInsList[index]);
+	mutex_lock(&vPtsServerIns->mListLock);
 
 	pInstance = vPtsServerIns->pInstance;
 	if (pInstance == NULL) {
@@ -266,6 +281,7 @@ void ptsserver_set_mode(s32 pServerInsId, bool set_mode) {
 		pInstance->mOffsetMode = 1;
 	}
 
+	mutex_unlock(&vPtsServerIns->mListLock);
 	return;
 }
 EXPORT_SYMBOL(ptsserver_set_mode);
