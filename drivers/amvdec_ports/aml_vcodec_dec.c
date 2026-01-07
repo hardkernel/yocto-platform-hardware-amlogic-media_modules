@@ -6083,6 +6083,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 	} else if (ctrl->id == AML_V4L2_SET_STREAM_MODE) {
 		u32 ret;
 		ctx->stream_mode = ctrl->val;
+		ctx->output_dma_mode = true;
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "set streambase: %x\n", ctrl->val);
 
 		if (ctx->stream_mode == true) {
