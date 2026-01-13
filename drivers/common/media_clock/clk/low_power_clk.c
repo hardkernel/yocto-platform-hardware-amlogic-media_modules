@@ -42,6 +42,9 @@ static void lp_clk_on_avbcd_v2(void)
 		(0x0	<< 17) | //lcevc
 		(0x0	<< 24)	 //reserved
 		));
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X) {
+		SET_VREG_MASK(HEVC_LPF_CG_OFF2, 1 << 16);
+	}
 }
 
 static void lp_clk_on_hevc_v2(void)
@@ -347,6 +350,9 @@ static void lp_clk_off_common_v2(void)
 	WRITE_VREG(GCLK_EN, 0);
 	CLEAR_VREG_MASK(DOS_GCLK_EN0, 0xc00003ff);
 	WRITE_VREG(DOS_GCLK_EN3, 0x0);
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T6X) {
+		CLEAR_VREG_MASK(HEVC_LPF_CG_OFF2, 1 << 16);
+	}
 }
 
 /* improved low power ctrl for T6W T6D GXLX4 */
@@ -478,8 +484,6 @@ struct low_power_ctrl_t *dos_low_power_ctrl_init(void)
 			break;
 		case VFORMAT_AVBCD:
 			lpc->clk_gate_on[i] = lp_clk_on_avbcd_v2;
-			/* no clk off for avbcd switch to dec */
-			lpc->clk_gate_off[i] = NULL;
 			break;
 
 		case VFORMAT_MPEG12:

@@ -6386,6 +6386,7 @@ void hevc_reset_core(struct vdec_s *vdec)
 	}
 	dec_pipeline_idle_ctrl(vdec, VDEC_INPUT_TARGET_HEVC, 1);
 
+	vdec_low_power_clk_on_cm(vdec);
 	if (vdec_get_debug() & VDEC_DBG_AUTO_CLK_GATE_DISABLE) {
 		hevc_auto_clk_gate_disable();
 	}
