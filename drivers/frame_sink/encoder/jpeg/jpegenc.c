@@ -700,7 +700,7 @@ static int jpeg_enc_clk_get(struct device *dev, struct jpeg_enc_clks *clks)
         //ret = -ENOENT;
         //goto err;
     } else
-        jenc_pr(LOG_INFO, "jpeg_enc_clk_get: get clk_dos OK\n");
+        jenc_pr(LOG_INFO, "get clk_dos OK\n");
 
     clks->jpeg_enc_clk = devm_clk_get(dev, "clk_jpeg_enc");
     if (IS_ERR(clks->jpeg_enc_clk)) {
@@ -709,7 +709,7 @@ static int jpeg_enc_clk_get(struct device *dev, struct jpeg_enc_clks *clks)
         //ret = -ENOENT;
         //goto err;
     } else
-        jenc_pr(LOG_INFO, "jpeg_enc_clk_get: get clk_jpeg_enc OK\n");
+        jenc_pr(LOG_INFO, "get clk_jpeg_enc OK\n");
 
     return 0;
 //err:
@@ -728,14 +728,12 @@ static void jpeg_enc_clk_enable(struct jpeg_enc_clks *clks, u32 frq)
         if (clks->jpeg_enc_clk != NULL) {
             clk_set_rate(clks->jpeg_enc_clk, 400 * MHz);
             clk_prepare_enable(clks->jpeg_enc_clk);
-            jenc_pr(LOG_INFO, "jpegenc clk: %ld\n", clk_get_rate(clks->jpeg_enc_clk));
         }
     }
     else {
         if (clks->jpeg_enc_clk != NULL) {
             clk_set_rate(clks->jpeg_enc_clk, 666666666);
             clk_prepare_enable(clks->jpeg_enc_clk);
-            jenc_pr(LOG_INFO, "jpegenc clk: %ld\n", clk_get_rate(clks->jpeg_enc_clk));
         }
     }
 
@@ -3558,7 +3556,6 @@ static void jpegenc_isr_tasklet(ulong data)
 static irqreturn_t jpegenc_isr(s32 irq_number, void *para)
 {
     struct jpegenc_manager_s *manager = (struct jpegenc_manager_s *)para;
-    jenc_pr(LOG_ALL, "jpegenc intr is fired\n");
 
     if (manager->irq_requested == false)
         return IRQ_NONE;
@@ -3730,7 +3727,6 @@ static s32 jpegenc_poweron_ex(u32 clock)
     WRITE_VREG(DOS_MEM_PD_HCODEC, 0x0);
 
     if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7) {
-        jenc_pr(LOG_INFO, "powering on hcodec\n");
         vdec_poweron(VDEC_HCODEC);
         jenc_pr(LOG_INFO, "hcodec power status after poweron:%d\n", vdec_on(VDEC_HCODEC));
     } else {
@@ -3759,7 +3755,6 @@ static s32 jpegenc_poweroff_ex(void)
     WRITE_VREG_BITS(DOS_GCLK_EN0, 0, 12, 15);
 
     if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7) {
-        jenc_pr(LOG_INFO, "powering off hcodec for t7\n");
         vdec_poweroff(VDEC_HCODEC);
         jenc_pr(LOG_INFO, "hcodec power status after poweroff:%d\n", vdec_on(VDEC_HCODEC));
     } else
@@ -3930,8 +3925,6 @@ static s32 jpegenc_init(void)
         WRITE_HREG(HCODEC_ASSIST_MMC_CTRL1, 0x32);
     else
         WRITE_HREG(HCODEC_ASSIST_MMC_CTRL1, 0x2);
-
-    jenc_pr(LOG_ALL, "start to load microcode\n");
 
     if (fw_tee_enabled() && !legacy_load && ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7 )
         || (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SC2 ))) {
@@ -4333,8 +4326,7 @@ static long jpegenc_ioctl(struct file *file, u32 cmd, ulong arg)
             return -1;
         }
 
-        jenc_pr(LOG_INFO, "JPEGENC_IOC_CONFIG_DMA_INPUT, shared_fd:%d\n",
-            shared_fd);
+        jenc_pr(LOG_INFO, "shared_fd:%d\n",shared_fd);
         memset (&dma_info, 0, sizeof(dma_info));
         dma_info.fd = shared_fd;
         if (enc_src_addr_config(&dma_info, file)) {
@@ -4542,15 +4534,15 @@ static s32 jpegenc_mmap(struct file *filp, struct vm_area_struct *vma)
     struct jpegenc_wq_s *wq = (struct jpegenc_wq_s *)filp->private_data;
     ulong off = vma->vm_pgoff << PAGE_SHIFT;
     ulong vma_size = vma->vm_end - vma->vm_start;
-
+    u32 ret = 0;
     if (vma_size == 0) {
-        jenc_pr(LOG_ERROR, "vma_size is 0\n");
-        return -EAGAIN;
+        ret = -1;
+        goto error;
     }
     off += wq->buf_start;
     if ((off > (wq->buf_start + wq->buf_size)) || ((off + vma_size) > (wq->buf_start + wq->buf_size))) {
-        jenc_pr(LOG_ERROR, "vma_size is 0x%lx, off is 0x%lx\n", vma_size, off);
-        return -EAGAIN;
+        ret = -2;
+        goto error;
     }
     jenc_pr(LOG_INFO, "vma_size is %ld, off is %ld\n", vma_size, off);
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
@@ -4561,10 +4553,13 @@ static s32 jpegenc_mmap(struct file *filp, struct vm_area_struct *vma)
     /* vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot); */
     if (remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
         vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-        jenc_pr(LOG_ERROR, "set_cached: failed remap_pfn_range\n");
-        return -EAGAIN;
+        ret = -3;
+        goto error;
     }
     return 0;
+error:
+    jenc_pr(LOG_ERROR, "jpegenc_mmap failed! ret = %d\n",ret);
+    return -EAGAIN;
 }
 
 static u32 jpegenc_poll(struct file *file, poll_table *wait_table)
@@ -4710,8 +4705,6 @@ static int enc_dma_buf_map(struct enc_dma_cfg *cfg)
         return -EINVAL;
     }
 
-    jenc_pr(LOG_INFO, "enc_dma_buf_map, fd %d\n", cfg->fd);
-
     fd = cfg->fd;
     dev = cfg->dev;
     dir = cfg->dir;
@@ -4764,7 +4757,6 @@ static int enc_dma_buf_get_phys(struct enc_dma_cfg *cfg, unsigned long *addr)
     struct sg_table *sg_table;
     struct page *page;
     int ret;
-    jenc_pr(LOG_INFO, "jpegenc_dma_buf_get_phys in\n");
 
     ret = enc_dma_buf_map(cfg);
 
@@ -5078,9 +5070,6 @@ static s32 jpegenc_probe(struct platform_device *pdev)
                 "jpegenc - reserved cma node found: %s.\n", rmem->name);
             gJpegenc.mem.cma_pool_size = rmem->size;
             gJpegenc.use_cma = true;
-            jenc_pr(LOG_DEBUG,
-                "jpegenc - codec mm pool size: %d MB.\n", codec_mm_get_free_size() / SZ_1M);
-
         } else {
             jenc_pr(LOG_DEBUG,
                 "jpegenc - reserved cma node not found, using codec mm pool size.\n");
@@ -5174,17 +5163,17 @@ static s32 jpegenc_probe(struct platform_device *pdev)
         }
         #else
         res_irq = platform_get_irq_byname(pdev, "dos_mbox_slow_irq2");
-        jenc_pr(LOG_INFO, "[%s:%d] get irq dos_mbox_slow_irq2, res_irq=%d\n", __FUNCTION__, __LINE__, res_irq);
+        jenc_pr(LOG_INFO, "get irq dos_mbox_slow_irq2, res_irq=%d\n",res_irq);
         #endif
     } else {
         res_irq = platform_get_irq(pdev, 0);
     }
 
     if (res_irq < 0) {
-        jenc_pr(LOG_ERROR, "[%s] get irq error!", __func__);
+        jenc_pr(LOG_ERROR, "get irq error!");
         return -EINVAL;
     } else
-        jenc_pr(LOG_DEBUG, "[%s] get irq success: %d!\n", __func__, res_irq);
+        jenc_pr(LOG_DEBUG, "get irq success: %d!\n",res_irq);
 
     gJpegenc.irq_num = res_irq;
 
