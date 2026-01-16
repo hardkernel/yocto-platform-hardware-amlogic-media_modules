@@ -158,36 +158,6 @@ enum AVColorTransferCharacteristic {
 };
 #endif
 
-#define VDEC_MODE_MMU_DW_MASK	(0x20)
-#define VDEC_MODE_10BIT_MASK	(0x10000)
-#define VDEC_MODE_DW_MASK	(0xffff)
-
-enum vdec_dec_mode {
-	DM_INVALID		= 0,
-	DM_AVBC_ONLY		= 0,
-	DM_YUV_1_1_AVBC		= 1,
-	DM_YUV_1_4_AVBC_A	= 2,
-	DM_YUV_1_4_AVBC_B	= 3,
-	DM_YUV_1_2_AVBC		= 4,
-	DM_YUV_1_8_AVBC		= 8,
-	DM_YUV_ONLY		= 0x10,
-	DM_AVBC_1_1		= 0x21,
-	DM_AVBC_1_4		= 0x22,
-	DM_AVBC_1_2		= 0x24,
-	DM_YUV_AUTO_1_2_AVBC	= 0x100,
-	DM_YUV_AUTO_1_4_AVBC	= 0x200,
-	DM_YUV_AUTO_1_2_AVBC_B	= 0x300,
-	/* (0~540] 1/1, (540~1080] 1/4, (1080~4K] 1/16 */
-	DM_YUV_AUTO_14_12_AVBC	= 0x400,
-	DM_YUV_1_1_10BIT_AVBC	= 0x10001,
-	DM_YUV_1_4_10BIT_AVBC	= 0x10003,
-	DM_YUV_1_2_10BIT_AVBC	= 0x10004,
-	DM_YUV_1_8_10BIT_AVBC	= 0x10008,
-	DM_YUV_P010_ONLY	= 0x10010,
-	/* (0~1080] 1/1, (1080~4K] 1/16 */
-	DM_YUV_14_11_10BIT_AVBC	= 0x10200,
-};
-
 //fmt
 const char *av_color_space_name(enum AVColorSpace space);
 const char *av_color_primaries_name(enum AVColorPrimaries primaries);

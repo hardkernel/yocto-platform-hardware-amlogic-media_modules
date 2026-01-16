@@ -6054,7 +6054,8 @@ static int init_fb_bufstate(struct VP9Decoder_s *pbi)
 	int mmu_4k_number = pbi->fb_ifbuf_num * vp9_mmu_page_num(pbi, pbi->max_pic_w,
 			pbi->max_pic_h, buf_alloc_depth == 10); //hevc->bit_depth_luma == 8);
 	int mmu_map_size = ((mmu_4k_number * 4) >> 6) << 6;
-	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ? CODEC_MM_FLAGS_TVP : 0;
+	struct vdec_s *vdec = hw_to_vdec(pbi);
+	int tvp_flag = vdec_secure(vdec) ? CODEC_MM_FLAGS_TVP : 0;
 
 	if (mmu_4k_number <= 0) {
 		pr_err("%s: invalid mmu_4k_number value: %d\n", __func__, mmu_4k_number);
@@ -6074,7 +6075,7 @@ static int init_fb_bufstate(struct VP9Decoder_s *pbi)
 	pbi->fb_buf_sys_imem.buf_end = pbi->fb_buf_sys_imem.buf_start + pbi->fb_buf_sys_imem.buf_size;
 
 	pbi->mmu_box_fb = decoder_mmu_box_alloc_box(DRIVER_NAME,
-		pbi->index, 2,
+		vdec->resman_ssid, 2,
 		(mmu_4k_number << 12) * 2,
 		tvp_flag
 		);
@@ -14159,7 +14160,8 @@ static int vvp9_stop(struct VP9Decoder_s *pbi)
 
 static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ?
+	struct vdec_s *vdec = hw_to_vdec(pbi);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = vp9_max_mmu_buf_size(pbi->max_pic_w, pbi->max_pic_h);
 
@@ -14167,7 +14169,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 	pbi->sc_start_time = get_jiffies_64();
 	if (pbi->mmu_enable && !pbi->is_used_v4l) {
 		pbi->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			pbi->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			pbi->need_cache_size,
 			tvp_flag
 			);
@@ -14178,7 +14180,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #ifdef NEW_FB_CODE
 		if (pbi->front_back_mode) {
 			pbi->mmu_box_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			pbi->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			pbi->need_cache_size,
 			tvp_flag
 			);
@@ -14192,7 +14194,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #ifdef VP9_10B_MMU_DW
 	if (pbi->dw_mmu_enable && !pbi->is_used_v4l) {
 		pbi->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			pbi->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			pbi->need_cache_size,
 			tvp_flag
 			);
@@ -14202,7 +14204,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #ifdef NEW_FB_CODE
 		if (pbi->front_back_mode) {
 			pbi->mmu_box_dw_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				pbi->index, FRAME_BUFFERS,
+				vdec->resman_ssid, FRAME_BUFFERS,
 				pbi->need_cache_size,
 				tvp_flag
 				);
@@ -14215,7 +14217,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #endif
 	pbi->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			pbi->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

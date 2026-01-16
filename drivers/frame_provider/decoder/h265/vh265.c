@@ -3321,7 +3321,8 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 
 static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+	struct vdec_s *vdec = hw_to_vdec(hevc);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
@@ -3335,7 +3336,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 	hevc->sc_start_time = get_jiffies_64();
 	if (hevc->mmu_enable) {
 		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag);
@@ -3346,7 +3347,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef H265_10B_MMU_DW
 		if (hevc->dw_mmu_enable) {
 			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -3360,7 +3361,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 		return 0;
 
 	hevc->bmmu_box = decoder_bmmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			BMMU_MAX_BUFFERS,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
@@ -11324,6 +11325,7 @@ static void aspect_ratio_set(struct hevc_state_s *hevc)
 
 int vh265_reconfig_mmu(struct hevc_state_s *hevc, bool enable_mmu)
 {
+	struct vdec_s *vdec = hw_to_vdec(hevc);
 	struct firmware_s *fw = NULL;
 	int fw_size = 0x1000 * 16;
 	int size = -1;
@@ -11561,7 +11563,7 @@ int vh265_reconfig_mmu(struct hevc_state_s *hevc, bool enable_mmu)
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, 0x1 << 4);
 
 		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag);
@@ -11573,7 +11575,7 @@ int vh265_reconfig_mmu(struct hevc_state_s *hevc, bool enable_mmu)
 #ifdef H265_10B_MMU_DW
 		if (hevc->dw_mmu_enable) {
 			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -13289,7 +13291,13 @@ int vh265_dec_status(struct vdec_info *vstatus)
 
 	if (hevc->is_dv_flag)
 		vstatus->status =  vstatus->status | DECODER_REPORT_DV_FLAG;
-
+	vstatus->dw = hevc->double_write_mode;
+	vstatus->margin_num = hevc->interlace_flag ?
+						get_interlace_filed_margin(hevc) :
+						get_dynamic_buf_num_margin(hevc);
+	vstatus->dpb_num = get_work_pic_num(hevc) - vstatus->margin_num;
+	vstatus->filed_flag = hevc->interlace_flag;
+	vstatus->bit_depth = hevc->bit_depth_luma;
 	if (!is_support_4k_h265() &&
 		(IS_4K_SIZE(vstatus->frame_width, vstatus->frame_height)) &&
 		((vstatus->frame_width <= 4096 && vstatus->frame_height <= 2304) ||

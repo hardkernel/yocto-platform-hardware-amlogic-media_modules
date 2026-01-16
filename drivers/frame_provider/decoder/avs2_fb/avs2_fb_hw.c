@@ -501,7 +501,8 @@ static int init_mmu_fb_bufstate(struct AVS2Decoder_s *dec, int mmu_fb_4k_number)
 	struct avs2_decoder *avs2_dec = &dec->avs2_dec;
 	dma_addr_t tmp_phy_adr;
 	int mmu_map_size = ((mmu_fb_4k_number * 4) >> 6) << 6;
-	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
+	struct vdec_s *vdec = hw_to_vdec(dec);
+	int tvp_flag = vdec_secure(vdec) ?
 				CODEC_MM_FLAGS_TVP : 0;
 
 	avs2_print(dec, AVS2_DBG_BUFMGR,
@@ -511,7 +512,7 @@ static int init_mmu_fb_bufstate(struct AVS2Decoder_s *dec, int mmu_fb_4k_number)
 		return -1;
 
 	dec->mmu_box_fb = decoder_mmu_box_alloc_box(DRIVER_NAME,
-		dec->index, 2, (mmu_fb_4k_number << 12) * 2, tvp_flag);
+		vdec->resman_ssid, 2, (mmu_fb_4k_number << 12) * 2, tvp_flag);
 
 	dec->fb_buf_mmu0_addr = dma_alloc_coherent(amports_get_dma_device(),
 		mmu_map_size, &tmp_phy_adr, GFP_KERNEL);

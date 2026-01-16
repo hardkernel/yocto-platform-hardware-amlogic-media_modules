@@ -2814,6 +2814,7 @@ static int vvc1_prot_init(struct vdec_vc1_hw_s *hw)
 static void vvc1_local_init(struct vdec_vc1_hw_s *hw, bool is_reset)
 {
 	int i;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 
 	/* vvc1_ratio = 0x100; */
 	hw->vvc1_ratio = hw->vvc1_amstream_dec_info.ratio;
@@ -2864,7 +2865,7 @@ static void vvc1_local_init(struct vdec_vc1_hw_s *hw, bool is_reset)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 		DRIVER_NAME,
-		0,
+		ctx->id,
 		MAX_BMMU_BUFFER_NUM,
 		4 + PAGE_SHIFT,
 		CODEC_MM_FLAGS_CMA_CLEAR |

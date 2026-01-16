@@ -95,7 +95,13 @@ static int fops_vcodec_open(struct file *file)
 
 	mutex_lock(&dev->dev_mutex);
 	ctx->empty_flush_buf = aml_vb;
-	ctx->id = dev->id_counter++;
+	/*
+	* At initialization, id equals local_id.
+	* When an instance ID is explicitly set by the upper layer,
+	* only id is changed; local_id remains unchanged.
+	*/
+	ctx->local_id = dev->id_counter++;
+	ctx->id = ctx->local_id;
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 	v4l2_fh_add(&ctx->fh);
@@ -145,16 +151,16 @@ static int fops_vcodec_open(struct file *file)
 
 	ret = aml_vcodec_dec_ctrls_setup(ctx);
 	if (ret) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-			"Failed to setup vcodec controls\n");
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
+			"Failed to setup vcodec controls, local_id:%d\n", ctx->local_id);
 		goto err_ctrls_setup;
 	}
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev_dec, ctx,
 		&aml_vcodec_dec_queue_init);
 	if (IS_ERR((__force void *)ctx->m2m_ctx)) {
 		ret = PTR_ERR((__force void *)ctx->m2m_ctx);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-			"Failed to v4l2_m2m_ctx_init() (%d)\n", ret);
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
+			"Failed to v4l2_m2m_ctx_init() (%d), local_id:%d\n", ret, ctx->local_id);
 		goto err_m2m_ctx_init;
 	}
 	src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
@@ -189,16 +195,16 @@ static int fops_vcodec_open(struct file *file)
 	ctx->aux_infos.reset_sei_buffer = aml_reset_sei_buffer;
 	ctx->aux_infos.unbind_hdr10p_buffer = aml_unbind_hdr10p_buffer;
 
-	ret = aml_buf_mgr_init(&ctx->bm, "v4ldec-m2m", ctx->id, ctx);
+	ret = aml_buf_mgr_init(&ctx->bm, "v4ldec-m2m", ctx->local_id, ctx);
 	if (ret) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
 			"Failed to init buffer manager.\n");
 		goto err_buffer_manager;
 	}
 
 	ret = aml_thread_start(ctx, aml_thread_capture_worker, AML_THREAD_CAPTURE, "cap");
 	if (ret) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
 			"Failed to creat capture thread.\n");
 		goto err_creat_thread;
 	}
@@ -208,8 +214,8 @@ static int fops_vcodec_open(struct file *file)
 	ctx->dv_id = -1;
 
 	mutex_unlock(&dev->dev_mutex);
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "%s decoder %lx\n",
-		dev_name(&dev->plat_dev->dev), (ulong)ctx);
+	v4l_dbg(NULL, V4L_DEBUG_CODEC_BUFMGR, "%s local_id:%d decoder %lx\n",
+		dev_name(&dev->plat_dev->dev), ctx->local_id, (ulong)ctx);
 
 	return 0;
 

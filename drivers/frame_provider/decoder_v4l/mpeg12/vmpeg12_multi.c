@@ -4122,6 +4122,8 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw)
 {
 	int i;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
+
 	INIT_KFIFO(hw->display_q);
 	INIT_KFIFO(hw->newframe_q);
 
@@ -4144,7 +4146,7 @@ static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			ctx->id,
 			1,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

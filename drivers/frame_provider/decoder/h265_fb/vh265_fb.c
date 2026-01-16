@@ -3852,7 +3852,8 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 
 static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+	struct vdec_s *vdec = hw_to_vdec(hevc);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
@@ -3866,7 +3867,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 	hevc->sc_start_time = get_jiffies_64();
 	if (hevc->mmu_enable) {
 		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag);
@@ -3877,7 +3878,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef NEW_FB_CODE
 		if (hevc->front_back_mode) {
 			hevc->mmu_box_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -3891,7 +3892,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef H265_10B_MMU_DW
 		if (hevc->dw_mmu_enable) {
 			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -3901,7 +3902,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef NEW_FB_CODE
 			if (hevc->front_back_mode) {
 				hevc->mmu_box_dw_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-					hevc->index,
+					vdec->resman_ssid,
 					MAX_REF_PIC_NUM,
 					buf_size * SZ_1M,
 					tvp_flag
@@ -3917,7 +3918,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 		return 0;
 
 	hevc->bmmu_box = decoder_bmmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			BMMU_MAX_BUFFERS,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
@@ -14639,7 +14640,13 @@ int vh265_dec_status(struct vdec_info *vstatus)
 		pr_info("%s, unsupported size : %u x %u.\n", __func__, vstatus->frame_width, vstatus->frame_height);
 		vstatus->status |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
 	}
-
+	vstatus->dw = hevc->double_write_mode;
+	vstatus->margin_num = hevc->interlace_flag ?
+						get_interlace_filed_margin(hevc) :
+						get_dynamic_buf_num_margin(hevc);
+	vstatus->dpb_num = get_work_pic_num(hevc) - vstatus->margin_num;
+	vstatus->filed_flag = hevc->interlace_flag;
+	vstatus->bit_depth = hevc->bit_depth_luma;
 	vstatus->bit_rate = hevc->gvs->bit_rate;
 	vstatus->frame_dur = hevc->frame_dur;
 	if (hevc->gvs) {

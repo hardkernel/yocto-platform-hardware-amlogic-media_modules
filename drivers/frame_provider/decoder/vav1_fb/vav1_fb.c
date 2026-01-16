@@ -11496,7 +11496,8 @@ static int vav1_stop(struct AV1HW_s *hw)
 }
 static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
 
@@ -11512,7 +11513,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 	if (hw->mmu_enable && !hw->is_used_v4l) {
 		int count = FRAME_BUFFERS;
 		hw->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hw->index /* * 2*/, count,
+			vdec->resman_ssid /* * 2*/, count,
 			hw->need_cache_size,
 			tvp_flag
 			);
@@ -11523,7 +11524,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 #ifdef NEW_FB_CODE
 		if (hw->front_back_mode) {
 			hw->mmu_box_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hw->index,
+				vdec->resman_ssid,
 				count,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -11537,7 +11538,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 #ifdef AOM_AV1_MMU_DW
 		if (hw->dw_mmu_enable) {
 			hw->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hw->index /** 2 + 1*/, count,
+				vdec->resman_ssid /** 2 + 1*/, count,
 				hw->need_cache_size,
 				tvp_flag
 				);
@@ -11548,7 +11549,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 #ifdef NEW_FB_CODE
 			if (hw->front_back_mode) {
 				hw->mmu_box_dw_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-					hw->index,
+					vdec->resman_ssid,
 					count,
 					buf_size * SZ_1M,
 					tvp_flag
@@ -11565,7 +11566,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 	}
 	hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

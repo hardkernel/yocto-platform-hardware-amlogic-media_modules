@@ -72,6 +72,8 @@
 #define INTERLACE_FLAG          0x80
 #define TOP_FIELD_FIRST_FLAG    0x40
 
+#define MPEG4_DEFAULT_BIT_DEPTH 8
+
 /* protocol registers */
 #define MREG_REF0           AV_SCRATCH_1
 #define MREG_REF1           AV_SCRATCH_2
@@ -2092,6 +2094,11 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = hw->stat | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = hw->stat;
+	vstatus->dw = DM_YUV_ONLY;
+	vstatus->margin_num = hw->dynamic_buf_num_margin;
+	vstatus->dpb_num = DECODE_BUFFER_NUM_DEF;
+	vstatus->filed_flag = hw->is_interlace;
+	vstatus->bit_depth = MPEG4_DEFAULT_BIT_DEPTH;
 	vstatus->bit_rate = hw->bit_rate;
 	vstatus->frame_dur = hw->frame_dur;
 	vstatus->error_frame_count = READ_VREG(MP4_ERR_COUNT);
@@ -2672,6 +2679,7 @@ static int vmpeg4_hw_ctx_restore(struct vdec_mpeg4_hw_s *hw)
 static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw)
 {
 	int i;
+	struct vdec_s *vdec = hw_to_vdec(hw);
 
 	hw->vmpeg4_ratio = hw->vmpeg4_amstream_dec_info.ratio;
 
@@ -2748,7 +2756,7 @@ static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw)
 	}
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

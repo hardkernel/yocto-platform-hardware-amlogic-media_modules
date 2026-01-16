@@ -1206,6 +1206,7 @@ struct aml_vcodec_ctx {
 	u32			fresh_uvmdma_num;
 	struct aml_signal_type_info signal_type_info;
 	u32			signal_type_update;
+	int			local_id;
 };
 
 /**

@@ -500,7 +500,8 @@ static int init_mmu_fb_bufstate(struct hevc_state_s* hevc, int mmu_4k_number)
 	int ret;
 	dma_addr_t tmp_phy_adr;
 	int mmu_map_size = ((mmu_4k_number * 4) >> 6) << 6;
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ? CODEC_MM_FLAGS_TVP : 0;
+	struct vdec_s *vdec = hw_to_vdec(hevc);
+	int tvp_flag = vdec_secure(vdec) ? CODEC_MM_FLAGS_TVP : 0;
 
 	hevc_print(hevc, 0,
 		"%s:mmu_4k_number = %d\n", __func__, mmu_4k_number);
@@ -509,7 +510,7 @@ static int init_mmu_fb_bufstate(struct hevc_state_s* hevc, int mmu_4k_number)
 		return -1;
 
 	hevc->mmu_box_fb = decoder_mmu_box_alloc_box(DRIVER_NAME,
-		hevc->index, 2, (mmu_4k_number << 12) * 2, tvp_flag);
+		vdec->resman_ssid, 2, (mmu_4k_number << 12) * 2, tvp_flag);
 
 	hevc->fb_buf_mmu0_addr =
 			dma_alloc_coherent(amports_get_dma_device(),

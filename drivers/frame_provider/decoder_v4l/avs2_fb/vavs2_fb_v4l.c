@@ -8641,6 +8641,7 @@ static int vmavs2_stop(struct AVS2Decoder_s *dec)
 
 static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 {
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(dec->v4l2_ctx);
 	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
@@ -8651,7 +8652,7 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 #endif
 	dec->bmmu_box = decoder_bmmu_box_alloc_box(
 		DRIVER_NAME,
-		dec->index,
+		ctx->id,
 		MAX_BMMU_BUFFER_NUM,
 		PAGE_SHIFT,
 		CODEC_MM_FLAGS_CMA_CLEAR |

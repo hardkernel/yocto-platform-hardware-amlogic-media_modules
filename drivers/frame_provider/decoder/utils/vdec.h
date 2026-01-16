@@ -50,6 +50,7 @@
 #ifdef CONFIG_AMLOGIC_MEDIA_WRAPPER
 #include "../../../amvdec_ports/aml_vcodec_avbc_wrapper.h"
 #endif
+#include <linux/amlogic/media/resource_mgr/resourcemanage.h>
 
 #define NEW_FB_CODE
 #define FB_DEBUG_ON_OLD_CHIP
@@ -603,6 +604,7 @@ struct vdec_s {
 	char stream_buffer_level[32];
 	u32 discard_start_data_flag;
 	u32 video_id;
+	u32 resman_ssid; /* resman ssid */
 	int is_v4l;
 	bool is_stream_mode_dv_multi;
 	int pts_server_id;
@@ -785,7 +787,7 @@ struct vdec_fence_vf_t {
 
 /* construct vdec structure */
 extern struct vdec_s *vdec_create(struct stream_port_s *port,
-				struct vdec_s *master);
+				struct vdec_s *master, int inst_id);
 
 /* set video format */
 extern int vdec_set_format(struct vdec_s *vdec, int format);
@@ -1100,5 +1102,7 @@ void arb_ctrl_wait_idle(int enable);
 int vdec_set_medaisync_vfm_dev_id(struct vdec_s *vdec, int medaisync_vfm_dev_id);
 
 void vdec_recycle_fence_vf(struct vdec_fence_vf_t *fence_vf_s);
+
+int query_decoder_resource(struct resman_cb_param_any_t q);
 
 #endif /* VDEC_H */

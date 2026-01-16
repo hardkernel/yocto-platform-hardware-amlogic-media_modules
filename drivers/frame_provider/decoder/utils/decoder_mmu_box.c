@@ -32,6 +32,7 @@
 #include <linux/amlogic/media/codec_mm/codec_mm_scatter.h>
 #include <linux/platform_device.h>
 #include "../../../common/media_utils/media_kernel_version.h"
+#include <linux/amlogic/media/codec_mm/codec_mm_mem_info.h>
 
 /* Rated Memory Compression Ratio for MMU */
 #define DECODER_MMU_RATED_PERCENT 60
@@ -279,6 +280,7 @@ int decoder_mmu_box_alloc_idx(
 				num_pages);
 			return -1;
 		}
+		codec_mm_sc_update_info(sc, box->channel_id, CODEC_MM_MODULE_DECODER);
 		decoder_mmu_box_set_sc_from_idx(box, idx, sc);
 	}
 	/*

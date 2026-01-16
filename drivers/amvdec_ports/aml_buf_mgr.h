@@ -323,5 +323,7 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv);
  */
 void aml_buf_mgr_release(struct aml_buf_mgr_s *bm);
 
+void aml_buf_mgr_update_id(struct aml_buf_mgr_s *bm, int session_id);
+
 #endif //_AML_DEC_BUFMGR_H_
 

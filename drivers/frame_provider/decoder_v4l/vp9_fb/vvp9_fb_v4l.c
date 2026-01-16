@@ -13081,13 +13081,14 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = vp9_max_mmu_buf_size(pbi->max_pic_w, pbi->max_pic_h);
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(pbi->v4l2_ctx);
 
 	pbi->need_cache_size = buf_size * SZ_1M;
 	pbi->sc_start_time = get_jiffies_64();
 
 	pbi->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			pbi->index,
+			ctx->id,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

@@ -7165,6 +7165,14 @@ int vavs2_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = dec->stat | dec->fatal_error | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = dec->stat | dec->fatal_error;
+	vstatus->dw = dec->double_write_mode;
+	vstatus->margin_num = dec->dynamic_buf_margin;
+	vstatus->dpb_num = dec->used_buf_num - vstatus->margin_num;
+	vstatus->filed_flag = (
+		dec->avs2_dec.param.p.progressive_sequence == 0
+		&& dec->avs2_dec.param.p.is_field_sequence == 0
+	);
+	vstatus->bit_depth = dec->avs2_dec.input.sample_bit_depth;
 	vstatus->frame_dur = dec->frame_dur;
 	vstatus->bit_rate = dec->gvs->bit_rate;
 	vstatus->frame_data = dec->gvs->frame_data;
@@ -7486,7 +7494,8 @@ static int vavs2_stop(struct AVS2Decoder_s *dec)
 
 static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
+	struct vdec_s *vdec = hw_to_vdec(dec);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
 
@@ -7495,7 +7504,7 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 #ifdef AVS2_10B_MMU
 	if (dec->mmu_enable) {
 		dec->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			dec->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			dec->need_cache_size,
 			tvp_flag);
 		if (!dec->mmu_box) {
@@ -7507,7 +7516,7 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 #ifdef AVS2_10B_MMU_DW
 	if (dec->dw_mmu_enable) {
 		dec->dw_mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			dec->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			dec->need_cache_size,
 			tvp_flag);
 		if (!dec->dw_mmu_box) {
@@ -7518,7 +7527,7 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 #endif
 	dec->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			dec->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

@@ -858,7 +858,8 @@ static int init_mmu_fb_bufstate(struct AVS3Decoder_s *dec, int mmu_fb_4k_number)
 	dma_addr_t tmp_phy_adr;
 	struct avs3_decoder *avs3_dec = &dec->avs3_dec;
 	int mmu_map_size = ((mmu_fb_4k_number * 4) >> 6) << 6;
-	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ? CODEC_MM_FLAGS_TVP : 0;
+	struct vdec_s *vdec = hw_to_vdec(dec);
+	int tvp_flag = vdec_secure(vdec) ? CODEC_MM_FLAGS_TVP : 0;
 
 	avs3_print(dec, AVS3_DBG_BUFMGR,
 		"%s mmu_fb_4k_number = %d\n", __func__, mmu_fb_4k_number);
@@ -867,7 +868,7 @@ static int init_mmu_fb_bufstate(struct AVS3Decoder_s *dec, int mmu_fb_4k_number)
 		return -1;
 
 	dec->mmu_box_fb = decoder_mmu_box_alloc_box(DRIVER_NAME,
-		dec->index, 2,
+		vdec->resman_ssid, 2,
 		(mmu_fb_4k_number << 12) * 2,
 		tvp_flag
 		);

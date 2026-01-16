@@ -9308,6 +9308,7 @@ static int vavs3_stop(struct AVS3Decoder_s *dec)
 
 static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 {
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(dec->v4l2_ctx);
 	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
@@ -9317,7 +9318,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #ifdef AVS3_10B_MMU
 	dec->bmmu_box = decoder_bmmu_box_alloc_box(
 		DRIVER_NAME,
-		dec->index,
+		ctx->id,
 		MAX_BMMU_BUFFER_NUM,
 		4 + PAGE_SHIFT,
 		CODEC_MM_FLAGS_CMA_CLEAR |

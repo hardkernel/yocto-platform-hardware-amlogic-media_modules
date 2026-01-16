@@ -1940,6 +1940,7 @@ static s32 vmjpeg_init(struct vdec_s *vdec)
 	struct vdec_mjpeg_hw_s *hw =
 		(struct vdec_mjpeg_hw_s *)vdec->private;
 	int num = 0;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 
 	fw = fw_firmware_s_creat(fw_size);
 	if (!fw)
@@ -2004,7 +2005,7 @@ static s32 vmjpeg_init(struct vdec_s *vdec)
 
 		hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			ctx->id,
 			num,
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

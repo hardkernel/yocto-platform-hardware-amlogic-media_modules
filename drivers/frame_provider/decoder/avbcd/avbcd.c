@@ -3222,7 +3222,8 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 
 static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+	struct vdec_s *vdec = hw_to_vdec(hevc);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
@@ -3236,7 +3237,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 	hevc->sc_start_time = get_jiffies_64();
 	if (hevc->mmu_enable) {
 		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag);
@@ -3247,7 +3248,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef H265_10B_MMU_DW
 		if (hevc->dw_mmu_enable) {
 			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -9112,6 +9113,13 @@ int avbcd_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = hevc->stat | hevc->fatal_error | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = hevc->stat | hevc->fatal_error;
+	vstatus->dw = hevc->double_write_mode;
+	vstatus->margin_num = hevc->interlace_flag ?
+						get_interlace_filed_margin(hevc) :
+						get_dynamic_buf_num_margin(hevc);
+	vstatus->dpb_num = get_work_pic_num(hevc) - vstatus->margin_num;
+	vstatus->filed_flag = hevc->interlace_flag;
+	vstatus->bit_depth = hevc->bit_depth_luma;
 	if (!hevc_is_support_4k() &&
 		(IS_4K_SIZE(vstatus->frame_width, vstatus->frame_height)) &&
 		((vstatus->frame_width <= 4096 && vstatus->frame_height <= 2304) ||

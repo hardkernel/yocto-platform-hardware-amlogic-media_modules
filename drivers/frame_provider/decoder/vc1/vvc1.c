@@ -229,6 +229,7 @@ struct pic_info_t {
 };
 
 struct vdec_vc1_hw_s {
+	struct platform_device *platform_dev;
 	s32 vfbuf_use[DECODE_BUFFER_NUM_MAX];
 	unsigned char again_flag;
 	unsigned char recover_flag;
@@ -1546,6 +1547,7 @@ static int vvc1_prot_init(void)
 static void vvc1_local_init(bool is_reset)
 {
 	struct vdec_vc1_hw_s *hw = &vc1_hw;
+	struct vdec_s *vdec = hw_to_vdec(hw);
 	int i;
 	vc1_print(0, VC1_DEBUG_DETAIL,"%s \n", __func__);
 
@@ -1612,7 +1614,7 @@ static void vvc1_local_init(bool is_reset)
 
 		mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
@@ -1827,6 +1829,7 @@ static int amvdec_vc1_probe(struct platform_device *pdev)
 	vdec = pdata;
 
 	vc1_hw.canvas_mode = pdata->canvas_mode;
+	vc1_hw.platform_dev = pdev;
 
 	vvc1_vdec_info_init();
 

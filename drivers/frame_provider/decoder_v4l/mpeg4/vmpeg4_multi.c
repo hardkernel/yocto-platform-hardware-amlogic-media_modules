@@ -2811,7 +2811,7 @@ static void vmpeg4_local_init(struct vdec_mpeg4_hw_s *hw)
 	}
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			ctx->id,
 			1,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

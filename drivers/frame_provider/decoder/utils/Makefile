@@ -15,6 +15,12 @@ ${MODULE_NAME}-objs	+=	decoder_dma_alloc.o
 ${MODULE_NAME}-objs	+=	decoder_report.o
 ${MODULE_NAME}-objs	+=	dma_buf_mgr.o
 ${MODULE_NAME}-objs	+=	debug/dos_axi_monitor.o
+${MODULE_NAME}-objs	+=	vdec_res/vdec_res.o vdec_res/vdec_res_priv.o
+${MODULE_NAME}-objs	+=	vdec_res/h264_res.o vdec_res/h265_res.o vdec_res/h266_res.o
+${MODULE_NAME}-objs	+=	vdec_res/av1_res.o vdec_res/vp9_res.o vdec_res/avs_res.o
+${MODULE_NAME}-objs	+=	vdec_res/mpeg12_res.o vdec_res/mpeg4_res.o vdec_res/mjpeg_res.o
+${MODULE_NAME}-objs	+=	vdec_res/avs2_res.o vdec_res/avs3_res.o vdec_res/vc1_res.o
+
 
 MODULE_NAME = amvdec_debug_port
 obj-m	+=	${MODULE_NAME}.o

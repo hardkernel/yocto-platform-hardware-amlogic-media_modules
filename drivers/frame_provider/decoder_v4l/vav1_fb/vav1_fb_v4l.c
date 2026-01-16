@@ -11076,6 +11076,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 
 	if ((hw->max_pic_w * hw->max_pic_h > 1280*736) &&
 		(hw->max_pic_w * hw->max_pic_h <= 1920*1088)) {
@@ -11089,7 +11090,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 
 	hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->index,
+			ctx->id,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

@@ -9083,6 +9083,14 @@ int vavs3_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = dec->stat | dec->fatal_error | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = dec->stat | dec->fatal_error;
+	vstatus->dw = dec->double_write_mode;
+	vstatus->margin_num = dec->dynamic_buf_margin;
+	vstatus->dpb_num = dec->avs3_dec.max_pb_size - vstatus->margin_num;
+	vstatus->filed_flag = (
+		dec->avs3_dec.param.p.sqh_progressive_sequence == 0
+		&& dec->avs3_dec.param.p.sqh_field_coded_sequence == 0
+	);
+	vstatus->bit_depth = dec->avs3_dec.input.sample_bit_depth;
 	vstatus->frame_dur = dec->frame_dur;
 	vstatus->bit_rate = dec->gvs->bit_rate;
 	vstatus->frame_data = dec->gvs->frame_data;
@@ -9526,7 +9534,8 @@ static int vavs3_stop(struct AVS3Decoder_s *dec)
 
 static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
+	struct vdec_s *vdec = hw_to_vdec(dec);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
 
@@ -9535,7 +9544,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #ifdef AVS3_10B_MMU
 	if (dec->mmu_enable) {
 		dec->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			dec->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			dec->need_cache_size,
 			tvp_flag
 			);
@@ -9546,7 +9555,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #ifdef NEW_FB_CODE
 		if (dec->front_back_mode) {
 			dec->mmu_box_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				dec->index, FRAME_BUFFERS,
+				vdec->resman_ssid, FRAME_BUFFERS,
 				dec->need_cache_size,
 				tvp_flag
 				);
@@ -9560,7 +9569,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #ifdef AVS3_10B_MMU_DW
 	if (dec->dw_mmu_enable) {
 		dec->dw_mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			dec->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			dec->need_cache_size,
 			tvp_flag
 			);
@@ -9571,7 +9580,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #ifdef NEW_FB_CODE
 		if (dec->front_back_mode) {
 			dec->dw_mmu_box_1 = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				dec->index, FRAME_BUFFERS,
+				vdec->resman_ssid, FRAME_BUFFERS,
 				dec->need_cache_size,
 				tvp_flag
 				);
@@ -9585,7 +9594,7 @@ static int amvdec_avs3_mmu_init(struct AVS3Decoder_s *dec)
 #endif
 	dec->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			dec->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

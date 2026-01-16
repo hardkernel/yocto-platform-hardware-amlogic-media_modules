@@ -92,6 +92,8 @@ to enable DV of frame mode
 #define DRIVER_NAME "ammvdec_h264"
 #define DRIVER_HEADER_NAME "ammvdec_h264_header"
 
+#define H264_DEFAULT_BIT_DEPTH 8
+
 #define CHECK_INTERVAL        (HZ/100)
 
 #define SEI_DATA_SIZE			(8*1024)
@@ -6383,10 +6385,10 @@ static int clear_mmu_config(struct vdec_h264_hw_s *hw)
 static unsigned char amvdec_enable_flag;
 int set_mmu_config(struct vdec_h264_hw_s *hw)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 64;
-	struct vdec_s *vdec = hw_to_vdec(hw);
 
 	hw->mmu_enable = 1;
 	amvdec_stop();
@@ -6397,7 +6399,7 @@ int set_mmu_config(struct vdec_h264_hw_s *hw)
 	hw->sc_start_time = get_jiffies_64();
 	if (hw->mmu_enable && !hw->mmu_box) {
 		hw->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hw->id,
+				vdec->resman_ssid,
 				MMU_MAX_BUFFERS,
 				hw->need_cache_size,
 				tvp_flag);
@@ -10109,6 +10111,14 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = hw->stat | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = hw->stat;
+	vstatus->dw = hw->double_write_mode;
+	vstatus->filed_flag = get_field(hw, (hw->seq_info >> 15) & 0x01);
+	/* H264 Interlace half margin */
+	vstatus->margin_num = (vstatus->filed_flag == 1) ?
+						((hw->interlace_filed_margin + 1) >> 1) :
+						hw->reorder_dpb_size_margin;
+	vstatus->dpb_num = hw->dpb.dec_dpb_size;
+	vstatus->bit_depth = H264_DEFAULT_BIT_DEPTH;
 	if (hw->h264_ar == 0x3ff)
 		ar_tmp = div_u64((256ULL * hw->frame_height * hw->height_aspect_ratio),
 				(hw->frame_width * hw->width_aspect_ratio));
@@ -13162,13 +13172,15 @@ static void h264_reset_bufmgr(struct vdec_s *vdec, bool reset_flags)
 int ammvdec_h264_bmmu_init(struct vdec_h264_hw_s *hw)
 {
 	int ret = -1;
-	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
-
+	pr_info("vdec = %p, resman_ssid=%d\n",
+		vdec, vdec->resman_ssid);
 	if (!hw->bmmu_box) {
 		hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->id,
+			vdec->resman_ssid,
 			BMMU_MAX_BUFFERS,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

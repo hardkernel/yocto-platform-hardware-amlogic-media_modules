@@ -3338,7 +3338,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, bool bmmu_flag)
 		(CODEC_MM_FLAGS_TVP | CODEC_MM_FLAGS_FOR_TRY_PREALLOC) : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
-	struct aml_vcodec_ctx * ctx = hevc->v4l2_ctx;
+	struct aml_vcodec_ctx *ctx = hevc->v4l2_ctx;
 
 	if (get_dbg_flag(hevc)) {
 		hevc_print(hevc, 0, "%s max_w %d max_h %d\n",

@@ -10502,6 +10502,11 @@ int vvp9_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->frame_rate = -1;
 	vstatus->error_count = 0;
 	vstatus->status = vp9->stat | vp9->fatal_error;
+	vstatus->dw = get_double_write_mode(vp9);
+	vstatus->margin_num = vp9->dynamic_buf_num_margin;
+	vstatus->dpb_num = vp9->used_buf_num - vstatus->margin_num;
+	vstatus->filed_flag = 0; /* vp9 is progressive only */
+	vstatus->bit_depth = vp9->param.p.bit_depth;
 	vstatus->frame_dur = vp9->frame_dur;
 	vstatus->bit_rate = vp9->gvs->bit_rate;
 	vstatus->frame_data = vp9->gvs->frame_data;
@@ -10985,7 +10990,8 @@ static int vvp9_stop(struct VP9Decoder_s *pbi)
 
 static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ?
+	struct vdec_s *vdec = hw_to_vdec(pbi);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = vp9_max_mmu_buf_size(pbi->max_pic_w, pbi->max_pic_h);
 
@@ -10993,7 +10999,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 	pbi->sc_start_time = get_jiffies_64();
 	if (pbi->mmu_enable && !pbi->is_used_v4l) {
 		pbi->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			pbi->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			pbi->need_cache_size,
 			tvp_flag
 			);
@@ -11005,7 +11011,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #ifdef VP9_10B_MMU_DW
 	if (pbi->dw_mmu_enable && !pbi->is_used_v4l) {
 		pbi->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			pbi->index, FRAME_BUFFERS,
+			vdec->resman_ssid, FRAME_BUFFERS,
 			pbi->need_cache_size,
 			tvp_flag
 			);
@@ -11016,7 +11022,7 @@ static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 #endif
 	pbi->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			pbi->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

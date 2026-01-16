@@ -194,7 +194,12 @@ struct vdec_status {
     struct aspect_ratio_info aspect_ratio;
     unsigned long long arg;
     unsigned int size;
-    char reserved[60];
+    unsigned int dw;
+    unsigned char dpb_num;
+    unsigned char margin_num;
+    unsigned char filed_flag;
+    unsigned char bit_depth;
+    char reserved[52];
 };
 
 struct usr_crc_info_t {

@@ -10198,6 +10198,11 @@ int vav1_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->error_count = 0;
 	vstatus->bit_rate = av1->gvs->bit_rate;
 	vstatus->status = av1->stat | av1->fatal_error;
+	vstatus->dw = av1->double_write_mode;
+	vstatus->margin_num = av1->dynamic_buf_num_margin;
+	vstatus->dpb_num = av1->used_buf_num - vstatus->margin_num;
+	vstatus->filed_flag = 0; /* av1 is progressive only */
+	vstatus->bit_depth = av1->param.p.bit_depth;
 	vstatus->frame_dur = av1->frame_dur;
 //#ifndef CONFIG_AMLOGIC_MEDIA_MULTI_DEC
 	vstatus->bit_rate = av1->gvs->bit_rate;
@@ -10685,7 +10690,8 @@ static int vav1_stop(struct AV1HW_s *hw)
 }
 static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = 48;
 
@@ -10701,7 +10707,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 	if (hw->mmu_enable && !hw->is_used_v4l) {
 		int count = FRAME_BUFFERS;
 		hw->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hw->index /* * 2*/, count,
+			vdec->resman_ssid /* * 2*/, count,
 			hw->need_cache_size,
 			tvp_flag
 			);
@@ -10712,7 +10718,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 #ifdef AOM_AV1_MMU_DW
 		if (hw->dw_mmu_enable) {
 			hw->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hw->index /** 2 + 1*/, count,
+				vdec->resman_ssid /** 2 + 1*/, count,
 				hw->need_cache_size,
 				tvp_flag
 				);
@@ -10726,7 +10732,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 	}
 	hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->index,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

@@ -63,6 +63,8 @@
 
 #define DRIVER_NAME "ammvdec_mpeg12"
 
+#define MPEG12_DEFAULT_BIT_DEPTH 8
+
 /*AV_SCRATCH_1
 	bit [0-9]: temporal_reference(poc)
 */
@@ -3296,6 +3298,11 @@ static int vmmpeg12_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = hw->stat | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = hw->stat;
+	vstatus->dw = DM_YUV_ONLY;
+	vstatus->margin_num = hw->dynamic_buf_num_margin;
+	vstatus->dpb_num = DECODE_BUFFER_NUM_DEF;
+	vstatus->filed_flag = hw->is_interlace;
+	vstatus->bit_depth = MPEG12_DEFAULT_BIT_DEPTH;
 	vstatus->bit_rate = hw->gvs.bit_rate;
 	vstatus->frame_dur = hw->frame_dur;
 	vstatus->frame_data = hw->gvs.frame_data;
@@ -3917,6 +3924,7 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw)
 {
 	int i;
+	struct vdec_s *vdec = hw_to_vdec(hw);
 	INIT_KFIFO(hw->display_q);
 	INIT_KFIFO(hw->newframe_q);
 
@@ -3944,7 +3952,7 @@ static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			vdec->resman_ssid,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

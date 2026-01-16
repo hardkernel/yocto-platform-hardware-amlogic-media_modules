@@ -295,6 +295,7 @@ static int last_read_wi;
  *bit 2 force frame mode
  */
 static u32 force_dv_mode;
+static u32 debug_level;
 
 static DEFINE_MUTEX(userdata_mutex);
 static struct stream_port_s ports[] = {
@@ -1558,7 +1559,7 @@ static int amstream_open(struct inode *inode, struct file *file)
 	mutex_unlock(&amstream_mutex);
 
 	if (port->type & PORT_TYPE_VIDEO) {
-		priv->vdec = vdec_create(port, NULL);
+		priv->vdec = vdec_create(port, NULL, -1);
 
 		if (priv->vdec == NULL) {
 			port->flag = 0;
@@ -1569,7 +1570,7 @@ static int amstream_open(struct inode *inode, struct file *file)
 		if (!(port->type & PORT_TYPE_FRAME)) {
 			if ((port->type & PORT_TYPE_DUALDEC) ||
 				(vdec_get_debug_flags() & 0x100)) {
-				priv->vdec->slave = vdec_create(port, priv->vdec);
+				priv->vdec->slave = vdec_create(port, priv->vdec, -1);
 
 				if (priv->vdec->slave == NULL) {
 					vdec_release(priv->vdec);
@@ -2186,6 +2187,12 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 			pr_info("AMSTREAM_SET_FCC_MODE vdec %p set fcc flag\n", priv->vdec);
 		}
 		break;
+	case AMSTREAM_SET_RESMAN_SSID:
+		if (priv->vdec) {
+			priv->vdec->resman_ssid = parm.data_32;
+			pr_info("AMSTREAM_SET_RESMAN_SSID vdec %p resman_ssid: %d\n", priv->vdec, priv->vdec->resman_ssid);
+		}
+		break;
 
 	default:
 		r = -ENOIOCTLCMD;
@@ -2313,6 +2320,27 @@ static long amstream_ioctl_get_ex(struct port_priv_s *priv, ulong arg)
 			p->vstatus.fps = v_statistic.vstatus.frame_rate;
 			p->vstatus.error_count = v_statistic.vstatus.error_count;
 			p->vstatus.status = v_statistic.vstatus.status;
+			p->vstatus.dw = v_statistic.vstatus.dw;
+			p->vstatus.dpb_num = v_statistic.vstatus.dpb_num;
+			p->vstatus.margin_num = v_statistic.vstatus.margin_num;
+			p->vstatus.filed_flag = v_statistic.vstatus.filed_flag;
+			p->vstatus.bit_depth = v_statistic.vstatus.bit_depth;
+			// print
+			if (debug_level)
+				pr_debug("[DEBUG] vstatus: width=%d, height=%d, fps=%d, "
+					"error_count=%d, status=%d, dw=%d, dpb_num=%d, "
+					"margin_num=%d, filed_flag=%d, bit_depth=%d\n",
+					p->vstatus.width,
+					p->vstatus.height,
+					p->vstatus.fps,
+					p->vstatus.error_count,
+					p->vstatus.status,
+					p->vstatus.dw,
+					p->vstatus.dpb_num,
+					p->vstatus.margin_num,
+					p->vstatus.filed_flag,
+					p->vstatus.bit_depth);
+
 			p->vstatus.euAspectRatio =
 				get_normalized_aspect_ratio(
 					v_statistic.vstatus.ratio_control);
@@ -4602,6 +4630,9 @@ MODULE_PARM_DESC(def_vstreambuf_sizeM,
 
 module_param(slow_input, uint, 0664);
 MODULE_PARM_DESC(slow_input, "\n amstream slow_input\n");
+
+module_param(debug_level, uint, 0664);
+MODULE_PARM_DESC(debug_level, "\n amstream debug_level\n");
 
 /*just for kernel 5.15 compilation, will modify later*/
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);

@@ -1744,7 +1744,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 		alloc_ordered_workqueue("recycle-buf-ref-worker",
 			__WQ_LEGACY | WQ_MEM_RECLAIM | WQ_HIGHPRI);
 	if (!bc->recycle_buf_ref_workqueue) {
-		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_ERROR,
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
 			"Failed to create recycle_buffer workqueue\n");
 		return -1;
 	}
@@ -1791,7 +1791,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->buf_ops.dmabuf_slot_occupied = buf_core_dmabuf_slot_occupied;
 	bc->buf_ops.check_uvm_dma_recycled = buf_core_check_uvm_dma_recycled;
 
-	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
+	v4l_dbg(NULL, V4L_DEBUG_CODEC_BUFMGR, "%s local_id:%d\n", __func__, bc->id);
 
 	return 0;
 }

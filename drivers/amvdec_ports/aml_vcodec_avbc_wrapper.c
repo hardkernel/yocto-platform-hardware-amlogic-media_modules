@@ -1358,7 +1358,7 @@ int aml_avbc_wrapper_init(void **pwrapper, void *para)
 	}
 
 	/* create the vdec instance.*/
-	vdec = vdec_create(&wrapper->port, NULL);
+	vdec = vdec_create(&wrapper->port, NULL, 0);
 	if (IS_ERR_OR_NULL(vdec))
 		goto vdec_create_fail;
 

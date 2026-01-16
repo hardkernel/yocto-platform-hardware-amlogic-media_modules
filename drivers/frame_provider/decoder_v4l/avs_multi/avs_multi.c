@@ -2178,6 +2178,7 @@ static unsigned char es_write_addr[MAX_CODED_FRAME_SIZE]  __aligned(64);
 static void vavs_local_init(struct vdec_avs_hw_s *hw)
 {
 	int i;
+	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 
 	hw->vavs_ratio = hw->vavs_amstream_dec_info.ratio;
 
@@ -2226,7 +2227,7 @@ static void vavs_local_init(struct vdec_avs_hw_s *hw)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			0,
+			ctx->id,
 			MAX_BMMU_BUFFER_NUM,
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

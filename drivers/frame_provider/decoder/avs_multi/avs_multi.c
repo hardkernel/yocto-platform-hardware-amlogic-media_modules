@@ -84,6 +84,8 @@
 #define INTERLACE_FLAG          0x80
 #define TOP_FIELD_FIRST_FLAG 0x40
 
+#define AVS_DEFAULT_BIT_DEPTH 8
+
 /* protocol registers */
 #define AVS_PIC_RATIO       AV_SCRATCH_0
 #define AVS_PIC_INFO      AV_SCRATCH_1
@@ -1144,6 +1146,16 @@ static int vavs_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->status = hw->stat | DECODER_ES_INPUT_UNDERRUN;
 	else
 		vstatus->status = hw->stat;
+	vstatus->dw = DM_YUV_ONLY;
+	vstatus->margin_num = dynamic_buf_num_margin;
+	vstatus->dpb_num = vf_buf_num;
+	vstatus->filed_flag = (
+		hw->pics[0].buffer_info & INTERLACE_FLAG || (
+			(dec_control & DEC_CONTROL_FLAG_FORCE_2500_1080P_INTERLACE)
+			&& hw->frame_width == 1920 && hw->frame_height == 1080
+		)
+	);
+	vstatus->bit_depth = AVS_DEFAULT_BIT_DEPTH;
 	vstatus->bit_rate = hw->gvs->bit_rate;
 	vstatus->frame_dur = hw->frame_dur;
 	vstatus->frame_data = hw->gvs->frame_data;
@@ -1873,17 +1885,17 @@ static unsigned char es_write_addr[MAX_CODED_FRAME_SIZE]  __aligned(64);
 static void vavs_local_init(struct vdec_avs_hw_s *hw)
 {
 	int i;
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	if (vdec == NULL) {
+		pr_err("%s, vdec is NULL\n", __func__);
+		return;
+	}
 
 	hw->vf_buf_num_used = vf_buf_num + dynamic_buf_num_margin;
-
 	hw->vavs_ratio = hw->vavs_amstream_dec_info.ratio;
-
 	hw->avi_flag = (unsigned long) hw->vavs_amstream_dec_info.param;
-
 	hw->frame_width = hw->frame_height = hw->frame_dur = hw->frame_prog = 0;
-
 	hw->throw_pb_flag = 1;
-
 	hw->total_frame = 0;
 	hw->saved_resolution = 0;
 	hw->next_pts = 0;
@@ -1891,6 +1903,7 @@ static void vavs_local_init(struct vdec_avs_hw_s *hw)
 #ifdef DEBUG_PTS
 	hw->pts_hit = hw->pts_missed = hw->pts_i_hit = hw->pts_i_missed = 0;
 #endif
+
 	INIT_KFIFO(hw->display_q);
 	INIT_KFIFO(hw->recycle_q);
 	INIT_KFIFO(hw->newframe_q);
@@ -1906,6 +1919,7 @@ static void vavs_local_init(struct vdec_avs_hw_s *hw)
 		hw->vfpool[i].detached = 0;
 		kfifo_put(&hw->newframe_q, vf);
 	}
+
 	for (i = 0; i < hw->vf_buf_num_used; i++)
 		hw->vfbuf_use[i] = 0;
 
@@ -1920,13 +1934,14 @@ static void vavs_local_init(struct vdec_avs_hw_s *hw)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 		DRIVER_NAME,
-		0,
+		vdec->resman_ssid,
 		MAX_BMMU_BUFFER_NUM,
 		4 + PAGE_SHIFT,
 		CODEC_MM_FLAGS_CMA_CLEAR |
 		CODEC_MM_FLAGS_FOR_VDECODER |
 		hw->tvp_flag,
 		BMMU_ALLOC_FLAGS_WAITCLEAR);
+
 	if (hw->mm_blk_handle == NULL)
 		pr_info("Error, decoder_bmmu_box_alloc_box fail\n");
 
@@ -4262,6 +4277,7 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 	/*atomic_set(&hw->error_handler_run, 0);*/
 	hw->m_ins_flag = 1;
 	hw->run_flag = 0;
+	hw->platform_dev = pdev;
 
 	if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_GXM || disable_longcabac_trans)
 		firmware_sel = 1;
@@ -4346,6 +4362,7 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 		goto error3;
 	}
 
+	platform_set_drvdata(pdev, pdata);
 	if (vavs_init(hw) < 0) {
 		pr_info("amvdec_avs init failed.\n");
 		r = -ENODEV;
@@ -4378,8 +4395,6 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 		&vavs_vf_provider, hw);
 
 	platform_set_drvdata(pdev, pdata);
-
-	hw->platform_dev = pdev;
 
 	vdec_set_prepare_level(pdata, start_decode_buf_level);
 

@@ -9963,7 +9963,7 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 
 	hw->bmmu_box = decoder_bmmu_box_alloc_box(
 			DRIVER_NAME,
-			hw->index,
+			ctx->id,
 			MAX_BMMU_BUFFER_NUM,
 			PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |

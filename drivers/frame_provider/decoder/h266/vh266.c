@@ -2338,7 +2338,8 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 
 static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
-	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+	struct vdec_s *vdec = hw_to_vdec(hevc);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
@@ -2352,7 +2353,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 	hevc->sc_start_time = get_jiffies_64();
 	if (hevc->mmu_enable) {
 		hevc->mmu_box = decoder_mmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag);
@@ -2363,7 +2364,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 #ifdef VVC_10B_MMU_DW
 		if (hevc->dw_mmu_enable) {
 			hevc->mmu_box_dw = decoder_mmu_box_alloc_box(DRIVER_NAME,
-				hevc->index,
+				vdec->resman_ssid,
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
@@ -2377,7 +2378,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 		return 0;
 
 	hevc->bmmu_box = decoder_bmmu_box_alloc_box(DRIVER_NAME,
-			hevc->index,
+			vdec->resman_ssid,
 			BMMU_MAX_BUFFERS,
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
@@ -8749,6 +8750,11 @@ int vh266_dec_status(struct vdec_info *vstatus)
 		(vstatus->frame_width <= 4096 && vstatus->frame_height <= 2304)) {
 		vstatus->status |= DECODER_FATAL_ERROR_SIZE_OVERFLOW;
 	}
+	vstatus->dw = get_double_write_mode(hevc);
+	vstatus->margin_num = get_dynamic_buf_num_margin(hevc);
+	vstatus->dpb_num = hevc->used_buf_num - vstatus->margin_num;
+	vstatus->filed_flag = hevc->interlace_flag;
+	vstatus->bit_depth = hevc->vvc_dec->param.p.sps_bitdepth_minus8 + 8;
 
 	vstatus->bit_rate = hevc->gvs->bit_rate;
 	vstatus->frame_dur = hevc->frame_dur;

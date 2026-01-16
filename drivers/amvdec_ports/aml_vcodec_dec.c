@@ -74,6 +74,7 @@
 #endif
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/codec_mm_scatter.h>
+#include <linux/amlogic/media/codec_mm/codec_mm_mem_info.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 #include <linux/amlogic/media/dmabuf_heaps/amlogic_dmabuf_heap.h>
 #include <linux/amlogic/ion.h>
@@ -113,6 +114,7 @@ MODULE_IMPORT_NS(DMA_BUF);
 #define AML_V4L2_SET_SCREEN_MODE (V4L2_CID_USER_AMLOGIC_BASE + 15)
 #define AML_V4L2_GET_HEIGHT_ALIGN (V4L2_CID_USER_AMLOGIC_BASE + 16)
 #define AML_V4L2_SET_CHANNEL_PRIORITY (V4L2_CID_USER_AMLOGIC_BASE + 17)
+#define AML_V4L2_SET_INST_ID (V4L2_CID_USER_AMLOGIC_BASE + 18)
 
 #define V4L2_EVENT_PRIVATE_EXT_VSC_BASE (V4L2_EVENT_PRIVATE_START + 0x2000)
 #define V4L2_EVENT_PRIVATE_EXT_VSC_EVENT (V4L2_EVENT_PRIVATE_EXT_VSC_BASE + 1)
@@ -1989,7 +1991,7 @@ static int vdec_capture_thread(void *data)
 		(struct aml_vcodec_ctx *) thread->priv;
 
 	for (;;) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_EXINFO,
 			"%s, state: %d\n", __func__, ctx->state);
 
 		if (down_interruptible(&thread->sem))
@@ -2051,9 +2053,9 @@ int aml_thread_start(struct aml_vcodec_ctx *ctx, aml_thread_func func,
 	}
 	sched_setscheduler_nocheck(thread->task, SCHED_FIFO, &param);
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
-			"%s, policy is:%d priority is:%d\n",
-			__func__, thread->task->policy, thread->task->rt_priority);
+	v4l_dbg(NULL, V4L_DEBUG_CODEC_EXINFO,
+			"%s, local_id:%d policy is:%d priority is:%d\n",
+			__func__, ctx->local_id, thread->task->policy, thread->task->rt_priority);
 
 	list_add(&thread->node, &ctx->vdec_thread_list);
 
@@ -3090,14 +3092,14 @@ int aml_es_mgr_init(struct aml_vcodec_ctx *ctx)
 
 	ret = kfifo_alloc(&stmgr->free_q, AML_ES_REF_MAX, GFP_KERNEL);
 	if (ret) {
-		v4l_dbg(stmgr->ctx, 0, "Alloc free_q fifo fail.\n");
+		v4l_dbg(NULL, 0, "Local_id:%d, alloc free_q fifo fail.\n", ctx->local_id);
 		return -ENOMEM;
 	}
 
 	ret = kfifo_alloc(&stmgr->ref_q, AML_ES_REF_MAX, GFP_KERNEL);
 	if (ret) {
 		kfifo_free(&stmgr->free_q);
-		v4l_dbg(stmgr->ctx, 0, "Alloc ref_q fifo fail.\n");
+		v4l_dbg(NULL, 0, "Local_id:%d, alloc ref_q fifo fail.\n", ctx->local_id);
 		return -ENOMEM;
 	}
 
@@ -3236,8 +3238,8 @@ void aml_vcodec_dec_set_default_params(struct aml_vcodec_ctx *ctx)
 
 	ctx->state = AML_STATE_IDLE;
 	vdec_tracing(&ctx->vtr, VTRACE_V4L_ST_0, ctx->state);
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_STATE,
-		"vcodec state (AML_STATE_IDLE)\n");
+	v4l_dbg(NULL, V4L_DEBUG_CODEC_STATE,
+		"vcodec state (AML_STATE_IDLE), local_id:%d\n", ctx->local_id);
 }
 
 void aml_vdec_wake_up(struct aml_vcodec_ctx *ctx)
@@ -5239,6 +5241,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	u32 dw = DM_YUV_ONLY;
 	u32 tw = DM_INVALID;
 	int ret;
+	int i;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
 		"%s, type: %d, vb: %lx, idx: %d, state: %d, used: %d, ts: %llu, uvm dbuf: %px\n",
@@ -5328,6 +5331,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			aml_buf->planes[0].addr, aml_buf->planes[0].length,
 			aml_buf->planes[1].addr, aml_buf->planes[1].length,
 			aml_buf->planes[2].addr, aml_buf->planes[2].length);
+
+		for (i = 0 ; i < vb->num_planes ; i++)
+			codec_mm_set_info_by_phy_addr(ctx->id, CODEC_MM_MODULE_DECODER,
+				CODEC_MM_TYPE_YUV, aml_buf->planes[i].addr);
 
 		if (!ctx->in_buff_cnt && ctx->state <= AML_STATE_READY) {
 			PR_PIPE_KPI_INFO("TP_V4L2_CapBuf_First_Get", ctx->id, MAIN_INFO,
@@ -5429,6 +5436,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		src_mem.addr	= buf->addr ? buf->addr :
 				sg_dma_address(buf->out_sgt->sgl);
 		src_mem.size	= vb->planes[0].bytesused;
+		if (ctx->output_dma_mode && !ctx->is_drm_mode)
+			codec_mm_set_info_by_phy_addr(ctx->id, CODEC_MM_MODULE_DECODER,
+				CODEC_MM_TYPE_ES, src_mem.addr);
 	}
 	src_mem.index	= vb->index;
 	if (!ctx->is_drm_mode)
@@ -6041,7 +6051,10 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct aml_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s id %d val %d\n", __func__, ctrl->id, ctrl->val);
+	if (ctrl->id == AML_V4L2_SET_INST_ID)
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_PROT, "%s local_id %d new inst_id %d\n", __func__, ctx->local_id, ctrl->val);
+	else
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s id %d val %d\n", __func__, ctrl->id, ctrl->val);
 
 	if (ctrl->id == AML_V4L2_SET_DRMMODE) {
 		ctx->is_drm_mode = ctrl->val;
@@ -6116,6 +6129,11 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 		aml_buf_configure(&ctx->bm, &config);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
 			"set channel priority: %x\n", ctrl->val);
+	} else if (ctrl->id == AML_V4L2_SET_INST_ID) {
+		ctx->id = ctrl->val;
+		aml_buf_mgr_update_id(&ctx->bm, ctx->id);
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
+			"set inst id is: %d\n", ctrl->val);
 	}
 
 	return 0;
@@ -6240,6 +6258,18 @@ static const struct v4l2_ctrl_config ctrl_stream_mode = {
 	.flags	= V4L2_CTRL_FLAG_WRITE_ONLY,
 	.min	= 0,
 	.max	= 1,
+	.step	= 1,
+	.def	= 0,
+};
+
+static const struct v4l2_ctrl_config ctrl_set_inst_id = {
+	.name	= "set inst id",
+	.id	= AML_V4L2_SET_INST_ID,
+	.ops	= &aml_vcodec_dec_ctrl_ops,
+	.type	= V4L2_CTRL_TYPE_INTEGER,
+	.flags	= V4L2_CTRL_FLAG_WRITE_ONLY,
+	.min	= 0,
+	.max	= 0x7fffffff,
 	.step	= 1,
 	.def	= 0,
 };
@@ -6425,6 +6455,12 @@ int aml_vcodec_dec_ctrls_setup(struct aml_vcodec_ctx *ctx)
 	}
 
 	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &ctrl_stream_mode, NULL);
+	if ((ctrl == NULL) || (ctx->ctrl_hdl.error)) {
+		ret = ctx->ctrl_hdl.error;
+		goto err;
+	}
+
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &ctrl_set_inst_id, NULL);
 	if ((ctrl == NULL) || (ctx->ctrl_hdl.error)) {
 		ret = ctx->ctrl_hdl.error;
 		goto err;
@@ -6826,7 +6862,7 @@ int aml_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	struct aml_vcodec_ctx *ctx = priv;
 	int ret = 0;
 
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO, "%s\n", __func__);
+	v4l_dbg(NULL, V4L_DEBUG_CODEC_EXINFO, "%s local_id:%d\n", __func__, ctx->local_id);
 
 	src_vq->type		= V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	src_vq->io_modes	= VB2_DMABUF | VB2_MMAP | VB2_USERPTR;
@@ -6838,8 +6874,8 @@ int aml_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->lock		= &ctx->v4l_intf_lock;
 	ret = vb2_queue_init(src_vq);
 	if (ret) {
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-			"Failed to initialize videobuf2 queue(output)\n");
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
+			"Failed to initialize videobuf2 queue(output) local_id:%d\n", ctx->local_id);
 		return ret;
 	}
 
@@ -6860,8 +6896,8 @@ int aml_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	ret = vb2_queue_init(dst_vq);
 	if (ret) {
 		vb2_queue_release(src_vq);
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-			"Failed to initialize videobuf2 queue(capture)\n");
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
+			"Failed to initialize videobuf2 queue(capture) local_id:%d\n", ctx->local_id);
 	}
 
 	return ret;

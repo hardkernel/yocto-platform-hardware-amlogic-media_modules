@@ -643,7 +643,8 @@ static int init_fb_bufstate(struct AV1HW_s *hw)
 	int mmu_4k_number = hw->fb_ifbuf_num * av1_mmu_page_num(hw, hw->max_pic_w,
 			hw->max_pic_h, 1);
 	int mmu_map_size = ((mmu_4k_number * 4) >> 6) << 6;
-	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	struct vdec_s *vdec = hw_to_vdec(hw);
+	int tvp_flag = vdec_secure(vdec) ?
 		CODEC_MM_FLAGS_TVP : 0;
 
 	if (mmu_4k_number <= 0) {
@@ -669,7 +670,7 @@ static int init_fb_bufstate(struct AV1HW_s *hw)
 	pbi->fb_buf_sys_imem.buf_end = pbi->fb_buf_sys_imem.buf_start + pbi->fb_buf_sys_imem.buf_size;
 
 	hw->mmu_box_fb = decoder_mmu_box_alloc_box(DRIVER_NAME,
-		hw->index, 2, (mmu_4k_number << 12) * 2, tvp_flag);
+		vdec->resman_ssid, 2, (mmu_4k_number << 12) * 2, tvp_flag);
 
 	hw->fb_buf_mmu0_addr =
 			dma_alloc_coherent(amports_get_dma_device(),

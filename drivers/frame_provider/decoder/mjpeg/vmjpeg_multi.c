@@ -55,6 +55,8 @@
 #define DRIVER_NAME "ammvdec_mjpeg"
 #define CHECK_INTERVAL        (HZ/100)
 
+#define MJPEG_DEFAULT_BIT_DEPTH 8
+
 /* protocol register usage
  *    AV_SCRATCH_4 : decode buffer spec
  *    AV_SCRATCH_5 : decode buffer index
@@ -590,6 +592,12 @@ static int vmjpeg_dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 	vstatus->status = hw->stat;
 	vdec->vdec_info_statistic.bit_depth = 8; //Only supports 8 bit
 	vdec->vdec_info_statistic.is_interlace = false; //Only supports progressive
+	vstatus->dw = DM_YUV_ONLY;
+	vstatus->margin_num = hw->dynamic_buf_num_margin;
+	vstatus->dpb_num = DECODE_BUFFER_NUM_DEF;
+	vstatus->filed_flag = 0;
+	vstatus->bit_depth = MJPEG_DEFAULT_BIT_DEPTH;
+
 	return 0;
 }
 
@@ -1151,7 +1159,7 @@ static s32 vmjpeg_init(struct vdec_s *vdec)
 
 	hw->mm_blk_handle = decoder_bmmu_box_alloc_box(
 		DRIVER_NAME,
-		0,
+		vdec->resman_ssid,
 		MAX_BMMU_BUFFER_NUM,
 		4 + PAGE_SHIFT,
 		CODEC_MM_FLAGS_CMA_CLEAR |

@@ -297,7 +297,7 @@ static int vdec_ports_init(struct aml_vdec_adapt *ada_ctx)
 	struct vdec_s *vdec = NULL;
 
 	/* create the vdec instance.*/
-	vdec = vdec_create(&ada_ctx->port, NULL);
+	vdec = vdec_create(&ada_ctx->port, NULL, ada_ctx->ctx->id);
 	if (IS_ERR_OR_NULL(vdec))
 		return -1;
 

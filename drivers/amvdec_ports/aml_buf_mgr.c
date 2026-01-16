@@ -1322,6 +1322,11 @@ void aml_buf_workqueue_enable(struct aml_buf_mgr_s *bm)
 	bm->bc.workqueue_enabled = true;
 }
 
+void aml_buf_mgr_update_id(struct aml_buf_mgr_s *bm, int session_id)
+{
+	bm->bc.id = session_id;
+}
+
 int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 {
 	int ret = -1;
@@ -1354,11 +1359,11 @@ int aml_buf_mgr_init(struct aml_buf_mgr_s *bm, char *name, int id, void *priv)
 
 	ret = buf_core_mgr_init(&bm->bc);
 	if (ret) {
-		v4l_dbg(priv, V4L_DEBUG_CODEC_ERROR,
-			"%s, init fail.\n", __func__);
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_ERROR,
+			"%s, init fail local_id %d.\n", __func__, id);
 	} else {
-		v4l_dbg(priv, V4L_DEBUG_CODEC_BUFMGR,
-			"%s\n", __func__);
+		v4l_dbg(NULL, V4L_DEBUG_CODEC_BUFMGR,
+			"%s local_id %d\n", __func__, id);
 	}
 
 	INIT_WORK(&bm->bc.combine_buf_work, aml_buf_combine_worker);

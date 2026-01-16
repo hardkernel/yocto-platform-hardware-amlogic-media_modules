@@ -78,7 +78,6 @@
 #include <linux/reset.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
-//#include <linux/amlogic/media/video_sink/video_keeper.h>
 #include <linux/amlogic/media/codec_mm/configs.h>
 #include <linux/amlogic/media/frame_sync/ptsserv.h>
 #include "../../../common/chips/decoder_cpu_ver_info.h"
@@ -115,6 +114,10 @@ int ionvideo_assign_map(char **receiver_name, int *inst)
 #include <linux/amlogic/media/frame_sync/timestamp.h>
 #include "firmware.h"
 #include "debug/dos_axi_monitor.h"
+
+/* resourcemanage */
+#include "vdec_res/vdec_res.h"
+#include <linux/amlogic/media/resource_mgr/resourcemanage.h>
 
 static DEFINE_MUTEX(vdec_mutex);
 
@@ -2061,7 +2064,7 @@ EXPORT_SYMBOL(vdec_set_decinfo);
 
 /* construct vdec structure */
 struct vdec_s *vdec_create(struct stream_port_s *port,
-			struct vdec_s *master)
+			struct vdec_s *master, int inst_id)
 {
 	struct vdec_s *vdec;
 	int type = VDEC_TYPE_SINGLE;
@@ -2097,6 +2100,8 @@ struct vdec_s *vdec_create(struct stream_port_s *port,
 #endif
 		vdec->id = id;
 		vdec->video_id = 0xffffffff;
+		if (-1 != inst_id)
+			vdec->resman_ssid = inst_id;
 		vdec_input_init(&vdec->input, vdec);
 		vdec->input.vdec_up = vdec_up;
 		if (master) {
@@ -7269,6 +7274,25 @@ void vdec_set_profile_level(struct vdec_s *vdec, u32 profile_idc, u32 level_idc)
 }
 EXPORT_SYMBOL(vdec_set_profile_level);
 
+int query_decoder_resource(struct resman_cb_param_any_t q)
+{
+	int total_pages = 0;
+	if (q.type == RESMAN_CB_PARAM_EST)
+	{
+		if (q.sub_type == RESMAN_MEM_USAGE_MIN)
+			total_pages = query_min_memory_func(&q.v.est);
+		else if (q.sub_type == RESMAN_MEM_USAGE_EXPECTED)
+			total_pages = query_expected_memory_func(&q.v.est);
+	} else if (q.type == RESMAN_CB_PARAM_DEC_STATUS) {
+		total_pages = query_current_memory_func(&q.v.dst);
+	} else
+		pr_err("unsupport query type %d, subtype %d\n",
+			q.type, q.sub_type);
+
+	return (total_pages << PAGE_SHIFT);
+}
+EXPORT_SYMBOL(query_decoder_resource);
+
 static int dump_mode;
 static ssize_t dump_risc_mem_store(KV_CLASS_CONST struct class *class,
 		KV_CLASS_ATTR_CONST struct class_attribute *attr,
@@ -7395,7 +7419,8 @@ static ssize_t core_show(KV_CLASS_CONST struct class *class, KV_CLASS_ATTR_CONST
 				vdec_status_str(vdec),
 				vdec_type_str(vdec),
 				vdec->active_mask,
-				vdec->sched_priority);
+				vdec->sched_priority
+			);
 		}
 	}
 
@@ -8492,7 +8517,7 @@ static int vdec_probe(struct platform_device *pdev)
 	vdec_post_task_init();
 
 	vdec_data_core_init();
-
+	resman_register_query_ops_by_name("vdec", query_decoder_resource);
 	/* power manager init. */
 	vdec_core->pm = (struct power_manager_s *)
 		of_device_get_match_data(&pdev->dev);

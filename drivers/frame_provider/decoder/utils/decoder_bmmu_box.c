@@ -37,6 +37,7 @@
 #include "decoder_bmmu_box.h"
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/codec_mm_keeper.h>
+#include <linux/amlogic/media/codec_mm/codec_mm_mem_info.h>
 
 struct mm_list_expand {
 	int index;
@@ -271,9 +272,9 @@ int decoder_bmmu_box_alloc_idx(void *handle, int idx, int size, int aligned_2n,
 		mm = codec_mm_alloc(box->name, size, align, memflags, box->channel_id);
 #endif
 		if (mm) {
+			codec_mm_update_info(mm, box->channel_id, CODEC_MM_MODULE_DECODER, CODEC_MM_TYPE_WK);
 			decoder_bmmu_box_set_mm_from_idx(box, idx, mm);
 			box->total_size += mm->buffer_size;
-			mm->ins_id = box->channel_id;
 			mm->ins_buffer_id = idx;
 			box->box_ref_cnt++;
 		}
