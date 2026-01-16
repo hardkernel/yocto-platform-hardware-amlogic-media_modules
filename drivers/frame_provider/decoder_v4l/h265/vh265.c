@@ -9535,6 +9535,7 @@ static struct vframe_s *vh265_vf_get(void *op_arg)
 			vf->frame_index = atomic_read(&hevc->vf_get_count);
 		} else {
 			ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			ctx->bm.frm_cnt++;
 		}
 		atomic_add(1, &hevc->vf_get_count);
 
@@ -11018,7 +11019,11 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 			if (!hevc->discard_dv_data)
 				v4l2_ctx->aux_infos.bind_dv_buffer(v4l2_ctx, &vf->src_fmt.comp_buf,
 					&vf->src_fmt.md_buf);
-
+			if (v4l2_ctx->enable_di_post) {
+				v4l2_ctx->bm.get_bm_frm_cnt(&v4l2_ctx->bm, vf);
+				hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL, "%s dv frm_index update %d\n",
+					__func__, vf->frame_index);
+			}
 			update_vframe_src_fmt(vf,
 				hevc->m_PIC[index]->aux_data_buf,
 				hevc->m_PIC[index]->aux_data_size,

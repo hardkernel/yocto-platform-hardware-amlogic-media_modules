@@ -572,8 +572,6 @@ static void aml_buf_get_frame_cnt(struct aml_buf_mgr_s *bm,
 
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
-
-	bm->frm_cnt++;
 }
 
 static void aml_buf_fbc_destroy(struct aml_buf_mgr_s *bm)

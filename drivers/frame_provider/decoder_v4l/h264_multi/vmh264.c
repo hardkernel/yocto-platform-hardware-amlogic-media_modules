@@ -4306,6 +4306,11 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				v4l2_ctx->aux_infos.bind_dv_buffer(v4l2_ctx,
 					&vf->src_fmt.comp_buf,
 					&vf->src_fmt.md_buf);
+			if (v4l2_ctx->enable_di_post) {
+				v4l2_ctx->bm.get_bm_frm_cnt(&v4l2_ctx->bm, vf);
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_SEI_DETAIL, "%s dv frm_index update %d\n",
+					__func__, vf->frame_index);
+			}
 			update_vframe_src_fmt(vf,
 				hw->buffer_spec[buffer_index].aux_data_buf,
 				hw->buffer_spec[buffer_index].aux_data_size,
@@ -5702,6 +5707,7 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 			vf->frame_index = atomic_read(&hw->vf_get_count);
 		} else {
 			v4l2_ctx->bm.get_bm_frm_cnt(&v4l2_ctx->bm, vf);
+			v4l2_ctx->bm.frm_cnt++;
 		}
 		atomic_add(1, &hw->vf_get_count);
 		if (kfifo_peek(&hw->display_q, &next_vf) && next_vf) {

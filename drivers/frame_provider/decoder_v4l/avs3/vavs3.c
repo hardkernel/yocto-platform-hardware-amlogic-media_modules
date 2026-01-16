@@ -5331,8 +5331,10 @@ static struct vframe_s *vavs3_vf_get(void *op_arg)
 
 			if (!ctx->enable_di_post)
 				vf->frame_index = atomic_read(&dec->vf_get_count);
-			else
+			else {
 				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+				ctx->bm.frm_cnt++;
+			}
 
 			if (pic && (!(pic->error_mark) || !(dec->error_handle_policy & 0x4)))
 				atomic_add(1, &dec->vf_get_count);

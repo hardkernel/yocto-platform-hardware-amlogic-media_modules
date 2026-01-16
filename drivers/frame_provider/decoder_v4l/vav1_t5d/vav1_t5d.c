@@ -5848,6 +5848,7 @@ static struct vframe_s *vav1_vf_get(void *op_arg)
 				vf->frame_index = atomic_read(&hw->vf_get_count);
 			} else {
 				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+				ctx->bm.frm_cnt++;
 			}
 			atomic_add(1, &hw->vf_get_count);
 			if (debug & AOM_DEBUG_VFRAME) {
@@ -6507,6 +6508,11 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		if (!hw->no_need_aux_data) {
 			v4l2_ctx->aux_infos.bind_dv_buffer(v4l2_ctx, &vf->src_fmt.comp_buf,
 				&vf->src_fmt.md_buf);
+			if (v4l2_ctx->enable_di_post) {
+				v4l2_ctx->bm.get_bm_frm_cnt(&v4l2_ctx->bm, vf);
+				av1_print(hw, PRINT_FLAG_VDEC_DETAIL, "%s dv frm_index update %d\n",
+					__func__, vf->frame_index);
+			}
 
 			update_vframe_src_fmt(vf,
 				pic_config->aux_data_buf,

@@ -9683,6 +9683,7 @@ static struct vframe_s *vvp9_vf_get(void *op_arg)
 				vf->frame_index = atomic_read(&pbi->vf_get_count);
 			} else {
 				ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+				ctx->bm.frm_cnt++;
 			}
 			atomic_add(1, &pbi->vf_get_count);
 

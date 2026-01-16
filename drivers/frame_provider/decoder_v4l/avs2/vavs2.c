@@ -4611,6 +4611,7 @@ static struct vframe_s *vavs2_vf_get(void *op_arg)
 			vf->frame_index = atomic_read(&dec->vf_get_count);
 		} else {
 			ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			ctx->bm.frm_cnt++;
 		}
 		atomic_add(1, &dec->vf_get_count);
 

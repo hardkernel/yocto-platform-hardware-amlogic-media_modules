@@ -6493,6 +6493,7 @@ static struct vframe_s *vh266_vf_get(void *op_arg)
 			vf->frame_index = atomic_read(&hevc->vf_get_count);
 		} else {
 			ctx->bm.get_bm_frm_cnt(&ctx->bm, vf);
+			ctx->bm.frm_cnt++;
 		}
 		atomic_add(1, &hevc->vf_get_count);
 
