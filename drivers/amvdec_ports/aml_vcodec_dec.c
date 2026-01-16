@@ -460,6 +460,7 @@ static int is_vdec_core_fmt(u32 fmt);
 static bool is_dynamic_mode(struct aml_vcodec_ctx *ctx);
 static bool is_game_mode(u32 mode);
 static void aml_ubuf_queue_del(struct aml_vcodec_ctx *ctx);
+static ulong prepare_get_addr(struct dma_buf *dbuf, struct device *dev);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
 {
@@ -2320,6 +2321,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	struct dma_buf_attachment *dba = NULL;
 #endif
 	struct buf_core_dma *dma = NULL;
+	int i;
 
 	dbuf[PLANE_Y] = vb->vb2_buf.planes[0].dbuf;
 	if ((vb->vb2_buf.memory != VB2_MEMORY_DMABUF) ||
@@ -2656,6 +2658,10 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	ubuf->addr	= get_addr(&vb->vb2_buf, 0);
 
 	aml_buf_update(&ctx->bm, get_addr(&vb->vb2_buf, 0), am_buf);
+
+	for (i = 0 ; i < vb->vb2_buf.num_planes ; i++)
+		codec_mm_set_info_by_phy_addr(ctx->id, CODEC_MM_MODULE_DECODER,
+			CODEC_MM_TYPE_YUV, get_addr(&vb->vb2_buf, i));
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, Res:%ux%u, stride:%d, addr:%lx, size:%u, flags:%x, cost:%llu ms\n",
@@ -5355,10 +5361,11 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			aml_buf->planes[1].addr, aml_buf->planes[1].length,
 			aml_buf->planes[2].addr, aml_buf->planes[2].length);
 
-		for (i = 0 ; i < vb->num_planes ; i++)
-			codec_mm_set_info_by_phy_addr(ctx->id, CODEC_MM_MODULE_DECODER,
-				CODEC_MM_TYPE_YUV, aml_buf->planes[i].addr);
-
+		if (!is_dynamic_mode(ctx)) {
+			for (i = 0 ; i < vb->num_planes ; i++)
+				codec_mm_set_info_by_phy_addr(ctx->id, CODEC_MM_MODULE_DECODER,
+					CODEC_MM_TYPE_YUV, aml_buf->planes[i].addr);
+		}
 		if (!ctx->in_buff_cnt && ctx->state <= AML_STATE_READY) {
 			PR_PIPE_KPI_INFO("TP_V4L2_CapBuf_First_Get", ctx->id, MAIN_INFO,
 				"#%d TP_V4L2_CapBuf_First_Get, time %llu", ctx->id, ktime_get_ns());
