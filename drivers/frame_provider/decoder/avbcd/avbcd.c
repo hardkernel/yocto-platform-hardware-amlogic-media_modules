@@ -6093,6 +6093,7 @@ static void config_avbcd(struct hevc_state_s *hevc)
 	unsigned int data32;
 	int nv21_data32 = 0;
 	int mb_width;
+	struct vdec_s *vdec = hw_to_vdec(hevc);
 	struct PIC_s *cur_pic = hevc->cur_pic;
 	int dw_mode = hevc->double_write_mode;
 
@@ -6203,8 +6204,9 @@ static void config_avbcd(struct hevc_state_s *hevc)
 	data32 = (hevc->pic_w | hevc->pic_h << 16);
 	WRITE_VREG(HEVC_DBLK_CFG2, data32);
 
-	if (dw_mode & 0x10000)
+	if (vdec->avbc_info.bitdepth_src == 10)
 		WRITE_VREG(HEVC_DBLK_CFG1, 0xa << 16);
+
 	/* m8baby test1902 */
 	data32 = READ_VREG(HEVC_SAO_CTRL1);
 	data32 &= (~0x3000);
@@ -10638,7 +10640,7 @@ static void avbcd_hardware_decompress(struct vdec_s *vdec)
 
 	set_reg_debug(0);
 	do_gettimeofday(&hevc->start);
-	if (is_dw_p010(hevc)) {
+	if (vdec->avbc_info.bitdepth_src == 10) {
 		/* Enable P010 reference read mode for MC */
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1,
 			(0x1 << 31) | (1 << 24) | (((hevc->endian >> 12) & 0xff) << 16));
