@@ -71,6 +71,10 @@
 #include "../../../media_sync/pts_server/pts_server_core.h"
 #include "../../decoder/utils/vdec_profile.h"
 
+#ifdef DDK_DEFINE
+#include "media_extra.h"
+#endif
+
 #define P010_ENABLE
 
 #define OW_TRIPLE_WRITE

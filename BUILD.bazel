@@ -1,5 +1,5 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
-load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select", "media_modules_cflag")
 
 genrule(
     name = "generate_version_header",
@@ -9,6 +9,14 @@ genrule(
     ],
     outs = ["drivers/frame_provider/decoder/utils/vdec_version.h"],
     cmd = "mkdir -p $(@D)&& bash $(location version_control.sh) DDK > $@",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "ddk_extra_cflag",
+    outs = ["drivers/include/media_extra.h"],
+    cmd = "mkdir -p $(@D) && bash $(location ddk_extra_cflag.sh) '" + media_modules_cflag + "' > $@",
+    tools = ["ddk_extra_cflag.sh"],
     visibility = ["//visibility:public"],
 )
 
@@ -150,6 +158,7 @@ load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
 ddk_headers(
     name = "media_headers",
     hdrs = glob([
+        "drivers/include/*.h",
         "drivers/include/regs/*.h",
         "drivers/amvdec_ports/*.h",
         "drivers/amvdec_ports/utils/*.h",
@@ -177,8 +186,11 @@ ddk_headers(
         "drivers/frame_provider/decoder_v4l/avs3/avs3_fb_hw.c",
         "drivers/frame_provider/decoder_v4l/h265_fb/h265_fb_hw.c",
         "drivers/frame_provider/decoder_v4l/h266/h266_bufmgr.c",
-    ]) + [":generate_version_header"],
-    includes = ["drivers/frame_provider/decoder/utils"],
+    ]) + [":generate_version_header"] + [":ddk_extra_cflag"],
+    includes = [
+        "drivers/frame_provider/decoder/utils",
+        "drivers/include"
+    ],
     linux_includes = [
         "include",
         "include/uapi",
@@ -198,14 +210,16 @@ ddk_module(
             "drivers/common/chips/*.h",
             "drivers/common/register/*.c",
             "drivers/common/register/*.h",
-            "drivers/common/media_utils/*.c",
-            "drivers/common/media_utils/*.h",
         ],
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
-        ],
-    local_defines = ["pr_fmt(fmt)=\"[media_clock]: \" fmt"],
+        "//driver_modules/media_modules:ddk_extra_cflag",
+    ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[media_clock]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "media_clock.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -222,12 +236,17 @@ ddk_module(
         [
             "drivers/common/firmware/*.c",
             "drivers/common/firmware/*.h",
-        ],
+            "drivers/common/media_utils/*.c",
+            "drivers/common/media_utils/*.h",        ],
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[firmware]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[firmware]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "firmware.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -247,8 +266,12 @@ ddk_module(
         ],
     ),
     hdrs = [
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[pts_server]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[pts_server]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "pts_server.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -327,11 +350,12 @@ ddk_module(
     hdrs = [
         "//driver_modules/media_modules:media_headers",
         ":generate_version_header",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
     includes = ["drivers/frame_provider/decoder/utils"],
     local_defines = [
-    	"pr_fmt(fmt)=\"[decoder_common]: \" fmt",
-    	"DDK_DEFINE",
+        "pr_fmt(fmt)=\"[decoder_common]: \" fmt",
+        "DDK_DEFINE",
     ],
     out = "decoder_common.ko",
     kernel_build = kernel_select(),
@@ -365,8 +389,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[stream_input]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[stream_input]: \" fmt",
+        "DDK_DEFINE",
+],
     out = "stream_input.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -392,8 +420,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[video_framerate_adapter]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[video_framerate_adapter]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "video_framerate_adapter.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -427,7 +459,7 @@ ddk_module(
             "drivers/amvdec_ports/utils/common.c",
             "drivers/amvdec_ports/utils/common.h",
             "drivers/amvdec_ports/utils/pixfmt.h",
-			"drivers/frame_provider/aml_dhp/aml_dhp_if.h"
+            "drivers/frame_provider/aml_dhp/aml_dhp_if.h"
         ],
     ),
     conditional_srcs = {
@@ -449,8 +481,12 @@ ddk_module(
     },
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_ports]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_ports]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_ports.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -478,8 +514,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[aml_dhp]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[aml_dhp]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "aml_dhp.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -501,8 +541,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_debug_port]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_debug_port]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_debug_port.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -524,8 +568,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_av1]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_av1.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -553,8 +601,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_av1_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -580,8 +632,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_av1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -609,8 +665,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_fb_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_av1_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -636,8 +696,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_av1_t5d_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_t5d_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_av1_t5d_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -663,8 +727,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs2.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -693,8 +761,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs2_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -720,8 +792,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs2_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -748,8 +824,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs2_fb_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs2_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -783,8 +863,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs3]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs3.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -817,8 +901,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avs3_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs3_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avs3_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -844,8 +932,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h265]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h265.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -871,8 +963,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h265_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -898,8 +994,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h265_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -924,8 +1024,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h265_fb_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h265_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -954,8 +1058,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h266]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h266]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h266.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -984,8 +1092,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h266_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h266_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h266_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1012,8 +1124,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mavs]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mavs]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mavs.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1039,8 +1155,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mavs_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mavs_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mavs_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1067,8 +1187,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mh264]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mh264.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1094,8 +1218,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mh264_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mh264_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mh264_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1122,8 +1250,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_h264mvc]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h264mvc]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_h264mvc.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1146,8 +1278,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmjpeg]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmjpeg.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1171,8 +1307,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmjpeg_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmjpeg_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmjpeg_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1196,8 +1336,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg12]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmpeg12.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1222,8 +1366,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg12_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg12_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmpeg12_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1249,8 +1397,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg4]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmpeg4.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1274,8 +1426,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mmpeg4_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg4_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mmpeg4_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1301,8 +1457,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vc1]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vc1.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1326,8 +1486,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vc1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1352,8 +1516,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_mvc1_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mvc1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_mvc1_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1379,8 +1547,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vp9.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1407,8 +1579,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vp9_fb.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1435,8 +1611,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vp9_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1462,8 +1642,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_vp9_fb_v4l]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_vp9_fb_v4l.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1489,8 +1673,12 @@ ddk_module(
     ),
     hdrs = [
         "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
         ],
-    local_defines = ["pr_fmt(fmt)=\"[amvdec_avbcd]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avbcd]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "amvdec_avbcd.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],
@@ -1511,8 +1699,12 @@ ddk_module(
     ]),
 
     hdrs = [
+        "//driver_modules/media_modules:ddk_extra_cflag",
     ],
-    local_defines = ["pr_fmt(fmt)=\"[media_sync]: \" fmt"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[media_sync]: \" fmt",
+        "DDK_DEFINE",
+    ],
     out = "media_sync.ko",
     kernel_build = kernel_select(),
     visibility = ["//visibility:public"],

@@ -11,6 +11,10 @@
 #define MASK_S5_NEW_REGS   ((AM_MESON_CPU_MAJOR_ID_S5 << 20) & NEW_REG_CHECK_MASK)
 #define MASK_S6_NEW_REGS   ((AM_MESON_CPU_MAJOR_ID_S6 << 20) & NEW_REG_CHECK_MASK)
 
+#ifdef DDK_DEFINE
+#include "media_extra.h"
+#endif
+
 #if defined(DOS_REGISTERS_V2)
 /* T6D, T6W */
 #include "dos_registers_v2.h"

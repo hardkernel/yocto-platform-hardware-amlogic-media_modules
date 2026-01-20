@@ -67,9 +67,11 @@ ddk_module(
     hdrs = [
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
     ],
     local_defines = [
         "CONFIG_AM_JPEG_ENCODER",
+        "DDK_DEFINE",
     ],
     out = "encoder.ko",
     kernel_build = kernel_select(),
@@ -98,8 +100,10 @@ ddk_module(
     hdrs = [
         "//driver_modules/media_modules:media_headers",
         "//driver_modules/media_modules/drivers/frame_sink/encoder:encoder_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
     ],
     local_defines = [
+        "DDK_DEFINE",
     ],
     out = "jpegenc.ko",
     kernel_build = kernel_select(),
