@@ -1227,14 +1227,6 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 			"#%d TP_V4L2_CapBuf_First_Finish, time %llu", ctx->id, ktime_get_ns());
 	}
 	ctx->out_buff_cnt++;
-
-	if (dstbuf->aml_buf->num_planes == 1) {
-		vb2_set_plane_payload(vb2_buf, 0, planes[0].bytes_used);
-	} else if (dstbuf->aml_buf->num_planes == 2) {
-		vb2_set_plane_payload(vb2_buf, 0, planes[0].bytes_used);
-		vb2_set_plane_payload(vb2_buf, 1, planes[1].bytes_used);
-	}
-
 	vb2_buf->timestamp = vf->timestamp;
 	dstbuf->vb.flags |= vf->frame_type;
 #ifdef CONFIG_AMLOGIC_MEDIA_PROXY
@@ -1311,6 +1303,13 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 			"receive a empty frame. idx: %d, state: %d\n",
 			vb2_buf->index, vb2_buf->state);
+	} else {
+		if (dstbuf->aml_buf->num_planes == 1) {
+			vb2_set_plane_payload(vb2_buf, 0, planes[0].bytes_used);
+		} else if (dstbuf->aml_buf->num_planes == 2) {
+			vb2_set_plane_payload(vb2_buf, 0, planes[0].bytes_used);
+			vb2_set_plane_payload(vb2_buf, 1, planes[1].bytes_used);
+		}
 	}
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
