@@ -2723,7 +2723,13 @@ static int vidioc_decoder_streamon(struct file *file, void *priv,
 					(ctx->vpp->is_prog == ctx->vpp_cfg.is_prog) &&
 					(ctx->vpp->is_bypass_p == ctx->vpp_cfg.is_bypass_p) &&
 					(ctx->vpp->work_mode == ctx->vpp_cfg.mode)) {
-					aml_v4l2_vpp_reset(ctx->vpp);
+					ret = aml_v4l2_vpp_reset(ctx->vpp);
+					if (ret) {
+						v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+							"vpp_wrapper reset err:%d vpp_cfg.fmt: %d\n",
+							ret, ctx->vpp_cfg.fmt);
+						return ret;
+					}
 				} else {
 					if (ctx->vpp) {
 						aml_v4l2_vpp_destroy(ctx->vpp);

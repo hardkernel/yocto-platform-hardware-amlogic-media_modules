@@ -1281,12 +1281,12 @@ int aml_v4l2_vpp_reset(struct aml_v4l2_vpp *vpp)
 	sema_init(&vpp->sem_in, 0);
 	sema_init(&vpp->sem_out, 0);
 
-	vpp->running = true;
 	vpp->task = kthread_run(aml_v4l2_vpp_thread, vpp,
 		"%s", "aml-v4l2-vpp");
 	if (IS_ERR(vpp->task)) {
 		return PTR_ERR(vpp->task);
 	}
+	vpp->running = true;
 
 	sched_setscheduler_nocheck(vpp->task, SCHED_FIFO, &param);
 
@@ -1485,13 +1485,13 @@ int aml_v4l2_vpp_init(
 	sema_init(&vpp->sem_out, 0);
 	atomic_set(&vpp->local_buf_out, 0);
 
-	vpp->running = true;
 	vpp->task = kthread_run(aml_v4l2_vpp_thread, vpp,
 		"aml-%s", "aml-v4l2-vpp");
 	if (IS_ERR(vpp->task)) {
 		ret = PTR_ERR(vpp->task);
 		goto error9;
 	}
+	vpp->running = true;
 	sched_setscheduler_nocheck(vpp->task, SCHED_FIFO, &param);
 
 	vpp->di_ibuf_num = di_get_input_buffer_num(vpp->di_handle);
