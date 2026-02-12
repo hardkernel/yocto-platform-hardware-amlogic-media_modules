@@ -7,10 +7,10 @@
 #define UVM_DELAY_ALLOC	(1 << 1)
 #define META_DATA_SIZE 256
 #define UVM_IOC_MAGIC 'U'
-#define UVM_IOC_ALLOC _IOWR((UVM_IOC_MAGIC), 0, \
-			struct uvm_alloc_data)
-#define UVM_IOC_FREE _IOWR(UVM_IOC_MAGIC, 1, \
-			struct uvm_alloc_data)
+#define UVM_IOC_ALLOC_KERNEL6 _IOWR((UVM_IOC_MAGIC), 0, \
+			struct uvm_alloc_data_kernel6)
+#define UVM_IOC_ALLOC_KERNEL5 _IOWR((UVM_IOC_MAGIC), 0, \
+			struct uvm_alloc_data_kernel5)
 #define UVM_IOC_SET_PID _IOWR(UVM_IOC_MAGIC, 2, \
 			struct uvm_pid_data)
 #define UVM_IOC_SET_FD _IOWR(UVM_IOC_MAGIC, 3, \

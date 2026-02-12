@@ -11,7 +11,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <sys/times.h>
-
+#include <sys/utsname.h>
 #include "aml_uvm.h"
 #include "vcodec_utils.h"
 
@@ -24,7 +24,12 @@ struct uvmInfo {
 	int size;
 };
 
-struct uvm_alloc_data {
+/*
+ * from uvm code, kernel 6.xx has "slot_id" member,
+ * but kernel 5.xx doesn't have,
+ * so v4lplayer has to use two struct
+ */
+struct uvm_alloc_data_kernel5 {
 	int size;
 	int align;
 	unsigned int flags;
@@ -35,6 +40,20 @@ struct uvm_alloc_data {
 	uint32_t height;
 	int scalar;
 	int scaled_buf_size;
+};
+
+struct uvm_alloc_data_kernel6 {
+	int size;
+	int align;
+	unsigned int flags;
+	int v4l2_fd;
+	int fd;
+	int byte_stride;
+	uint32_t width;
+	uint32_t height;
+	int scalar;
+	int scaled_buf_size;
+	uint32_t slot_id;
 };
 
 struct uvm_meta_data {
@@ -68,15 +87,36 @@ static int amuvm_close(int uvmfd)
 
 static int amuvm_allocate(int uvmfd, int size, uint32_t width, uint32_t height, unsigned int flag, int *sharefd)
 {
-	struct uvm_alloc_data uad;
+	struct utsname sysinfo;
+	struct uvm_alloc_data_kernel6 uad1;
+	struct uvm_alloc_data_kernel5 uad2;
 	int ret = 0;
-	uad.size = size;
-	uad.byte_stride = width;
-	uad.width = width;
-	uad.height = height;
-	uad.align = 0;
-	uad.flags = flag;
-	uad.scalar = 1;
+
+	if (uname(&sysinfo) != 0) {
+		debug_print(DEBUG_ERROR, "%s get uname fail\n", __func__);
+		return -1;
+	}
+
+	debug_print(DEBUG_STATE, "system release: %s\n", sysinfo.release);
+	if (strncmp(sysinfo.release, "6.", 2) == 0) {
+		uad1.size = size;
+		uad1.byte_stride = width;
+		uad1.width = width;
+		uad1.height = height;
+		uad1.align = 0;
+		uad1.flags = flag;
+		uad1.scalar = 1;
+
+		uad1.slot_id = 0;	/* valid on kernel 6.xx */
+	} else if (strncmp(sysinfo.release, "5.", 2) == 0) {
+		uad2.size = size;
+		uad2.byte_stride = width;
+		uad2.width = width;
+		uad2.height = height;
+		uad2.align = 0;
+		uad2.flags = flag;
+		uad2.scalar = 1;
+	}
 
 	if (uvmfd < 0) {
 	    debug_print(DEBUG_ERROR, "need open uvm first\n");
@@ -84,12 +124,21 @@ static int amuvm_allocate(int uvmfd, int size, uint32_t width, uint32_t height, 
 	}
 
 	debug_print(DEBUG_STATE, "amuvm_allocate size:%d width:%d height:%d flag:%d\n", size, width, height, flag);
-	ret = ioctl(uvmfd, UVM_IOC_ALLOC, &uad);
+	if (strncmp(sysinfo.release, "6.", 2) == 0) {
+		ret = ioctl(uvmfd, UVM_IOC_ALLOC_KERNEL6, &uad1);
+	} else if (strncmp(sysinfo.release, "5.", 2) == 0) {
+		ret = ioctl(uvmfd, UVM_IOC_ALLOC_KERNEL5, &uad2);
+	}
+
 	if (ret < 0) {
 		debug_print(DEBUG_ERROR, "uvm alloc error ret=%d\n", ret);
 		return -1;
 	}
-	*sharefd = uad.fd;
+	if (strncmp(sysinfo.release, "6.", 2) == 0) {
+		*sharefd = uad1.fd;
+	} else if (strncmp(sysinfo.release, "5.", 2) == 0) {
+		*sharefd = uad2.fd;
+	}
 
 	return 0;
 }
