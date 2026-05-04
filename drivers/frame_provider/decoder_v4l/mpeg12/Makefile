@@ -5,3 +5,5 @@ ${MODULE_NAME}-objs += vmpeg12_multi.o
 PR_FMT = "mpeg2"
 PR_FMT_DEFINE="-Dpr_fmt(fmt)=\"[$(PR_FMT)]:\" fmt"
 ccflags-y += $(PR_FMT_DEFINE)
+
+ccflags-y += -Wno-unused-variable -Wno-empty-body
