@@ -59,7 +59,11 @@
 #define V4LVIDEO_IOCTL_GET_CONFIG_PARAMS	_IOWR(V4LVIDEO_IOC_MAGIC, 0x05, struct v4l2_config_parm)
 
 bool param_sets_from_ucode = 1;
+#ifdef CONFIG_ARCH_MESON_ODROIDC5
+bool enable_drm_mode = 0;
+#else
 bool enable_drm_mode;
+#endif
 bool enable_use_cma_first;
 extern void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx);
 char dump_path[32] = "/data";
@@ -865,15 +869,27 @@ int aml_set_vdec_type;
 EXPORT_SYMBOL(aml_set_vdec_type);
 MEDIA_PARAM(aml_set_vdec_type, int, 0644);
 
+#ifdef CONFIG_ARCH_MESON_ODROIDC5
+int vp9_need_prefix = 1;
+#else
 int vp9_need_prefix;
+#endif
 EXPORT_SYMBOL(vp9_need_prefix);
 MEDIA_PARAM(vp9_need_prefix, int, 0644);
 
+#ifdef CONFIG_ARCH_MESON_ODROIDC5
+int av1_need_prefix = 1;
+#else
 int av1_need_prefix;
+#endif
 EXPORT_SYMBOL(av1_need_prefix);
 MEDIA_PARAM(av1_need_prefix, int, 0644);
 
+#ifdef CONFIG_ARCH_MESON_ODROIDC5
+bool multiplanar = 1;
+#else
 bool multiplanar;
+#endif
 EXPORT_SYMBOL(multiplanar);
 MEDIA_PARAM(multiplanar, bool, 0644);
 
@@ -903,7 +919,11 @@ MEDIA_PARAM(param_sets_from_ucode, bool, 0644);
 EXPORT_SYMBOL(enable_drm_mode);
 MEDIA_PARAM(enable_drm_mode, bool, 0644);
 
+#ifdef CONFIG_ARCH_MESON_ODROIDC5
+int bypass_vpp = 1;
+#else
 int bypass_vpp;
+#endif
 EXPORT_SYMBOL(bypass_vpp);
 MEDIA_PARAM(bypass_vpp, int, 0644);
 
